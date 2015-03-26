@@ -314,6 +314,7 @@ class RecordLayer(object):
     def _decryptThenMAC(self, recordType, b):
         """Decrypt data, check padding and MAC"""
         if self._readState.encContext:
+            assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
 
             #Decrypt if it's a block cipher
             if self._readState.encContext.isBlockCipher:
@@ -331,11 +332,9 @@ class RecordLayer(object):
                     paddingGood = False
                     totalPaddingLength = 0
                 else:
-                    assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
-                    if self.version == (3,0):
-                        totalPaddingLength = paddingLength+1
-                    else:
-                        totalPaddingLength = paddingLength+1
+                    totalPaddingLength = paddingLength+1
+                    if self.version != (3, 0):
+                        # check if all padding bytes have correct value
                         paddingBytes = b[-totalPaddingLength:-1]
                         for byte in paddingBytes:
                             if byte != paddingLength:
@@ -366,15 +365,11 @@ class RecordLayer(object):
                 mac = self._readState.macContext.copy()
                 mac.update(compatHMAC(seqnumBytes))
                 mac.update(compatHMAC(bytearray([recordType])))
-                assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
-                if self.version == (3,0):
-                    mac.update(compatHMAC(bytearray([len(b)//256])))
-                    mac.update(compatHMAC(bytearray([len(b)%256])))
-                else:
+                if self.version != (3, 0):
                     mac.update(compatHMAC(bytearray([self.version[0]])))
                     mac.update(compatHMAC(bytearray([self.version[1]])))
-                    mac.update(compatHMAC(bytearray([len(b)//256])))
-                    mac.update(compatHMAC(bytearray([len(b)%256])))
+                mac.update(compatHMAC(bytearray([len(b)//256])))
+                mac.update(compatHMAC(bytearray([len(b)%256])))
                 mac.update(compatHMAC(b))
                 macBytes = bytearray(mac.digest())
 
