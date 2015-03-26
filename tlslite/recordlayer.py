@@ -290,14 +290,11 @@ class RecordLayer(object):
             mac.update(compatHMAC(seqnumBytes))
             mac.update(compatHMAC(bytearray([contentType])))
             assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
-            if self.version == (3, 0):
-                mac.update(compatHMAC(bytearray([len(b)//256])))
-                mac.update(compatHMAC(bytearray([len(b)%256])))
-            else:
+            if self.version != (3, 0):
                 mac.update(compatHMAC(bytearray([self.version[0]])))
                 mac.update(compatHMAC(bytearray([self.version[1]])))
-                mac.update(compatHMAC(bytearray([len(b)//256])))
-                mac.update(compatHMAC(bytearray([len(b)%256])))
+            mac.update(compatHMAC(bytearray([len(b)//256])))
+            mac.update(compatHMAC(bytearray([len(b)%256])))
             mac.update(compatHMAC(b))
             macBytes = bytearray(mac.digest())
 
