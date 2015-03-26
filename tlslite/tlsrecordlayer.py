@@ -25,19 +25,6 @@ import socket
 import errno
 import traceback
 
-class _ConnectionState(object):
-    def __init__(self):
-        self.macContext = None
-        self.encContext = None
-        self.seqnum = 0
-
-    def getSeqNumBytes(self):
-        w = Writer()
-        w.add(self.seqnum, 8)
-        self.seqnum += 1
-        return w.bytes
-
-
 class TLSRecordLayer(object):
     """
     This class handles data transmission for a TLS connection.
