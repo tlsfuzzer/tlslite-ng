@@ -237,6 +237,37 @@ class RecordLayer(object):
         self._version = val
         self._recordSocket.version = val
 
+    def getCipherName(self):
+        """
+        Return the name of the bulk cipher used by this connection
+
+        @rtype: str
+        @return: The name of the cipher, like 'aes128', 'rc4', etc.
+        """
+        if self._writeState.encContext is None:
+            return None
+        return self._writeState.encContext.name
+
+    def getCipherImplementation(self):
+        """
+        Return the name of the implementation used for the connection
+
+        'python' for tlslite internal implementation, 'openssl' for M2crypto
+        and 'pycrypto' for pycrypto
+        @rtype: str
+        @return: Name of cipher implementation used, None if not initialised
+        """
+        if self._writeState.encContext is None:
+            return None
+        return self._writeState.encContext.implementation
+
+    def shutdown(self):
+        """Clear read and write states"""
+        self._writeState = ConnectionState()
+        self._readState = ConnectionState()
+        self._pendingWriteState = ConnectionState()
+        self._pendingReadState = ConnectionState()
+
     #
     # sending messages
     #

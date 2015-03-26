@@ -405,10 +405,7 @@ class TLSRecordLayer(object):
         @return: The name of the cipher used with this connection.
         Either 'aes128', 'aes256', 'rc4', or '3des'.
         """
-        # TODO don't use private variable of class
-        if not self._recordLayer._writeState.encContext:
-            return None
-        return self._recordLayer._writeState.encContext.name
+        return self._recordLayer.getCipherName()
 
     def getCipherImplementation(self):
         """Get the name of the cipher implementation used with
@@ -418,11 +415,7 @@ class TLSRecordLayer(object):
         @return: The name of the cipher implementation used with
         this connection.  Either 'python', 'openssl', or 'pycrypto'.
         """
-        if not self._recordLayer._writeState.encContext:
-            return None
-        return self._recordLayer._writeState.encContext.implementation
-
-
+        return self._recordLayer.getCipherImplementation()
 
     #Emulate a socket, somewhat -
     def send(self, s):
@@ -516,9 +509,7 @@ class TLSRecordLayer(object):
      #*********************************************************
 
     def _shutdown(self, resumable):
-        # TODO don't use private field
-        self._recordLayer._writeState = _ConnectionState()
-        self._recordLayer._readState = _ConnectionState()
+        self._recordLayer.shutdown()
         self.version = (0,0)
         self.closed = True
         if self.closeSocket:

@@ -327,6 +327,9 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertIsNotNone(recordLayer)
 
+        self.assertIsNone(recordLayer.getCipherName())
+        self.assertIsNone(recordLayer.getCipherImplementation())
+
     def test_sendMessage(self):
         sock = MockSocket(bytearray(0))
         recordLayer = RecordLayer(sock)
@@ -341,6 +344,47 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(len(sock.sent), 1)
 
+    def test_shutdown(self):
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        # make sure it doesn't throw exceptions
+        recordLayer.shutdown()
+
+    def test_getCipherName(self):
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeWriteState()
+
+        self.assertEqual('aes128', recordLayer.getCipherName())
+
+    def test_getCipherImplementation(self):
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeWriteState()
+
+        if cryptomath.m2cryptoLoaded:
+            self.assertEqual('openssl', recordLayer.getCipherImplementation())
+        elif cryptomath.pycryptoLoaded:
+            self.assertEqual('pycrypto', recordLayer.getCipherImplementation())
+        else:
+            self.assertEqual('python', recordLayer.getCipherImplementation())
 
     def test_sendMessage_with_encrypting_set_up_tls1_2(self):
         patcher = mock.patch.object(os,
