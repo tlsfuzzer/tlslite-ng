@@ -118,9 +118,6 @@ class TLSRecordLayer(object):
         self._handshake_sha = hashlib.sha1()
         self._handshake_sha256 = hashlib.sha256()
 
-        #TLS Protocol Version
-        self._versionCheck = False #Once we choose a version, this is True
-
         #Is the connection open?
         self.closed = True #read-only
         self._refCount = 0 #Used to trigger closure
@@ -523,7 +520,6 @@ class TLSRecordLayer(object):
         self._recordLayer._writeState = _ConnectionState()
         self._recordLayer._readState = _ConnectionState()
         self.version = (0,0)
-        self._versionCheck = False
         self.closed = True
         if self.closeSocket:
             self.sock.close()
@@ -808,20 +804,6 @@ class TLSRecordLayer(object):
                 yield result
         (r, p) = result
         b = p.bytes
-
-        #Check the record header fields (2)
-        #We do this after reading the contents from the socket, so that
-        #if there's an error, we at least don't leave extra bytes in the
-        #socket..
-        #
-        # THIS CHECK HAS NO SECURITY RELEVANCE (?), BUT COULD HURT INTEROP.
-        # SO WE LEAVE IT OUT FOR NOW.
-        #
-        #if self._versionCheck and r.version != self.version:
-        #    for result in self._sendError(AlertDescription.protocol_version,
-        #            "Version in header field: %s, should be %s" % (str(r.version),
-        #                                                       str(self.version))):
-        #        yield result
 
         #Decrypt the record
 
