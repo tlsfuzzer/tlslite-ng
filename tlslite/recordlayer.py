@@ -241,6 +241,16 @@ class RecordLayer(object):
     # sending messages
     #
 
+    def _addPadding(self, data):
+        """Add padding to data so that it is multiple of block size"""
+        currentLength = len(data)
+        blockLength = self._writeState.encContext.block_size
+        paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+        paddingBytes = bytearray([paddingLength] * (paddingLength+1))
+        data += paddingBytes
+        return data
+
     def _macThenEncrypt(self, b, contentType):
         """MAC then encrypt data"""
         if self._writeState.macContext:
@@ -262,28 +272,18 @@ class RecordLayer(object):
 
         #Encrypt for Block or Stream Cipher
         if self._writeState.encContext:
-            #Add padding and encrypt (for Block Cipher):
+            b += macBytes
+            #Add padding (for Block Cipher):
             if self._writeState.encContext.isBlockCipher:
 
                 #Add TLS 1.1 fixed block
                 if self.version >= (3, 2):
                     b = self.fixedIVBlock + b
 
-                #Add padding: b = b+ (macBytes + paddingBytes)
-                currentLength = len(b) + len(macBytes)
-                blockLength = self._writeState.encContext.block_size
-                paddingLength = blockLength - 1 - (currentLength % blockLength)
+                b = self._addPadding(b)
 
-                paddingBytes = bytearray([paddingLength] * (paddingLength+1))
-                endBytes = macBytes + paddingBytes
-                b += endBytes
-                #Encrypt
-                b = self._writeState.encContext.encrypt(b)
-
-            #Encrypt (for Stream Cipher)
-            else:
-                b += macBytes
-                b = self._writeState.encContext.encrypt(b)
+            #Encrypt
+            b = self._writeState.encContext.encrypt(b)
 
         return b
 
