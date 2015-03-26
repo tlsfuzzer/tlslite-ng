@@ -20,12 +20,12 @@ import socket
 import errno
 
 import tlslite.utils.cryptomath as cryptomath
-from tlslite.messages import Message, ApplicationData
+from tlslite.messages import Message, ApplicationData, RecordHeader3
 from tlslite.recordlayer import RecordSocket, ConnectionState, RecordLayer
 from tlslite.constants import ContentType, CipherSuite
 from unit_tests.mocksock import MockSocket
 from tlslite.errors import TLSRecordOverflow, TLSIllegalParameterException,\
-        TLSAbruptCloseError
+        TLSAbruptCloseError, TLSDecryptionFailed, TLSBadRecordMAC
 
 class TestRecordSocket(unittest.TestCase):
     def test___init__(self):
@@ -720,3 +720,538 @@ class TestRecordLayer(unittest.TestCase):
             bytearray(b'\x00'), bytearray(b'\x02'), # payload length
             bytearray(b'\x32'), bytearray(b'\x32')],
             mockSock.sent)
+
+    def test_recvMessage(self):
+        sock = MockSocket(bytearray(
+            b'\x16' +           # handshake
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x04' +       # length
+            b'\x0e' +           # server hello done
+            b'\x00\x00\x00'     # length
+            ))
+        recordLayer = RecordLayer(sock)
+
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking read")
+            else:
+                break
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.handshake, header.type)
+        self.assertEqual((3, 3), header.version)
+        self.assertEqual(bytearray(b'\x0e' + b'\x00'*3), parser.bytes)
+
+    def test_recvMessage_with_slow_socket(self):
+        sock = MockSocket(bytearray(
+            b'\x16' +           # handshake
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x04' +       # length
+            b'\x0e' +           # server hello done
+            b'\x00\x00\x00'     # length
+            ), maxRet=3, blockEveryOther=True)
+        recordLayer = RecordLayer(sock)
+
+        wasBlocked = False
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                wasBlocked = True
+            else:
+                break
+        self.assertTrue(wasBlocked)
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.handshake, header.type)
+        self.assertEqual((3, 3), header.version)
+        self.assertEqual(bytearray(b'\x0e' + b'\x00'*3), parser.bytes)
+
+
+    def test_recvMessage_with_encrypted_content_TLS1_1(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x02' +       # TLSv1.1
+            b'\x00\x30' +       # length
+            # data from test_sendMessage_with_encrypting_set_up_tls1_1
+            b'b\x8e\xee\xddV\\W=\x810\xd5\x0c\xae \x84\xa8' +
+            b'^\x91\xa4d[\xe4\xde\x90\xee{f\xbb\xcd_\x1ao' +
+            b'\xa8\x8c!k\xab\x03\x03\x19.\x1dFMt\x08h^'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking read")
+            else:
+                break
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.application_data, header.type)
+        self.assertEqual((3, 2), header.version)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_recvMessage_with_encrypted_content_SSLv3(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x00' +       # SSLv3
+            b'\x00\x20' +       # length
+            # data from test_sendMessage_with_encrypting_set_up_ssl3
+            b'\xc5\x16y\xf9\ra\xd9=\xec\x8b\x93\'\xb7\x05\xe6\xad' +
+            b'\xff\x842\xc7\xa2\x0byd\xab\x1a\xfd\xaf\x05\xd6\xba\x89'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 0)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking read")
+            else:
+                break
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.application_data, header.type)
+        self.assertEqual((3, 0), header.version)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_recvMessage_with_stream_cipher_and_tls1_0(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x01' +       # TLSv1.0
+            b'\x00\x18' +       # length (24 bytes)
+            # data from test_sendMessage_with_stream_cipher_and_tls1_0
+            b'B\xb8H\xc6\xd7\\\x01\xe27\xa9\x86\xf2\xfdm!\x1d' +
+            b'\xa1\xaf]Q%y5\x1e'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 1)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_RC4_128_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking read")
+            else:
+                break
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.application_data, header.type)
+        self.assertEqual((3, 1), header.version)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_recvMessage_with_invalid_length_payload(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x02' +       # TLSv1.1
+            b'\x00\x2f' +       # length
+            b'b\x8e\xee\xddV\\W=\x810\xd5\x0c\xae \x84\xa8' +
+            b'^\x91\xa4d[\xe4\xde\x90\xee{f\xbb\xcd_\x1ao' +
+            b'\xa8\x8c!k\xab\x03\x03\x19.\x1dFMt\x08h'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        gen = recordLayer.recvMessage()
+
+        with self.assertRaises(TLSDecryptionFailed):
+            next(gen)
+
+    def test_recvMessage_with_zero_filled_padding_in_SSLv3(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # constructor for the data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 0)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        # change the padding method to return simple version of padding (SSLv3)
+        def broken_padding(data):
+            currentLength = len(data)
+            blockLength = sendingRecordLayer._writeState.encContext.block_size
+            paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+            paddingBytes = bytearray([0] * (paddingLength)) + \
+                           bytearray([paddingLength])
+            data += paddingBytes
+            return data
+        sendingRecordLayer._addPadding = broken_padding
+
+        msg = ApplicationData().create(bytearray(b'test'))
+
+        # create the data
+        for result in sendingRecordLayer.sendMessage(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x00' +       # SSLv3
+            b'\x00\x20'         # length - 32 bytes
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 32)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 0)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvMessage():
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else: break
+
+        header, parser = result
+
+        self.assertIsInstance(header, RecordHeader3)
+        self.assertEqual(ContentType.application_data, header.type)
+        self.assertEqual((3, 0), header.version)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_recvMessage_with_invalid_last_byte_in_padding(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+        # constructor for the bad data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 2)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        # change the padding method to return invalid padding
+        def broken_padding(data):
+            currentLength = len(data)
+            blockLength = sendingRecordLayer._writeState.encContext.block_size
+            paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+            # make the value of last byte longer than all data
+            paddingBytes = bytearray([paddingLength] * (paddingLength)) + \
+                           bytearray([255])
+            data += paddingBytes
+            return data
+        sendingRecordLayer._addPadding = broken_padding
+
+        msg = ApplicationData().create(bytearray(b'test'))
+
+        # create the bad data
+        for result in sendingRecordLayer.sendMessage(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x02' +       # tls 1.1
+            b'\x00\x30'         # length - 48 bytes
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 48)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        gen = recordLayer.recvMessage()
+
+        with self.assertRaises(TLSBadRecordMAC):
+            next(gen)
+
+    def test_recvMessage_with_invalid_middle_byte_in_padding(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+        # constructor for the bad data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 2)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        # change the padding method to return invalid padding
+        def broken_padding(data):
+            currentLength = len(data)
+            blockLength = sendingRecordLayer._writeState.encContext.block_size
+            paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+            # make the value of last byte longer than all data
+            paddingBytes = bytearray([paddingLength, 0] +
+                                     [paddingLength] * (paddingLength-2)) + \
+                           bytearray([paddingLength])
+            data += paddingBytes
+            return data
+        sendingRecordLayer._addPadding = broken_padding
+
+        msg = ApplicationData().create(bytearray(b'test'))
+
+        # create the bad data
+        for result in sendingRecordLayer.sendMessage(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x02' +       # tls 1.1
+            b'\x00\x30'         # length - 48 bytes
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 48)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        gen = recordLayer.recvMessage()
+
+        with self.assertRaises(TLSBadRecordMAC):
+            next(gen)
+
+    def test_recvMessage_with_truncated_MAC(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+        # constructor for the bad data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 2)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        # change the padding method to truncate padded data
+        def broken_padding(data):
+            data = data[:18]
+            currentLength = len(data)
+            blockLength = sendingRecordLayer._writeState.encContext.block_size
+            paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+            paddingBytes = bytearray([paddingLength] * (paddingLength)) + \
+                           bytearray([paddingLength])
+            data += paddingBytes
+            return data
+        sendingRecordLayer._addPadding = broken_padding
+
+        msg = ApplicationData().create(bytearray(b'test'))
+
+        # create the bad data
+        for result in sendingRecordLayer.sendMessage(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x02' +       # tls 1.1
+            b'\x00\x20'         # length - 32 bytes
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 32)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        gen = recordLayer.recvMessage()
+
+        with self.assertRaises(TLSBadRecordMAC):
+            next(gen)
+
+    def test_recvMessage_with_invalid_MAC(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+        # constructor for the bad data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 2)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        # change the padding method to make MAC bad
+        def broken_padding(data):
+            data[-1] ^= 255
+            currentLength = len(data)
+            blockLength = sendingRecordLayer._writeState.encContext.block_size
+            paddingLength = blockLength - 1 - (currentLength % blockLength)
+
+            paddingBytes = bytearray([paddingLength] * (paddingLength)) + \
+                           bytearray([paddingLength])
+            data += paddingBytes
+            return data
+        sendingRecordLayer._addPadding = broken_padding
+
+        msg = ApplicationData().create(bytearray(b'test'))
+
+        # create the bad data
+        for result in sendingRecordLayer.sendMessage(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x02' +       # tls 1.1
+            b'\x00\x30'         # length - 48 bytes
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 48)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 2)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        gen = recordLayer.recvMessage()
+
+        with self.assertRaises(TLSBadRecordMAC):
+            next(gen)

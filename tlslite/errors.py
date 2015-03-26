@@ -198,3 +198,11 @@ class TLSIllegalParameterException(TLSProtocolException):
 class TLSRecordOverflow(TLSProtocolException):
     """The received record size was too big"""
     pass
+
+class TLSDecryptionFailed(TLSProtocolException):
+    """Decryption of data was unsuccessful"""
+    pass
+
+class TLSBadRecordMAC(TLSProtocolException):
+    """Bad MAC (or padding in case of mac-then-encrypt)"""
+    pass

@@ -14,7 +14,7 @@ from .utils.codec import Parser, Writer
 from .utils.compat import compatHMAC
 from .utils.cryptomath import getRandomBytes
 from .errors import TLSRecordOverflow, TLSIllegalParameterException,\
-        TLSAbruptCloseError
+        TLSAbruptCloseError, TLSDecryptionFailed, TLSBadRecordMAC
 from .mathtls import createMAC_SSL, createHMAC, PRF_SSL, PRF, PRF_1_2
 
 class RecordSocket(object):
@@ -306,6 +306,108 @@ class RecordLayer(object):
 
         for result in self._recordSocket.send(encryptedMessage):
             yield result
+
+    #
+    # receiving messages
+    #
+
+    def _decryptThenMAC(self, recordType, b):
+        """Decrypt data, check padding and MAC"""
+        if self._readState.encContext:
+
+            #Decrypt if it's a block cipher
+            if self._readState.encContext.isBlockCipher:
+                blockLength = self._readState.encContext.block_size
+                if len(b) % blockLength != 0:
+                    raise TLSDecryptionFailed()
+                b = self._readState.encContext.decrypt(b)
+                if self.version >= (3, 2): #For TLS 1.1, remove explicit IV
+                    b = b[self._readState.encContext.block_size : ]
+
+                #Check padding
+                paddingGood = True
+                paddingLength = b[-1]
+                if (paddingLength+1) > len(b):
+                    paddingGood = False
+                    totalPaddingLength = 0
+                else:
+                    assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
+                    if self.version == (3,0):
+                        totalPaddingLength = paddingLength+1
+                    else:
+                        totalPaddingLength = paddingLength+1
+                        paddingBytes = b[-totalPaddingLength:-1]
+                        for byte in paddingBytes:
+                            if byte != paddingLength:
+                                paddingGood = False
+                                totalPaddingLength = 0
+
+            #Decrypt if it's a stream cipher
+            else:
+                paddingGood = True
+                b = self._readState.encContext.decrypt(b)
+                totalPaddingLength = 0
+
+            #Check MAC
+            macGood = True
+            macLength = self._readState.macContext.digest_size
+            endLength = macLength + totalPaddingLength
+            if endLength > len(b):
+                macGood = False
+            else:
+                #Read MAC
+                startIndex = len(b) - endLength
+                endIndex = startIndex + macLength
+                checkBytes = b[startIndex : endIndex]
+
+                #Calculate MAC
+                seqnumBytes = self._readState.getSeqNumBytes()
+                b = b[:-endLength]
+                mac = self._readState.macContext.copy()
+                mac.update(compatHMAC(seqnumBytes))
+                mac.update(compatHMAC(bytearray([recordType])))
+                assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
+                if self.version == (3,0):
+                    mac.update(compatHMAC(bytearray([len(b)//256])))
+                    mac.update(compatHMAC(bytearray([len(b)%256])))
+                else:
+                    mac.update(compatHMAC(bytearray([self.version[0]])))
+                    mac.update(compatHMAC(bytearray([self.version[1]])))
+                    mac.update(compatHMAC(bytearray([len(b)//256])))
+                    mac.update(compatHMAC(bytearray([len(b)%256])))
+                mac.update(compatHMAC(b))
+                macBytes = bytearray(mac.digest())
+
+                #Compare MACs
+                if macBytes != checkBytes:
+                    macGood = False
+
+            if not (paddingGood and macGood):
+                raise TLSBadRecordMAC()
+
+        return b
+
+    def recvMessage(self):
+        """
+        Read, decrypt and check integrity of message
+
+        @rtype: tuple
+        @return: message header and decrypted message payload
+        @raise TLSDecryptionFailed: when decryption of data failed
+        @raise TLSBadRecordMAC: when record has bad MAC or padding
+        @raise socket.error: when reading from socket was unsuccessfull
+        """
+
+        for result in self._recordSocket.recv():
+            if result in (0, 1):
+                yield result
+            else: break
+
+        (header, data) = result
+
+        data = self._decryptThenMAC(header.type, data)
+
+        yield (header, Parser(data))
 
     #
     # cryptography state methods
