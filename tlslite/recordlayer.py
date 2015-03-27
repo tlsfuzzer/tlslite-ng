@@ -210,7 +210,7 @@ class RecordLayer(object):
 
     @ivar version: the TLS version to use (tuple encoded as on the wire)
     @ivar sock: underlying socket
-    @ivar client: whatever the connection should use encryption
+    @ivar client: whether the connection should use encryption
     """
 
     def __init__(self, sock):
@@ -418,7 +418,7 @@ class RecordLayer(object):
         @return: message header and decrypted message payload
         @raise TLSDecryptionFailed: when decryption of data failed
         @raise TLSBadRecordMAC: when record has bad MAC or padding
-        @raise socket.error: when reading from socket was unsuccessfull
+        @raise socket.error: when reading from socket was unsuccessful
         """
 
         for result in self._recordSocket.recv():
