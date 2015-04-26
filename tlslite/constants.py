@@ -278,6 +278,14 @@ class CipherSuite:
     md5Suites.append(TLS_RSA_WITH_RC4_128_MD5)
 
     @staticmethod
+    def filterForVersion(suites, minVersion, maxVersion):
+        """Return a copy of suites without ciphers incompatible with version"""
+        excludeSuites = []
+        if maxVersion < (3, 3):
+            excludeSuites += CipherSuite.sha256Suites
+        return [s for s in suites if s not in excludeSuites]
+
+    @staticmethod
     def _filterSuites(suites, settings):
         macNames = settings.macNames
         cipherNames = settings.cipherNames

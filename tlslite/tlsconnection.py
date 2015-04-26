@@ -584,7 +584,11 @@ class TLSConnection(TLSRecordLayer):
                 AlertDescription.protocol_version,
                 "Too new version: %s" % str(serverHello.server_version)):
                 yield result
-        if serverHello.cipher_suite not in clientHello.cipher_suites:
+        serverVer = serverHello.server_version
+        cipherSuites = CipherSuite.filterForVersion(clientHello.cipher_suites,
+                                                    minVersion=serverVer,
+                                                    maxVersion=serverVer)
+        if serverHello.cipher_suite not in cipherSuites:
             for result in self._sendError(\
                 AlertDescription.illegal_parameter,
                 "Server responded with incorrect ciphersuite"):
@@ -1300,6 +1304,12 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendError(\
                   AlertDescription.inappropriate_fallback):
                 yield result
+
+        #Now that the version is known, limit to only the ciphers available to
+        #that version.
+        cipherSuites = CipherSuite.filterForVersion(cipherSuites,
+                                                    minVersion=self.version,
+                                                    maxVersion=self.version)
 
         #If resumption was requested and we have a session cache...
         if clientHello.session_id and sessionCache:
