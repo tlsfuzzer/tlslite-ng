@@ -1779,28 +1779,27 @@ class TLSConnection(TLSRecordLayer):
 
 
     def _handshakeWrapperAsync(self, handshaker, checker):
-        if not self.fault:
-            try:
-                for result in handshaker:
-                    yield result
-                if checker:
-                    try:
-                        checker(self)
-                    except TLSAuthenticationError:
-                        alert = Alert().create(AlertDescription.close_notify,
-                                               AlertLevel.fatal)
-                        for result in self._sendMsg(alert):
-                            yield result
-                        raise
-            except GeneratorExit:
-                raise
-            except TLSAlert as alert:
-                if not self.fault:
+        try:
+            for result in handshaker:
+                yield result
+            if checker:
+                try:
+                    checker(self)
+                except TLSAuthenticationError:
+                    alert = Alert().create(AlertDescription.close_notify,
+                                           AlertLevel.fatal)
+                    for result in self._sendMsg(alert):
+                        yield result
                     raise
-                if alert.description not in Fault.faultAlerts[self.fault]:
-                    raise TLSFaultError(str(alert))
-                else:
-                    pass
-            except:
-                self._shutdown(False)
+        except GeneratorExit:
+            raise
+        except TLSAlert as alert:
+            if not self.fault:
                 raise
+            if alert.description not in Fault.faultAlerts[self.fault]:
+                raise TLSFaultError(str(alert))
+            else:
+                pass
+        except:
+            self._shutdown(False)
+            raise

@@ -707,11 +707,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        try:
-            connection.handshakeServer(verifierDB=verifierDB)
-            assert()
-        except:
-            pass
+        connection.handshakeServer(verifierDB=verifierDB)
         connection.close()
 
     print("Test 6 - good SRP: with X.509 cert")
@@ -727,12 +723,8 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        try:
-            connection.handshakeServer(verifierDB=verifierDB, \
-                                       certChain=x509Chain, privateKey=x509Key)
-            assert()
-        except:
-            pass
+        connection.handshakeServer(verifierDB=verifierDB, \
+                                   certChain=x509Chain, privateKey=x509Key)
         connection.close()
 
     print("Test 11 - X.509 faults")
@@ -740,11 +732,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        try:
-            connection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
-            assert()
-        except:
-            pass
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
         connection.close()
 
     print("Test 14 - good mutual X.509")
@@ -782,11 +770,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        try:
-            connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True)
-            assert()
-        except:
-            pass
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True)
         connection.close()
 
     print("Test 18 - good SRP, prepare to resume")
