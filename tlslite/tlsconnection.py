@@ -1485,11 +1485,13 @@ class TLSConnection(TLSRecordLayer):
 
         msgs.append(serverHello)
         msgs.append(Certificate(CertificateType.x509).create(serverCertChain))
-        if reqCert and reqCAs:
-            msgs.append(CertificateRequest().create(\
-                [ClientCertificateType.rsa_sign], reqCAs))
-        elif reqCert:
-            msgs.append(CertificateRequest(self.version))
+        if reqCert:
+            #Apple's Secure Transport library rejects empty certificate_types,
+            #and only RSA certificates are supported.
+            reqCAs = reqCAs or []
+            reqCertTypes = [ClientCertificateType.rsa_sign]
+            msgs.append(CertificateRequest(self.version).create(reqCertTypes,
+                                                                reqCAs))
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result

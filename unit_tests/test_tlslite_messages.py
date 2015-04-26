@@ -1441,8 +1441,7 @@ class TestCertificateRequest(unittest.TestCase):
 
         self.assertIsNotNone(cr)
         self.assertEqual(cr.version, (3, 0))
-        # XXX unset
-        self.assertEqual(cr.certificate_types, [ClientCertificateType.rsa_sign])
+        self.assertEqual(cr.certificate_types, [])
         self.assertEqual(cr.certificate_authorities, [])
         self.assertEqual(cr.supported_signature_algs, [])
 
@@ -1524,9 +1523,7 @@ class TestCertificateRequest(unittest.TestCase):
         cr.create([ClientCertificateType.rsa_sign],
                   [],
                   # XXX should be an array of tuples
-                  [0x0601, 0x0401, 0x0201],
-                  # XXX version set for the second time!
-                  version=(3, 3))
+                  [0x0601, 0x0401, 0x0201])
 
         self.assertEqual(cr.write(), bytearray(
             b'\x0d' +               # type

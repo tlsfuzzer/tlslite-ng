@@ -877,17 +877,14 @@ class Certificate(HandshakeMsg):
 class CertificateRequest(HandshakeMsg):
     def __init__(self, version):
         HandshakeMsg.__init__(self, HandshakeType.certificate_request)
-        #Apple's Secure Transport library rejects empty certificate_types, so
-        #default to rsa_sign.
-        self.certificate_types = [ClientCertificateType.rsa_sign]
+        self.certificate_types = []
         self.certificate_authorities = []
         self.version = version
         self.supported_signature_algs = []
 
-    def create(self, certificate_types, certificate_authorities, sig_algs=(), version=(3,0)):
+    def create(self, certificate_types, certificate_authorities, sig_algs=()):
         self.certificate_types = certificate_types
         self.certificate_authorities = certificate_authorities
-        self.version = version
         self.supported_signature_algs = sig_algs
         return self
 
