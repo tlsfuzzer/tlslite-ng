@@ -24,6 +24,7 @@ from .messages import *
 from .mathtls import *
 from .handshakesettings import HandshakeSettings
 from .utils.tackwrapper import *
+from .utils.rsakey import RSAKey
 
 
 class TLSConnection(TLSRecordLayer):
@@ -871,6 +872,7 @@ class TLSConnection(TLSRecordLayer):
         #If client authentication was requested and we have a
         #private key, send CertificateVerify
         if certificateRequest and privateKey:
+            signatureAlgorithm = None
             if self.version == (3,0):
                 masterSecret = calcMasterSecret(self.version,
                                          premasterSecret,
@@ -881,12 +883,15 @@ class TLSConnection(TLSRecordLayer):
                 verifyBytes = self._handshake_md5.digest() + \
                                 self._handshake_sha.digest()
             elif self.version == (3,3):
-                verifyBytes = self._handshake_sha256.digest()
+                # TODO: Signature algorithm negotiation not supported.
+                signatureAlgorithm = (HashAlgorithm.sha1, SignatureAlgorithm.rsa)
+                verifyBytes = self._handshake_sha.digest()
+                verifyBytes = RSAKey.addPKCS1SHA1Prefix(verifyBytes)
             if self.fault == Fault.badVerifyMessage:
                 verifyBytes[0] = ((verifyBytes[0]+1) % 256)
             signedBytes = privateKey.sign(verifyBytes)
-            certificateVerify = CertificateVerify()
-            certificateVerify.create(signedBytes)
+            certificateVerify = CertificateVerify(self.version)
+            certificateVerify.create(signedBytes, signatureAlgorithm)
             for result in self._sendMsg(certificateVerify):
                 yield result
         yield (premasterSecret, serverCertChain, clientCertChain, tackExt)
@@ -1490,8 +1495,11 @@ class TLSConnection(TLSRecordLayer):
             #and only RSA certificates are supported.
             reqCAs = reqCAs or []
             reqCertTypes = [ClientCertificateType.rsa_sign]
+            #Only SHA-1 + RSA is supported.
+            sigAlgs = [(HashAlgorithm.sha1, SignatureAlgorithm.rsa)]
             msgs.append(CertificateRequest(self.version).create(reqCertTypes,
-                                                                reqCAs))
+                                                                reqCAs,
+                                                                sigAlgs))
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result
@@ -1568,7 +1576,8 @@ class TLSConnection(TLSRecordLayer):
                 verifyBytes = self._handshake_md5.digest() + \
                                 self._handshake_sha.digest()
             elif self.version == (3,3):
-                verifyBytes = self._handshake_sha256.digest()
+                verifyBytes = self._handshake_sha.digest()
+                verifyBytes = RSAKey.addPKCS1SHA1Prefix(verifyBytes)
             for result in self._getMsg(ContentType.handshake,
                                       HandshakeType.certificate_verify):
                 if result in (0,1): yield result

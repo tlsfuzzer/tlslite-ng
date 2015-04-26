@@ -169,6 +169,35 @@ class TestParser(unittest.TestCase):
         self.assertEqual(5, p.get(1))
         self.assertEqual(0, p.getRemainingLength())
 
+    def test_getVarTupleList(self):
+        p = Parser(bytearray(
+            b'\x00\x06' +       # length of list
+            b'\x01\x00' +       # first tuple
+            b'\x01\x05' +       # second tuple
+            b'\x04\x00'         # third tuple
+            ))
+
+        self.assertEqual(p.getVarTupleList(1, 2, 2),
+                [(1, 0),
+                 (1, 5),
+                 (4, 0)])
+
+    def test_getVarTupleList_with_missing_elements(self):
+        p = Parser(bytearray(
+            b'\x00\x02' +
+            b'\x00'))
+
+        with self.assertRaises(SyntaxError):
+            p.getVarTupleList(1, 2, 2)
+
+    def test_getVarTupleList_with_incorrect_length(self):
+        p = Parser(bytearray(
+            b'\x00\x03' +
+            b'\x00'*3))
+
+        with self.assertRaises(SyntaxError):
+            p.getVarTupleList(1, 2, 2)
+
 class TestWriter(unittest.TestCase):
     def test___init__(self):
         w = Writer()

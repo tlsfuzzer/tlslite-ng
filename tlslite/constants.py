@@ -47,7 +47,28 @@ class ExtensionType:    # RFC 6066 / 4366
     encrypt_then_mac = 22 # RFC 7366
     tack = 0xF300
     supports_npn = 13172
-    
+
+class HashAlgorithm:
+
+    """Hash algorithm IDs used in TLSv1.2"""
+
+    none = 0
+    md5 = 1
+    sha1 = 2
+    sha224 = 3
+    sha256 = 4
+    sha384 = 5
+    sha512 = 6
+
+class SignatureAlgorithm:
+
+    """Signing algorithms used in TLSv1.2"""
+
+    anonymous = 0
+    rsa = 1
+    dsa = 2
+    ecdsa = 3
+
 class NameType:
     host_name = 0
 
