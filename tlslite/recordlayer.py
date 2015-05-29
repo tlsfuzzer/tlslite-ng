@@ -516,13 +516,13 @@ class RecordLayer(object):
         #Slice up Keying Material
         clientPendingState = ConnectionState()
         serverPendingState = ConnectionState()
-        p = Parser(keyBlock)
-        clientMACBlock = p.getFixBytes(macLength)
-        serverMACBlock = p.getFixBytes(macLength)
-        clientKeyBlock = p.getFixBytes(keyLength)
-        serverKeyBlock = p.getFixBytes(keyLength)
-        clientIVBlock = p.getFixBytes(ivLength)
-        serverIVBlock = p.getFixBytes(ivLength)
+        parser = Parser(keyBlock)
+        clientMACBlock = parser.getFixBytes(macLength)
+        serverMACBlock = parser.getFixBytes(macLength)
+        clientKeyBlock = parser.getFixBytes(keyLength)
+        serverKeyBlock = parser.getFixBytes(keyLength)
+        clientIVBlock = parser.getFixBytes(ivLength)
+        serverIVBlock = parser.getFixBytes(ivLength)
         clientPendingState.macContext = createMACFunc(
             compatHMAC(clientMACBlock), digestmod=digestmod)
         serverPendingState.macContext = createMACFunc(
