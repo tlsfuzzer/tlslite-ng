@@ -339,7 +339,7 @@ class RecordLayer(object):
     # receiving messages
     #
 
-    def _decryptThenMAC(self, recordType, b):
+    def _decryptThenMAC(self, recordType, data):
         """Decrypt data, check padding and MAC"""
         if self._readState.encContext:
             assert self.version in ((3, 0), (3, 1), (3, 2), (3, 3))
@@ -347,23 +347,23 @@ class RecordLayer(object):
             #Decrypt if it's a block cipher
             if self._readState.encContext.isBlockCipher:
                 blockLength = self._readState.encContext.block_size
-                if len(b) % blockLength != 0:
+                if len(data) % blockLength != 0:
                     raise TLSDecryptionFailed()
-                b = self._readState.encContext.decrypt(b)
+                data = self._readState.encContext.decrypt(data)
                 if self.version >= (3, 2): #For TLS 1.1, remove explicit IV
-                    b = b[self._readState.encContext.block_size : ]
+                    data = data[self._readState.encContext.block_size : ]
 
                 #Check padding
                 paddingGood = True
-                paddingLength = b[-1]
-                if (paddingLength+1) > len(b):
+                paddingLength = data[-1]
+                if (paddingLength+1) > len(data):
                     paddingGood = False
                     totalPaddingLength = 0
                 else:
                     totalPaddingLength = paddingLength+1
                     if self.version != (3, 0):
                         # check if all padding bytes have correct value
-                        paddingBytes = b[-totalPaddingLength:-1]
+                        paddingBytes = data[-totalPaddingLength:-1]
                         for byte in paddingBytes:
                             if byte != paddingLength:
                                 paddingGood = False
@@ -372,33 +372,33 @@ class RecordLayer(object):
             #Decrypt if it's a stream cipher
             else:
                 paddingGood = True
-                b = self._readState.encContext.decrypt(b)
+                data = self._readState.encContext.decrypt(data)
                 totalPaddingLength = 0
 
             #Check MAC
             macGood = True
             macLength = self._readState.macContext.digest_size
             endLength = macLength + totalPaddingLength
-            if endLength > len(b):
+            if endLength > len(data):
                 macGood = False
             else:
                 #Read MAC
-                startIndex = len(b) - endLength
+                startIndex = len(data) - endLength
                 endIndex = startIndex + macLength
-                checkBytes = b[startIndex : endIndex]
+                checkBytes = data[startIndex : endIndex]
 
                 #Calculate MAC
                 seqnumBytes = self._readState.getSeqNumBytes()
-                b = b[:-endLength]
+                data = data[:-endLength]
                 mac = self._readState.macContext.copy()
                 mac.update(compatHMAC(seqnumBytes))
                 mac.update(compatHMAC(bytearray([recordType])))
                 if self.version != (3, 0):
                     mac.update(compatHMAC(bytearray([self.version[0]])))
                     mac.update(compatHMAC(bytearray([self.version[1]])))
-                mac.update(compatHMAC(bytearray([len(b)//256])))
-                mac.update(compatHMAC(bytearray([len(b)%256])))
-                mac.update(compatHMAC(b))
+                mac.update(compatHMAC(bytearray([len(data)//256])))
+                mac.update(compatHMAC(bytearray([len(data)%256])))
+                mac.update(compatHMAC(data))
                 macBytes = bytearray(mac.digest())
 
                 #Compare MACs
@@ -408,7 +408,7 @@ class RecordLayer(object):
             if not (paddingGood and macGood):
                 raise TLSBadRecordMAC()
 
-        return b
+        return data
 
     def recvMessage(self):
         """
