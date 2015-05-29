@@ -282,7 +282,7 @@ class RecordLayer(object):
         data += paddingBytes
         return data
 
-    def _macThenEncrypt(self, b, contentType):
+    def _macThenEncrypt(self, data, contentType):
         """MAC then encrypt data"""
         if self._writeState.macContext:
             seqnumBytes = self._writeState.getSeqNumBytes()
@@ -293,27 +293,27 @@ class RecordLayer(object):
             if self.version != (3, 0):
                 mac.update(compatHMAC(bytearray([self.version[0]])))
                 mac.update(compatHMAC(bytearray([self.version[1]])))
-            mac.update(compatHMAC(bytearray([len(b)//256])))
-            mac.update(compatHMAC(bytearray([len(b)%256])))
-            mac.update(compatHMAC(b))
+            mac.update(compatHMAC(bytearray([len(data)//256])))
+            mac.update(compatHMAC(bytearray([len(data)%256])))
+            mac.update(compatHMAC(data))
             macBytes = bytearray(mac.digest())
 
         #Encrypt for Block or Stream Cipher
         if self._writeState.encContext:
-            b += macBytes
+            data += macBytes
             #Add padding (for Block Cipher):
             if self._writeState.encContext.isBlockCipher:
 
                 #Add TLS 1.1 fixed block
                 if self.version >= (3, 2):
-                    b = self.fixedIVBlock + b
+                    data = self.fixedIVBlock + data
 
-                b = self._addPadding(b)
+                data = self._addPadding(data)
 
             #Encrypt
-            b = self._writeState.encContext.encrypt(b)
+            data = self._writeState.encContext.encrypt(data)
 
-        return b
+        return data
 
     def sendMessage(self, msg, randomizeFirstBlock=True):
         """
