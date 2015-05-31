@@ -14,7 +14,15 @@ import socket
 
 from .constants import AlertDescription, AlertLevel
 
-class TLSError(Exception):
+class BaseTLSException(Exception):
+    """Metaclass for TLS Lite exceptions.
+
+    Look to L{TLSError} for exceptions that should be caught by tlslite
+    consumers
+    """
+    pass
+
+class TLSError(BaseTLSException):
     """Base class for all TLS Lite exceptions."""
     
     def __str__(self):
@@ -173,5 +181,28 @@ class TLSUnsupportedError(TLSError):
     pass
 
 class TLSInternalError(TLSError):
-    """The internal state of object is unexpected or invalid"""
+    """The internal state of object is unexpected or invalid.
+
+    Caused by incorrect use of API.
+    """
+    pass
+
+class TLSProtocolException(BaseTLSException):
+    """Exceptions used internally for handling errors in received messages"""
+    pass
+
+class TLSIllegalParameterException(TLSProtocolException):
+    """Parameters specified in message were incorrect or invalid"""
+    pass
+
+class TLSRecordOverflow(TLSProtocolException):
+    """The received record size was too big"""
+    pass
+
+class TLSDecryptionFailed(TLSProtocolException):
+    """Decryption of data was unsuccessful"""
+    pass
+
+class TLSBadRecordMAC(TLSProtocolException):
+    """Bad MAC (or padding in case of mac-then-encrypt)"""
     pass

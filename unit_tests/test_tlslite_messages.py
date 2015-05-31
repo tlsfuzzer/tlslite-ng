@@ -8,13 +8,25 @@ try:
 except ImportError:
     import unittest
 from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
-        RecordHeader2
+        RecordHeader2, Message
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension
 from tlslite.errors import TLSInternalError
+
+class TestMessage(unittest.TestCase):
+    def test___init__(self):
+        msg = Message(ContentType.application_data, bytearray(0))
+
+        self.assertEqual(ContentType.application_data, msg.contentType)
+        self.assertEqual(bytearray(0), msg.data)
+
+    def test_write(self):
+        msg = Message(0, bytearray(10))
+
+        self.assertEqual(bytearray(10), msg.write())
 
 class TestClientHello(unittest.TestCase):
     def test___init__(self):

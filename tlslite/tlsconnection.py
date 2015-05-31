@@ -557,9 +557,6 @@ class TLSConnection(TLSRecordLayer):
         #error alerts will use the server's version
         self.version = serverHello.server_version
 
-        #Future responses from server must use this version
-        self._versionCheck = True
-
         #Check ServerHello
         if serverHello.server_version < settings.minVersion:
             for result in self._sendError(\
@@ -1315,9 +1312,6 @@ class TLSConnection(TLSRecordLayer):
                 for result in self._sendMsg(serverHello):
                     yield result
 
-                #From here on, the client's messages must have right version
-                self._versionCheck = True
-
                 #Calculate pending connection states
                 self._calcPendingStates(session.cipherSuite, 
                                         session.masterSecret,
@@ -1412,9 +1406,6 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsgs(msgs):
             yield result
 
-        #From here on, the client's messages must have the right version
-        self._versionCheck = True
-
         #Get and check ClientKeyExchange
         for result in self._getMsg(ContentType.handshake,
                                   HandshakeType.client_key_exchange,
@@ -1460,9 +1451,6 @@ class TLSConnection(TLSRecordLayer):
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result
-
-        #From here on, the client's messages must have the right version
-        self._versionCheck = True
 
         #Get [Certificate,] (if was requested)
         if reqCert:
@@ -1583,9 +1571,6 @@ class TLSConnection(TLSRecordLayer):
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result
-        
-        #From here on, the client's messages must have the right version
-        self._versionCheck = True
         
         #Get and check ClientKeyExchange
         for result in self._getMsg(ContentType.handshake,

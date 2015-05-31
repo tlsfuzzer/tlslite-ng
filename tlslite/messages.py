@@ -82,6 +82,25 @@ class RecordHeader2(object):
         self.length = p.get(1)
         return self
 
+class Message(object):
+
+    """Generic TLS message"""
+
+    def __init__(self, contentType, data):
+        """
+        Initialize object with specified contentType and data
+
+        @type contentType: int
+        @param contentType: TLS record layer content type of associated data
+        @type data: bytearray
+        @param data: data
+        """
+        self.contentType = contentType
+        self.data = data
+
+    def write(self):
+        """Return serialised object data"""
+        return self.data
 
 class Alert(object):
     def __init__(self):
