@@ -70,6 +70,25 @@ class Parser(object):
             l[x] = self.get(length)
         return l
 
+    def getVarTupleList(self, elemLength, elemNum, lengthLength):
+        """Read a variable length list of same sized tuples
+
+        @param elemLength: length in bytes of single tuple element
+        @param elemNum: number of elements in tuple
+        @param lengthLength: length in bytes of the list length variable
+        """
+        lengthList = self.get(lengthLength)
+        if lengthList % (elemLength * elemNum) != 0:
+            raise SyntaxError()
+        tupleCount = lengthList // (elemLength * elemNum)
+        tupleList = []
+        for _ in range(tupleCount):
+            currentTuple = []
+            for _ in range(elemNum):
+                currentTuple.append(self.get(elemLength))
+            tupleList.append(tuple(currentTuple))
+        return tupleList
+
     def startLengthCheck(self, lengthLength):
         self.lengthCheck = self.get(lengthLength)
         self.indexCheck = self.index

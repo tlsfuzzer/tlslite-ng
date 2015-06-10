@@ -12,7 +12,8 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         CertificateRequest, CertificateVerify
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
-        AlertLevel, AlertDescription, ExtensionType, ClientCertificateType
+        AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
+        HashAlgorithm, SignatureAlgorithm
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension
 from tlslite.errors import TLSInternalError
@@ -1441,8 +1442,7 @@ class TestCertificateRequest(unittest.TestCase):
 
         self.assertIsNotNone(cr)
         self.assertEqual(cr.version, (3, 0))
-        # XXX unset
-        self.assertEqual(cr.certificate_types, [ClientCertificateType.rsa_sign])
+        self.assertEqual(cr.certificate_types, [])
         self.assertEqual(cr.certificate_authorities, [])
         self.assertEqual(cr.supported_signature_algs, [])
 
@@ -1493,12 +1493,11 @@ class TestCertificateRequest(unittest.TestCase):
 
         self.assertEqual(cr.certificate_types, [ClientCertificateType.rsa_sign])
         self.assertEqual(cr.supported_signature_algs,
-                         # XXX should be an array of tuples
-                         [0x0601,
-                          0x0501,
-                          0x0401,
-                          0x0301,
-                          0x0201])
+                         [(HashAlgorithm.sha512, SignatureAlgorithm.rsa),
+                          (HashAlgorithm.sha384, SignatureAlgorithm.rsa),
+                          (HashAlgorithm.sha256, SignatureAlgorithm.rsa),
+                          (HashAlgorithm.sha224, SignatureAlgorithm.rsa),
+                          (HashAlgorithm.sha1, SignatureAlgorithm.rsa)])
 
         self.assertEqual(len(cr.certificate_authorities), 5)
         for cert_auth in cr.certificate_authorities:
@@ -1523,10 +1522,7 @@ class TestCertificateRequest(unittest.TestCase):
         self.assertEqual(cr.version, (3, 3))
         cr.create([ClientCertificateType.rsa_sign],
                   [],
-                  # XXX should be an array of tuples
-                  [0x0601, 0x0401, 0x0201],
-                  # XXX version set for the second time!
-                  version=(3, 3))
+                  [(6, 1), (4, 1), (2, 1)])
 
         self.assertEqual(cr.write(), bytearray(
             b'\x0d' +               # type
@@ -1542,20 +1538,20 @@ class TestCertificateRequest(unittest.TestCase):
 
 class TestCertificateVerify(unittest.TestCase):
     def test___init__(self):
-        cv = CertificateVerify()
+        cv = CertificateVerify((3, 1))
 
         self.assertIsNotNone(cv)
         self.assertEqual(cv.signature, bytearray(0))
 
     def test_create(self):
-        cv = CertificateVerify()
+        cv = CertificateVerify((3, 1))
 
         cv.create(bytearray(b'\xf0\x0f'))
 
         self.assertEqual(cv.signature, bytearray(b'\xf0\x0f'))
 
     def test_write(self):
-        cv = CertificateVerify()
+        cv = CertificateVerify((3, 1))
 
         cv.create(bytearray(b'\xf0\x0f'))
 
@@ -1567,7 +1563,7 @@ class TestCertificateVerify(unittest.TestCase):
             ))
 
     def test_parse(self):
-        cv = CertificateVerify()
+        cv = CertificateVerify((3, 1))
 
         parser = Parser(bytearray(
             b'\x00\x00\x04' +       # length
@@ -1578,6 +1574,36 @@ class TestCertificateVerify(unittest.TestCase):
         cv.parse(parser)
 
         self.assertEqual(cv.signature, bytearray(b'\xf0\x0f'))
+
+    def test_parse_with_TLSv1_2(self):
+        cv = CertificateVerify((3, 3))
+
+        parser = Parser(bytearray(
+            b'\x00\x00\x06' +       # length
+            b'\x02\x01' +           # SHA1 + RSA
+            b'\x00\x02' +           # length of signature
+            b'\xab\xcd'             # signature
+            ))
+
+        cv.parse(parser)
+
+        self.assertEqual(cv.signature, bytearray(b'\xab\xcd'))
+        self.assertEqual(cv.signature_algorithm, (HashAlgorithm.sha1,
+                                                  SignatureAlgorithm.rsa))
+
+    def test_write_with_TLSv1_2(self):
+        cv = CertificateVerify((3, 3))
+
+        cv.create(bytearray(b'\xff\xba'), (HashAlgorithm.sha512,
+                                           SignatureAlgorithm.rsa))
+
+        self.assertEqual(cv.write(), bytearray(
+            b'\x0f' +               # type
+            b'\x00\x00\x06' +       # overall length
+            b'\x06\x01' +           # SHA512+RSA
+            b'\x00\x02' +           # signature length
+            b'\xff\xba'             # signature
+            ))
 
 if __name__ == '__main__':
     unittest.main()
