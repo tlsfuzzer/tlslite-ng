@@ -769,8 +769,9 @@ class ServerHello(HandshakeMsg):
         self.next_protos = val
 
     def create(self, version, random, session_id, cipher_suite,
-               certificate_type, tackExt, next_protos_advertised,
+               certificate_type=None, tackExt=None, next_protos_advertised=None,
                extensions=None):
+        """Initialize the object for deserialisation"""
         self.extensions = extensions
         self.server_version = version
         self.random = random
@@ -778,7 +779,8 @@ class ServerHello(HandshakeMsg):
         self.cipher_suite = cipher_suite
         self.certificate_type = certificate_type
         self.compression_method = 0
-        self.tackExt = tackExt
+        if tackExt is not None:
+            self.tackExt = tackExt
         self.next_protos_advertised = next_protos_advertised
         return self
 
