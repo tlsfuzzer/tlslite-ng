@@ -564,9 +564,9 @@ class RecordLayer(object):
             raise TLSBadRecordMAC("Invalid tag, decryption failure")
         return buf
 
-    def recvMessage(self):
+    def recvRecord(self):
         """
-        Read, decrypt and check integrity of message
+        Read, decrypt and check integrity of a single record
 
         @rtype: tuple
         @return: message header and decrypted message payload

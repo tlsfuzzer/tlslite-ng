@@ -828,7 +828,7 @@ class TLSRecordLayer(object):
 
         try:
             # otherwise... read the next record
-            for result in self._recordLayer.recvMessage():
+            for result in self._recordLayer.recvRecord():
                 if result in (0, 1):
                     yield result
                 else:
