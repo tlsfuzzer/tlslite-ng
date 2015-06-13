@@ -74,7 +74,7 @@ class TestTLSConnection(unittest.TestCase):
                 tackExt=None,
                 next_protos_advertised=None)
 
-        for res in gen_record_layer.sendMessage(server_hello):
+        for res in gen_record_layer.sendRecord(server_hello):
             if res in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -107,7 +107,7 @@ class TestTLSConnection(unittest.TestCase):
                                             session_id=bytearray(0),
                                             cipher_suites=ciphers)
 
-        for res in gen_record_layer.sendMessage(client_hello):
+        for res in gen_record_layer.sendRecord(client_hello):
             if res in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:

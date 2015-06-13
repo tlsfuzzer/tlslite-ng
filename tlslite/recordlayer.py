@@ -385,9 +385,12 @@ class RecordLayer(object):
 
         return buf
 
-    def sendMessage(self, msg):
+    def sendRecord(self, msg):
         """
-        Encrypt, MAC and send message through socket.
+        Encrypt, MAC and send arbitrary message as-is through socket.
+
+        Note that if the message was not fragmented to below 2**14 bytes
+        it will be rejected by the other connection side.
 
         @param msg: TLS message to send
         @type msg: ApplicationData, HandshakeMessage, etc.
