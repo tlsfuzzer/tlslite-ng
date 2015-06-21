@@ -46,6 +46,8 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 21)
+        self.assertEqual(header.version, (0, 0))
+        self.assertEqual(header.length, 0)
         self.assertEqual(parser.bytes, bytearray(b'\xff\xff'))
 
         res = None
@@ -61,6 +63,8 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 21)
+        self.assertEqual(header.version, (0, 0))
+        self.assertEqual(header.length, 0)
         self.assertEqual(parser.bytes, bytearray(b'\xbb\xbb'))
 
     def test_recvMessage_with_unfragmentable_type(self):
@@ -88,6 +92,8 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 23)
+        self.assertEqual(header.version, (3, 3))
+        self.assertEqual(header.length, 6)
         self.assertEqual(parser.bytes, bytearray(b'\x00\x04' + b'\xff'*4))
 
     def test_recvMessage_with_blocking_socket(self):
