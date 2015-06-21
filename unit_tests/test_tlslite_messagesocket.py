@@ -46,7 +46,7 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 21)
-        self.assertEqual(header.version, (0, 0))
+        self.assertEqual(header.version, (3, 3))
         self.assertEqual(header.length, 0)
         self.assertEqual(parser.bytes, bytearray(b'\xff\xff'))
 
@@ -63,7 +63,7 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 21)
-        self.assertEqual(header.version, (0, 0))
+        self.assertEqual(header.version, (3, 3))
         self.assertEqual(header.length, 0)
         self.assertEqual(parser.bytes, bytearray(b'\xbb\xbb'))
 
@@ -124,6 +124,7 @@ class TestMessageSocket(unittest.TestCase):
         header, parser = res
 
         self.assertEqual(header.type, 21)
+        self.assertEqual(header.version, (3, 3))
         self.assertEqual(parser.bytes, bytearray(b'\xff\xff'))
 
     def test_recvMessageBlocking(self):

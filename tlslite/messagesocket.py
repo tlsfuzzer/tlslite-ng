@@ -53,6 +53,7 @@ class MessageSocket(RecordLayer):
 
         self.defragmenter = defragmenter
         self.unfragmentedDataTypes = tuple((ContentType.application_data, ))
+        self._lastRecordVersion = (0, 0)
 
         self._sendBuffer = bytearray(0)
         self._sendBufferType = None
@@ -73,7 +74,9 @@ class MessageSocket(RecordLayer):
                 ret = self.defragmenter.getMessage()
                 if ret is None:
                     break
-                header = RecordHeader3().create(self.version, ret[0], 0)
+                header = RecordHeader3().create(self._lastRecordVersion,
+                                                ret[0],
+                                                0)
                 yield header, Parser(ret[1])
 
             for ret in self.recvRecord():
@@ -90,6 +93,7 @@ class MessageSocket(RecordLayer):
                 yield ret
 
             self.defragmenter.addData(header.type, parser.bytes)
+            self._lastRecordVersion = header.version
 
     def recvMessageBlocking(self):
         """Blocking variant of L{recvMessage}"""
