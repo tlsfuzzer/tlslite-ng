@@ -23,7 +23,7 @@ clean:
 	rm -rf tlslite/utils/__pycache__
 	rm -rf tlslite/*.pyc
 	rm -rf tlslite/utils/*.pyc
-	rm -rf tlslite/integration/*.pyc	
+	rm -rf tlslite/integration/*.pyc
 	rm -rf unit_tests/*.pyc
 	rm -rf unit_tests/__pycache__
 	rm -rf dist

@@ -582,7 +582,7 @@ class TLSRecordLayer(object):
         """Send message, handle errors"""
 
         try:
-            for result in self._recordLayer.sendMessage(msg):
+            for result in self._recordLayer.sendRecord(msg):
                 if result in (0, 1):
                     yield result
         except socket.error:
@@ -828,7 +828,7 @@ class TLSRecordLayer(object):
 
         try:
             # otherwise... read the next record
-            for result in self._recordLayer.recvMessage():
+            for result in self._recordLayer.recvRecord():
                 if result in (0, 1):
                     yield result
                 else:

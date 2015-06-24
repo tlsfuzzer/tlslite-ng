@@ -331,13 +331,13 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNone(recordLayer.getCipherImplementation())
         self.assertFalse(recordLayer.isCBCMode())
 
-    def test_sendMessage(self):
+    def test_sendRecord(self):
         sock = MockSocket(bytearray(0))
         recordLayer = RecordLayer(sock)
 
         hello = Message(ContentType.handshake, bytearray(10))
 
-        for result in recordLayer.sendMessage(hello):
+        for result in recordLayer.sendRecord(hello):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking write")
             else:
@@ -388,7 +388,7 @@ class TestRecordLayer(unittest.TestCase):
         else:
             self.assertEqual('python', recordLayer.getCipherImplementation())
 
-    def test_sendMessage_with_encrypting_set_up_tls1_2(self):
+    def test_sendRecord_with_encrypting_set_up_tls1_2(self):
         patcher = mock.patch.object(os,
                                     'urandom',
                                     lambda x: bytearray(x))
@@ -412,7 +412,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -429,7 +429,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\x9f\x73\xec\xa9\xa6\x82\x55\x8e\x3a\x8c\x94\x96\xda\x06\x09\x8d'
             ), sock.sent[0][5:])
 
-    def test_sendMessage_with_SHA256_tls1_2(self):
+    def test_sendRecord_with_SHA256_tls1_2(self):
         patcher = mock.patch.object(os,
                                     'urandom',
                                     lambda x: bytearray(x))
@@ -454,7 +454,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -472,7 +472,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\xe0"c:7\xa9\xd7}X\x00[\x88\xce\xfe|\t'
             ), sock.sent[0][5:])
 
-    def test_sendMessage_with_encrypting_set_up_tls1_1(self):
+    def test_sendRecord_with_encrypting_set_up_tls1_1(self):
         patcher = mock.patch.object(os,
                                     'urandom',
                                     lambda x: bytearray(x))
@@ -496,7 +496,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -513,7 +513,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\xa8\x8c!k\xab\x03\x03\x19.\x1dFMt\x08h^'
             ), sock.sent[0][5:])
 
-    def test_sendMessage_with_encrypting_set_up_tls1_0(self):
+    def test_sendRecord_with_encrypting_set_up_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -531,7 +531,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -547,7 +547,7 @@ class TestRecordLayer(unittest.TestCase):
             b'D\xe9\xec\x8d\xdfd\xed\x94\x9f\xe6K\x08(\x08\xf6\xb7'
             ))
 
-    def test_sendMessage_with_stream_cipher_and_tls1_0(self):
+    def test_sendRecord_with_stream_cipher_and_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -565,7 +565,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -581,7 +581,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\xa1\xaf]Q%y5\x1e'
             ))
 
-    def test_sendMessage_with_MD5_MAC_and_tls1_0(self):
+    def test_sendRecord_with_MD5_MAC_and_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -599,7 +599,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -616,7 +616,7 @@ class TestRecordLayer(unittest.TestCase):
             ))
 
 
-    def test_sendMessage_with_AES256_cipher_and_tls1_0(self):
+    def test_sendRecord_with_AES256_cipher_and_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -634,7 +634,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -653,7 +653,7 @@ class TestRecordLayer(unittest.TestCase):
     # tlslite has no pure python implementation of 3DES
     @unittest.skipUnless(cryptomath.m2cryptoLoaded or cryptomath.pycryptoLoaded,
                          "requires native 3DES implementation")
-    def test_sendMessage_with_3DES_cipher_and_tls1_0(self):
+    def test_sendRecord_with_3DES_cipher_and_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -671,7 +671,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -687,7 +687,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\x8d\x16\x8b\xa3N\xe6\xfa\x14\xa9\xb9\xc7\x08w\xf2V\xe2'
             ))
 
-    def test_sendMessage_with_encrypting_set_up_ssl3(self):
+    def test_sendRecord_with_encrypting_set_up_ssl3(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -705,7 +705,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIsNotNone(app_data)
         self.assertTrue(len(app_data.write()) > 3)
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -721,7 +721,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\xff\x842\xc7\xa2\x0byd\xab\x1a\xfd\xaf\x05\xd6\xba\x89'
             ))
 
-    def test_sendMessage_with_wrong_SSL_version(self):
+    def test_sendRecord_with_wrong_SSL_version(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -734,7 +734,7 @@ class TestRecordLayer(unittest.TestCase):
                     bytearray(32), # server random
                     None)
 
-    def test_sendMessage_with_invalid_ciphersuite(self):
+    def test_sendRecord_with_invalid_ciphersuite(self):
         sock = MockSocket(bytearray(0))
 
         recordLayer = RecordLayer(sock)
@@ -747,14 +747,14 @@ class TestRecordLayer(unittest.TestCase):
                     bytearray(32), # server random
                     None)
 
-    def test_sendMessage_with_slow_socket(self):
+    def test_sendRecord_with_slow_socket(self):
         mockSock = MockSocket(bytearray(0), maxWrite=1, blockEveryOther=True)
         sock = RecordLayer(mockSock)
 
         msg = Message(ContentType.handshake, bytearray(b'\x32'*2))
 
         gotRetry = False
-        for result in sock.sendMessage(msg):
+        for result in sock.sendRecord(msg):
             if result in (0, 1):
                 gotRetry = True
             else: break
@@ -767,7 +767,7 @@ class TestRecordLayer(unittest.TestCase):
             bytearray(b'\x32'), bytearray(b'\x32')],
             mockSock.sent)
 
-    def test_sendMessage_with_encryptThenMAC_and_unset_crypto_state(self):
+    def test_sendRecord_with_encryptThenMAC_and_unset_crypto_state(self):
         sock = MockSocket(bytearray(0))
         recordLayer = RecordLayer(sock)
         recordLayer.version = (3, 1)
@@ -775,7 +775,7 @@ class TestRecordLayer(unittest.TestCase):
 
         app_data = ApplicationData().create(bytearray(b'test'))
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -787,7 +787,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x04' +       # length
             b'test'), sock.sent[0])
 
-    def test_sendMessage_with_encryptThenMAC_in_TLSv1_0(self):
+    def test_sendRecord_with_encryptThenMAC_in_TLSv1_0(self):
         sock = MockSocket(bytearray(0))
         recordLayer = RecordLayer(sock)
         recordLayer.version = (3, 1)
@@ -801,7 +801,7 @@ class TestRecordLayer(unittest.TestCase):
 
         app_data = ApplicationData().create(bytearray(b'test'))
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -815,7 +815,7 @@ class TestRecordLayer(unittest.TestCase):
             b'X\xcd\xdc\'o\xb3I\xdd-\xfc\tneq~\x0f' +
             b'd\xdb\xbdw'), sock.sent[0])
 
-    def test_sendMessage_with_encryptThenMAC_in_TLSv1_2(self):
+    def test_sendRecord_with_encryptThenMAC_in_TLSv1_2(self):
         patcher = mock.patch.object(os,
                                     'urandom',
                                     lambda x: bytearray(x))
@@ -835,7 +835,7 @@ class TestRecordLayer(unittest.TestCase):
 
         app_data = ApplicationData().create(bytearray(b'test'))
 
-        for result in recordLayer.sendMessage(app_data):
+        for result in recordLayer.sendRecord(app_data):
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -850,7 +850,7 @@ class TestRecordLayer(unittest.TestCase):
             b'\xa4\x9bH}T\xcbT\x9d2\xed\xc5\xe1|\x82T\xf1' +
             b'\xf6\x19\xfcw'), sock.sent[0])
 
-    def test_recvMessage(self):
+    def test_recvRecord(self):
         sock = MockSocket(bytearray(
             b'\x16' +           # handshake
             b'\x03\x03' +       # TLSv1.2
@@ -860,7 +860,7 @@ class TestRecordLayer(unittest.TestCase):
             ))
         recordLayer = RecordLayer(sock)
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "Blocking read")
             else:
@@ -873,7 +873,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual((3, 3), header.version)
         self.assertEqual(bytearray(b'\x0e' + b'\x00'*3), parser.bytes)
 
-    def test_recvMessage_with_slow_socket(self):
+    def test_recvRecord_with_slow_socket(self):
         sock = MockSocket(bytearray(
             b'\x16' +           # handshake
             b'\x03\x03' +       # TLSv1.2
@@ -884,7 +884,7 @@ class TestRecordLayer(unittest.TestCase):
         recordLayer = RecordLayer(sock)
 
         wasBlocked = False
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 wasBlocked = True
             else:
@@ -899,12 +899,12 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(bytearray(b'\x0e' + b'\x00'*3), parser.bytes)
 
 
-    def test_recvMessage_with_encrypted_content_TLS1_1(self):
+    def test_recvRecord_with_encrypted_content_TLS1_1(self):
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x02' +       # TLSv1.1
             b'\x00\x30' +       # length
-            # data from test_sendMessage_with_encrypting_set_up_tls1_1
+            # data from test_sendRecord_with_encrypting_set_up_tls1_1
             b'b\x8e\xee\xddV\\W=\x810\xd5\x0c\xae \x84\xa8' +
             b'^\x91\xa4d[\xe4\xde\x90\xee{f\xbb\xcd_\x1ao' +
             b'\xa8\x8c!k\xab\x03\x03\x19.\x1dFMt\x08h^'
@@ -920,7 +920,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "Blocking read")
             else:
@@ -933,12 +933,12 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual((3, 2), header.version)
         self.assertEqual(bytearray(b'test'), parser.bytes)
 
-    def test_recvMessage_with_encrypted_content_SSLv3(self):
+    def test_recvRecord_with_encrypted_content_SSLv3(self):
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x00' +       # SSLv3
             b'\x00\x20' +       # length
-            # data from test_sendMessage_with_encrypting_set_up_ssl3
+            # data from test_sendRecord_with_encrypting_set_up_ssl3
             b'\xc5\x16y\xf9\ra\xd9=\xec\x8b\x93\'\xb7\x05\xe6\xad' +
             b'\xff\x842\xc7\xa2\x0byd\xab\x1a\xfd\xaf\x05\xd6\xba\x89'
             ))
@@ -953,7 +953,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "Blocking read")
             else:
@@ -966,12 +966,12 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual((3, 0), header.version)
         self.assertEqual(bytearray(b'test'), parser.bytes)
 
-    def test_recvMessage_with_stream_cipher_and_tls1_0(self):
+    def test_recvRecord_with_stream_cipher_and_tls1_0(self):
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x01' +       # TLSv1.0
             b'\x00\x18' +       # length (24 bytes)
-            # data from test_sendMessage_with_stream_cipher_and_tls1_0
+            # data from test_sendRecord_with_stream_cipher_and_tls1_0
             b'B\xb8H\xc6\xd7\\\x01\xe27\xa9\x86\xf2\xfdm!\x1d' +
             b'\xa1\xaf]Q%y5\x1e'
             ))
@@ -986,7 +986,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "Blocking read")
             else:
@@ -999,7 +999,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual((3, 1), header.version)
         self.assertEqual(bytearray(b'test'), parser.bytes)
 
-    def test_recvMessage_with_invalid_length_payload(self):
+    def test_recvRecord_with_invalid_length_payload(self):
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x02' +       # TLSv1.1
@@ -1019,12 +1019,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSDecryptionFailed):
             next(gen)
 
-    def test_recvMessage_with_zero_filled_padding_in_SSLv3(self):
+    def test_recvRecord_with_zero_filled_padding_in_SSLv3(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1060,7 +1060,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1088,7 +1088,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else: break
@@ -1100,7 +1100,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual((3, 0), header.version)
         self.assertEqual(bytearray(b'test'), parser.bytes)
 
-    def test_recvMessage_with_invalid_last_byte_in_padding(self):
+    def test_recvRecord_with_invalid_last_byte_in_padding(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1138,7 +1138,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1166,12 +1166,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_invalid_middle_byte_in_padding(self):
+    def test_recvRecord_with_invalid_middle_byte_in_padding(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1210,7 +1210,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1238,12 +1238,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_truncated_MAC(self):
+    def test_recvRecord_with_truncated_MAC(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1281,7 +1281,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1309,12 +1309,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_invalid_MAC(self):
+    def test_recvRecord_with_invalid_MAC(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1352,7 +1352,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1380,12 +1380,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_encryptThenMAC_and_unset_crypto_state(self):
+    def test_recvRecord_with_encryptThenMAC_and_unset_crypto_state(self):
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x01' +       # TLS version
@@ -1397,7 +1397,7 @@ class TestRecordLayer(unittest.TestCase):
         recordLayer.client = False
         recordLayer.encryptThenMAC = True
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -1406,8 +1406,8 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(parser.bytes, bytearray(b'test'))
 
-    def test_recvMessage_with_encryptThenMAC_in_TLSv1_0(self):
-        # data from test_sendMessage_with_encryptThenMAC_in_TLSv1_0
+    def test_recvRecord_with_encryptThenMAC_in_TLSv1_0(self):
+        # data from test_sendRecord_with_encryptThenMAC_in_TLSv1_0
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x01' +       # TLS version
@@ -1427,7 +1427,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -1436,9 +1436,9 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(parser.bytes, bytearray(b'test'))
 
-    def test_recvMessage_with_encryptThenMAC_in_TLSv1_2(self):
+    def test_recvRecord_with_encryptThenMAC_in_TLSv1_2(self):
 
-        # data from test_sendMessage_with_encryptThenMAC_in_TLSv1_2
+        # data from test_sendRecord_with_encryptThenMAC_in_TLSv1_2
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
             b'\x03\x03' +       # TLS version
@@ -1459,7 +1459,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -1468,7 +1468,7 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(parser.bytes, bytearray(b'test'))
 
-    def test_recvMessage_with_encryptThenMAC_and_too_short_MAC(self):
+    def test_recvRecord_with_encryptThenMAC_and_too_short_MAC(self):
 
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
@@ -1487,12 +1487,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_encryptThenMAC_with_modified_MAC(self):
+    def test_recvRecord_with_encryptThenMAC_with_modified_MAC(self):
 
         sock = MockSocket(bytearray(
             b'\x17' +           # application data
@@ -1514,12 +1514,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_encryptThenMAC_and_bad_size_encrypted_data(self):
+    def test_recvRecord_with_encryptThenMAC_and_bad_size_encrypted_data(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1550,7 +1550,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1579,12 +1579,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSDecryptionFailed):
             next(gen)
 
-    def test_recvMessage_with_encryptThenMAC_and_bad_last_padding_byte(self):
+    def test_recvRecord_with_encryptThenMAC_and_bad_last_padding_byte(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1623,7 +1623,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1652,12 +1652,12 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
 
-    def test_recvMessage_with_encryptThenMAC_and_SSLv3(self):
+    def test_recvRecord_with_encryptThenMAC_and_SSLv3(self):
 
         # constructor for the data
         sendingSocket = MockSocket(bytearray())
@@ -1676,7 +1676,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1705,7 +1705,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        for result in recordLayer.recvMessage():
+        for result in recordLayer.recvRecord():
             if result in (0, 1):
                 self.assertTrue(False, "blocking socket")
             else: break
@@ -1714,7 +1714,7 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(parser.bytes, bytearray(b'test'))
 
-    def test_recvMessage_with_encryptThenMAC_and_bad_padding_byte(self):
+    def test_recvRecord_with_encryptThenMAC_and_bad_padding_byte(self):
         # make sure the IV is predictible (all zero)
         patcher = mock.patch.object(os,
                                     'urandom',
@@ -1754,7 +1754,7 @@ class TestRecordLayer(unittest.TestCase):
         msg = ApplicationData().create(bytearray(b'test'))
 
         # create the bad data
-        for result in sendingRecordLayer.sendMessage(msg):
+        for result in sendingRecordLayer.sendRecord(msg):
             if result in (0, 1):
                 self.assertTrue(False, "Blocking socket")
             else:
@@ -1783,7 +1783,7 @@ class TestRecordLayer(unittest.TestCase):
                                       None)
         recordLayer.changeReadState()
 
-        gen = recordLayer.recvMessage()
+        gen = recordLayer.recvRecord()
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)

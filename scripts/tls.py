@@ -28,6 +28,7 @@ if __name__ != "__main__":
     raise "This must be run as a command, not used as a module!"
 
 from tlslite.api import *
+from tlslite.constants import CipherSuite
 from tlslite import __version__
 
 try:
@@ -164,6 +165,8 @@ def printGoodConnection(connection, seconds):
     print("  Version: %s" % connection.getVersionName())
     print("  Cipher: %s %s" % (connection.getCipherName(), 
         connection.getCipherImplementation()))
+    print("  Ciphersuite: {0}".\
+            format(CipherSuite.ietfNames[connection.session.cipherSuite]))
     if connection.session.srpUsername:
         print("  Client SRP username: %s" % connection.session.srpUsername)
     if connection.session.clientCertChain:

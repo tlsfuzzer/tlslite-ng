@@ -634,6 +634,24 @@ class TestServerHello(unittest.TestCase):
         self.assertEqual(None, server_hello.tackExt)
         self.assertEqual(None, server_hello.next_protos_advertised)
 
+    def test_create_with_minimal_options(self):
+        server_hello = ServerHello().create(
+                (3, 3),                                 # server version
+                bytearray(b'\x02'*31+b'\x01'),          # random
+                bytearray(4),                           # session ID
+                CipherSuite.TLS_RSA_WITH_RC4_128_MD5)   # ciphersuite
+
+        self.assertEqual(bytearray(
+            b'\x02' +                   # type of message
+            b'\x00\x00\x2a' +           # length
+            b'\x03\x03' +               # server version
+            b'\x02'*31+b'\x01' +        # random
+            b'\x04' +                   # Session ID length
+            b'\x00'*4 +                 # session id
+            b'\x00\x04' +               # selected ciphersuite
+            b'\x00'                     # selected compression method
+            ), server_hello.write())
+
     def test_parse(self):
         p = Parser(bytearray(
             # don't include type of message as it is handled by the hello

@@ -79,7 +79,96 @@ class TestTLSExtension(unittest.TestCase):
 
         tls_extension = TLSExtension().parse(p)
 
+        self.assertIsInstance(tls_extension, SNIExtension)
+
         self.assertEqual(bytearray(b'example.com'), tls_extension.host_names[0])
+
+    def test_parse_with_SRP_ext(self):
+        p = Parser(bytearray(
+            b'\x00\x0c' +           # ext type - 12
+            b'\x00\x09' +           # overall length
+            b'\x08' +               # name length
+            b'username'             # name
+            ))
+
+        ext = TLSExtension().parse(p)
+
+        self.assertIsInstance(ext, SRPExtension)
+
+        self.assertEqual(ext.identity, b'username')
+
+    def test_parse_with_NPN_ext(self):
+        p = Parser(bytearray(
+            b'\x33\x74' +   # type of extension - NPN
+            b'\x00\x09' +   # overall length
+            b'\x08'     +   # first name length
+            b'http/1.1'
+            ))
+
+        ext = TLSExtension().parse(p)
+
+        self.assertIsInstance(ext, NPNExtension)
+
+        self.assertEqual(ext.protocols, [b'http/1.1'])
+
+    def test_parse_with_elliptic_curves(self):
+        p = Parser(bytearray(
+            b'\x00\x0a' +   # type of extension
+            b'\x00\x08' +   # overall length
+            b'\x00\x06' +   # length of array
+            b'\x00\x17' +   # secp256r1
+            b'\x00\x18' +   # secp384r1
+            b'\x00\x19'     # secp521r1
+            ))
+
+        ext = TLSExtension().parse(p)
+
+        # XXX not supported
+        self.assertIsInstance(ext, TLSExtension)
+
+        #self.assertEqual(ext.curves, [EllipticCurves.secp256r1,
+        #                              EllipticCurves.secp384r1,
+        #                              EllipticCurves.secp521r1])
+
+    def test_parse_with_ec_point_formats(self):
+        p = Parser(bytearray(
+            b'\x00\x0b' +   # type of extension
+            b'\x00\x02' +   # overall length
+            b'\x01' +       # length of array
+            b'\x00'         # type - uncompressed
+            ))
+
+        ext = TLSExtension().parse(p)
+
+        # XXX unsupported
+        self.assertIsInstance(ext, TLSExtension)
+
+        #self.assertEqual(ext.formats, [PointFormats.uncompressed])
+
+    def test_parse_with_signature_algorithms(self):
+        p = Parser(bytearray(
+            b'\x00\x0d' +   # type of extension
+            b'\x00\x1c' +   # overall length
+            b'\x00\x1a' +   # length of array
+            b'\x04\x01' +   # SHA256+RSA
+            b'\x04\x02' +   # SHA256+DSA
+            b'\x04\x03' +   # SHA256+ECDSA
+            b'\x05\x01' +   # SHA384+RSA
+            b'\x05\x03' +   # SHA384+ECDSA
+            b'\x06\x01' +   # SHA512+RSA
+            b'\x06\x03' +   # SHA512+ECDSA
+            b'\x03\x01' +   # SHA224+RSA
+            b'\x03\x02' +   # SHA224+DSA
+            b'\x03\x03' +   # SHA224+ECDSA
+            b'\x02\x01' +   # SHA1+RSA
+            b'\x02\x02' +   # SHA1+DSA
+            b'\x02\x03'     # SHA1+ECDSA
+            ))
+
+        ext = TLSExtension().parse(p)
+
+        # XXX unsupported
+        self.assertIsInstance(ext, TLSExtension)
 
     def test_equality(self):
         a = TLSExtension().create(0, bytearray(0))
@@ -114,7 +203,24 @@ class TestTLSExtension(unittest.TestCase):
 
         ext = ext.parse(p)
 
+        self.assertIsInstance(ext, ServerCertTypeExtension)
+
         self.assertEqual(1, ext.cert_type)
+
+    def test_parse_with_client_cert_type_extension(self):
+        ext = TLSExtension()
+
+        p = Parser(bytearray(
+            b'\x00\x09' +        # ext type
+            b'\x00\x02' +       # ext length
+            b'\x01' +           # length of array
+            b'\x01'))           # type - opengpg (1)
+
+        ext = ext.parse(p)
+
+        self.assertIsInstance(ext, ClientCertTypeExtension)
+
+        self.assertEqual([1], ext.cert_types)
 
     def test___repr__(self):
         ext = TLSExtension()
