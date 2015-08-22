@@ -48,7 +48,8 @@ tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 tlslite-ng is a fork of TLS Lite. TLS Lite was written (mostly) by Trevor
 Perrin. It includes code from Bram Cohen, Google, Kees Bos, Sam Rushing,
 Dimitris Moraitis, Marcelo Fernandez, Martin von Loewis, Dave Baggett, Yngve
-N. Pettersen (ported by Paul Sokolovsky), and Mirko Dziadzka.
+N. Pettersen (ported by Paul Sokolovsky), Mirko Dziadzka, David Benjamin,
+and Hubert Kario.
 
 Original code in TLS Lite has either been dedicated to the public domain by its
 authors, or placed under a BSD-style license. See the LICENSE file for

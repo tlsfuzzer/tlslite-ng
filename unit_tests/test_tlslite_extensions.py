@@ -94,7 +94,7 @@ class TestTLSExtension(unittest.TestCase):
         ext = TLSExtension(server=True).parse(p)
 
         self.assertIsInstance(ext, SNIExtension)
-        self.assertEqual(ext.server_names, None)
+        self.assertIsNone(ext.serverNames)
 
     def test_parse_with_SRP_ext(self):
         p = Parser(bytearray(
