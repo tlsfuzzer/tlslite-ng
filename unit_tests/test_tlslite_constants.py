@@ -9,7 +9,21 @@ try:
 except ImportError:
     import unittest
 
-from tlslite.constants import CipherSuite
+from tlslite.constants import CipherSuite, CertificateType
+
+class TestCertificateType(unittest.TestCase):
+
+    def test_fields(self):
+        self.assertEqual(CertificateType.x509, 0)
+
+    def test_toStr(self):
+        self.assertEqual(CertificateType.toStr(0), 'x509')
+
+    def test_toStr_with_invalid_value(self):
+        self.assertEqual(CertificateType.toStr(-1), '-1')
+
+    def test_toRepr_with_invalid_value(self):
+        self.assertIsNone(CertificateType.toRepr(-1))
 
 class TestCipherSuite(unittest.TestCase):
 

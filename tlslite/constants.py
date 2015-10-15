@@ -10,16 +10,42 @@
 
 """Constants used in various places."""
 
-class CertificateType:
+class CertificateType(object):
+
+    """Types of certs for certificate type extension from RFC6091"""
+
     x509 = 0
     openpgp = 1
+    # RFC 7250
+    raw_public_key = 2
+
+    @classmethod
+    def toRepr(cls, value):
+        """
+        Convert numeric type to string representation
+
+        name if found, None otherwise
+        """
+        return next((key for key, val in cls.__dict__.items() \
+                    if key not in ('__weakref__', '__dict__', '__doc__',
+                                   '__module__') and \
+                        val == value), None)
+
+    @classmethod
+    def toStr(cls, value):
+        """Convert numeric type to human-readable string if possible"""
+        ret = cls.toRepr(value)
+        if ret is not None:
+            return ret
+        else:
+            return '{0}'.format(value)
 
 class ClientCertificateType:
     rsa_sign = 1
     dss_sign = 2
     rsa_fixed_dh = 3
     dss_fixed_dh = 4
- 
+
 class HandshakeType:
     hello_request = 0
     client_hello = 1
