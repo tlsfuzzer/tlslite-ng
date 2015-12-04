@@ -104,11 +104,12 @@ class HTTPTLSConnection(httplib.HTTPConnection, ClientHelper):
                     timeout=timeout)
         self.ignoreAbruptClose = ignoreAbruptClose
         ClientHelper.__init__(self,
-                 username, password, 
-                 certChain, privateKey,
-                 checker,
-                 settings, 
-                 anon)
+                              username, password,
+                              certChain, privateKey,
+                              checker,
+                              settings,
+                              anon,
+                              host)
 
     def connect(self):
         httplib.HTTPConnection.connect(self)
