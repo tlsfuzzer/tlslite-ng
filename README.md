@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.5.1                                           2015-11-05
+tlslite-ng version 0.5.2                                           2015-12-08
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -520,6 +520,9 @@ encrypt-then-MAC mode for CBC ciphers.
 
 12 History
 ===========
+
+0.5.2 - 2015-12-08
+ - fix support for Server Name Indication in HTTPTLSConnection wrapper
 
 0.5.1 - 2015-11-05
  - fix SRP_SHA_RSA ciphersuites in TLSv1.2 (for real this time)

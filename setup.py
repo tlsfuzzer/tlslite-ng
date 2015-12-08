@@ -8,7 +8,7 @@ from distutils.core import setup
 
 
 setup(name="tlslite-ng",
-      version="0.5.1",
+      version="0.5.2",
       author="Hubert Kario",
       author_email="hkario@redhat.com",
       url="https://github.com/tomato42/tlslite-ng",
