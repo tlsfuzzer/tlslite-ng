@@ -97,7 +97,7 @@ class ChaCha(object):
 
         working_state = state[:]
         dbl_round = ChaCha.double_round
-        for _ in range(0, rounds // 2):
+        for _ in xrange(0, rounds // 2):
             dbl_round(working_state)
 
         return [(st + wrkSt) & 0xffffffff for st, wrkSt
@@ -112,7 +112,7 @@ class ChaCha(object):
     def _bytearray_to_words(data):
         """Convert a bytearray to array of word sized ints"""
         ret = []
-        for i in range(0, len(data)//4):
+        for i in xrange(0, len(data)//4):
             ret.extend(struct.unpack('<L',
                                      compat26Str(data[i*4:(i+1)*4])))
         return ret
@@ -136,7 +136,7 @@ class ChaCha(object):
         """Encrypt the data"""
         encrypted_message = bytearray()
         for i, block in enumerate(plaintext[i:i+64] for i
-                                  in range(0, len(plaintext), 64)):
+                                  in xrange(0, len(plaintext), 64)):
             key_stream = ChaCha.chacha_block(self.key,
                                              self.counter + i,
                                              self.nonce,
