@@ -417,6 +417,8 @@ class CipherSuite:
 
     # draft-ietf-tls-chacha20-poly1305-00
     # ChaCha20/Poly1305 based Cipher Suites for TLS1.2
+    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 = 0xcca1
+    ietfNames[0xcca1] = 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305'
     TLS_DHE_RSA_WITH_CHACHA20_POLY1305 = 0xcca3
     ietfNames[0xcca3] = 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305'
 
@@ -489,6 +491,7 @@ class CipherSuite:
 
     # CHACHA20 cipher (implicit POLY1305 authenticator)
     chacha20Suites = []
+    chacha20Suites.append(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305)
     chacha20Suites.append(TLS_DHE_RSA_WITH_CHACHA20_POLY1305)
 
     # RC4 128 stream cipher
@@ -715,6 +718,7 @@ class CipherSuite:
 
     # ECDHE key exchange, RSA authentication
     ecdheCertSuites = []
+    ecdheCertSuites.append(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305)
     ecdheCertSuites.append(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)
     ecdheCertSuites.append(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
     ecdheCertSuites.append(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384)
