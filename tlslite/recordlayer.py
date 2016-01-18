@@ -381,8 +381,12 @@ class RecordLayer(object):
                                             len(buf)//256,
                                             len(buf)%256])
 
-        #The nonce is always the fixed nonce and the sequence number.
-        nonce = self._writeState.fixedNonce + seqNumBytes
+        # ChaCha is using the draft-TLS1.3-like nonce derivation
+        if "chacha" in self._writeState.encContext.name:
+            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqNumBytes,
+                                                    self._writeState.fixedNonce))
+        else:
+            nonce = self._writeState.fixedNonce + seqNumBytes
 
         assert len(nonce) == self._writeState.encContext.nonceLength
 
@@ -571,6 +575,9 @@ class RecordLayer(object):
                 raise TLSBadRecordMAC("Truncated nonce")
             nonce = self._readState.fixedNonce + buf[:explicitNonceLength]
             buf = buf[8:]
+        elif "chacha" in self._readState.encContext.name:
+            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqnumBytes,
+                                                    self._readState.fixedNonce))
         else:
             nonce = self._readState.fixedNonce + seqnumBytes
 
@@ -660,7 +667,7 @@ class RecordLayer(object):
             createCipherFunc = createAESGCM
         elif cipherSuite in CipherSuite.chacha20Suites:
             keyLength = 32
-            ivLength = 4
+            ivLength = 12
             createCipherFunc = createCHACHA20
         elif cipherSuite in CipherSuite.aes128Suites:
             keyLength = 16
