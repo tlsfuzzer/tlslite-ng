@@ -30,6 +30,7 @@ from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange
 from .handshakehelpers import HandshakeHelpers
+from .bufferedsocket import BufferedSocket
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -485,6 +486,8 @@ class TLSConnection(TLSRecordLayer):
             keyExchange = RSAKeyExchange(cipherSuite, clientHello,
                                          serverHello, None)
 
+        # we'll send few messages here, send them in single TCP packet
+        self.sock.buffer_writes = True
         for result in self._clientKeyExchange(settings, cipherSuite,
                                               clientCertChain,
                                               privateKey,
@@ -501,6 +504,7 @@ class TLSConnection(TLSRecordLayer):
 
         #After having previously sent a ClientKeyExchange, the client now
         #initiates an exchange of Finished messages.
+        # socket buffering is turned off in _clientFinished
         for result in self._clientFinished(premasterSecret,
                             clientHello.random, 
                             serverHello.random,
@@ -719,10 +723,14 @@ class TLSConnection(TLSRecordLayer):
             for result in self._getFinished(session.masterSecret,
                                             session.cipherSuite):
                 yield result
+            # buffer writes so that CCS and Finished go out in one TCP packet
+            self.sock.buffer_writes = True
             for result in self._sendFinished(session.masterSecret,
                                              session.cipherSuite,
                                              nextProto):
                 yield result
+            self.sock.flush()
+            self.sock.buffer_writes = False
 
             #Set the session for this connection
             self.session = session
@@ -920,6 +928,8 @@ class TLSConnection(TLSRecordLayer):
         #Exchange ChangeCipherSpec and Finished messages
         for result in self._sendFinished(masterSecret, cipherSuite, nextProto):
             yield result
+        self.sock.flush()
+        self.sock.buffer_writes = False
         for result in self._getFinished(masterSecret,
                                         cipherSuite,
                                         nextProto=nextProto):
