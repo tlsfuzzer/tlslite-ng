@@ -30,7 +30,6 @@ from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange
 from .handshakehelpers import HandshakeHelpers
-from .bufferedsocket import BufferedSocket
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -1739,6 +1738,8 @@ class TLSConnection(TLSRecordLayer):
 
 
     def _sendFinished(self, masterSecret, cipherSuite=None, nextProto=None):
+        # send the CCS and Finished in single TCP packet
+        self.sock.buffer_writes = True
         #Send ChangeCipherSpec
         for result in self._sendMsg(ChangeCipherSpec()):
             yield result
@@ -1764,6 +1765,8 @@ class TLSConnection(TLSRecordLayer):
         finished = Finished(self.version).create(verifyData)
         for result in self._sendMsg(finished):
             yield result
+        self.sock.flush()
+        self.sock.buffer_writes = False
 
     def _getFinished(self, masterSecret, cipherSuite=None,
                      expect_next_protocol=False, nextProto=None):

@@ -540,11 +540,15 @@ class TLSRecordLayer(object):
         raise TLSLocalAlert(alert, errorStr)
 
     def _sendMsgs(self, msgs):
+        # send messages together
+        self.sock.buffer_writes = True
         randomizeFirstBlock = True
         for msg in msgs:
             for result in self._sendMsg(msg, randomizeFirstBlock):
                 yield result
             randomizeFirstBlock = True
+        self.sock.flush()
+        self.sock.buffer_writes = False
 
     def _sendMsg(self, msg, randomizeFirstBlock = True):
         """Fragment and send message through socket"""
