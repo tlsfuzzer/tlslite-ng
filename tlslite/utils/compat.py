@@ -5,6 +5,7 @@
 
 import sys
 import os
+import platform
 import math
 import binascii
 import traceback
@@ -71,7 +72,9 @@ else:
     # Python 2.6 requires strings instead of bytearrays in a couple places,
     # so we define this function so it does the conversion if needed.
     # same thing with very old 2.7 versions
-    if sys.version_info < (2, 7) or sys.version_info < (2, 7, 4):
+    # or on Jython
+    if sys.version_info < (2, 7) or sys.version_info < (2, 7, 4) \
+            or platform.system() == 'Java':
         def compat26Str(x): return str(x)
     else:
         def compat26Str(x): return x
