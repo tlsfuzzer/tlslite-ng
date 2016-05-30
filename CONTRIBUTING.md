@@ -22,12 +22,14 @@ Git client, make, text editor and ability to
 install local python packages (ability to run pip).
 
 The list goes as follows:
+
  * python (2.7 or 3.4)
  * git
  * GNU make
  * pip
 
 The python module dependencies are as follows:
+
  * unittest (unittest2 on Python 2; should be part of Python 3 install)
  * mock (should be part of Python 3 distribution of unittest)
  * ecdsa
@@ -37,6 +39,7 @@ The python module dependencies are as follows:
  * hypothesis
 
 On Fedora they can be installed using:
+
 ```
 dnf install python-ecdsa python3-ecdsa pylint python3-pylint python-diff-cover \
     python3-diff-cover python-coverage python3-coverage python2-hypothesis \
@@ -44,12 +47,14 @@ dnf install python-ecdsa python3-ecdsa pylint python3-pylint python-diff-cover \
 ```
 
 Optional module dependencies:
+
  * tackpy
  * m2crypto
  * pycrypto
  * gmpy
 
 On Fedora they can be installed using:
+
 ```
 pip install tackpy
 dnf install m2crypto python-crypto python3-crypto python-gmpy2 python3-gmpy2
@@ -86,6 +91,7 @@ dnf install m2crypto python-crypto python3-crypto python-gmpy2 python3-gmpy2
     that passes it is the best way to make the review quick.
 
 ## Submit changes
+
 * Push your changes to a topic branch in your fork of the repository.
 * Open a pull request to the original repository and choose the right original
   branch you want to patch (that usually will be tomato42/master).
@@ -101,7 +107,7 @@ dnf install m2crypto python-crypto python3-crypto python-gmpy2 python3-gmpy2
     a test pull request, but please mark it as such ('[WIP]' in title is
     enough)
 
-# Additional Resources
+## Additional Resources
 
 * [General GitHub documentation](http://help.github.com/)
 * [GitHub pull request documentation](http://help.github.com/send-pull-requests/)
