@@ -13,6 +13,8 @@ engines:
     checks:
       bug:
         enabled: true
+  markdownlint:
+    enabled: true
 ratings:
   paths:
   - "tlslite/**"
