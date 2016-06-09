@@ -14,18 +14,18 @@ https://github.com/tomato42/tlslite-ng/
 Table of Contents
 ==================
 
- 1. Introduction
- 2. License/Acknowledgements
- 3. Installation
- 4. Getting Started with the Command-Line Tools
- 5. Getting Started with the Library
- 6. Using tlslite-ng with httplib
- 7. Using tlslite-ng with poplib or imaplib
- 8. Using tlslite-ng with smtplib
- 9. Using tlslite-ng with SocketServer
- 10. Using tlslite-ng with asyncore
- 11. SECURITY CONSIDERATIONS
- 12. History
+1. Introduction
+1. License/Acknowledgements
+1. Installation
+1. Getting Started with the Command-Line Tools
+1. Getting Started with the Library
+1. Using tlslite-ng with httplib
+1. Using tlslite-ng with poplib or imaplib
+1. Using tlslite-ng with smtplib
+1. Using tlslite-ng with SocketServer
+1. Using tlslite-ng with asyncore
+1. SECURITY CONSIDERATIONS
+1. History
 
 
 1 Introduction
@@ -49,14 +49,14 @@ tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 
 Implemented features of TLS include:
 
- * SSLv3, TLSv1.0, TLSv1.1 and TLSv1.2
- * ciphersuites with DHE, ECDHE, RSA and SRP key exchange together with
-   AES (including GCM variant), 3DES, RC4 and (the experimental) ChaCha20
-   symmetric ciphers.
- * Secure Renegotiation
- * Encrypt Then MAC extension
- * TLS_FALLBACK_SCSV
- * (experimental) TACK extension
+* SSLv3, TLSv1.0, TLSv1.1 and TLSv1.2
+* ciphersuites with DHE, ECDHE, RSA and SRP key exchange together with
+  AES (including GCM variant), 3DES, RC4 and (the experimental) ChaCha20
+  symmetric ciphers.
+* Secure Renegotiation
+* Encrypt Then MAC extension
+* TLS_FALLBACK_SCSV
+* (experimental) TACK extension
 
 2 Licenses/Acknowledgements
 ============================
@@ -80,21 +80,21 @@ Thanks to Edward Loper for Epydoc, which generated the API docs.
 
 Requirements:
 
- * Python 2.6 or higher is required.
- * Python 3.2 or higher is supported.
- * python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
-   [PyPI](https://pypi.python.org/pypi/ecdsa))
+* Python 2.6 or higher is required.
+* Python 3.2 or higher is supported.
+* python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
+  [PyPI](https://pypi.python.org/pypi/ecdsa))
 
 Options:
 
- * If you have the M2Crypto interface to OpenSSL, this will be used for fast
-   RSA operations and fast ciphers.
- * If you have pycrypto this will be used for fast RSA operations and fast
-   ciphers.
- * If you have the GMPY interface to GMP, this will be used for fast RSA and
-   SRP operations.
- * These modules don't need to be present at installation - you can install
-   them any time.
+* If you have the M2Crypto interface to OpenSSL, this will be used for fast
+  RSA operations and fast ciphers.
+* If you have pycrypto this will be used for fast RSA operations and fast
+  ciphers.
+* If you have the GMPY interface to GMP, this will be used for fast RSA and
+  SRP operations.
+* These modules don't need to be present at installation - you can install
+  them any time.
 
 3.1 Automatic
 -------------
@@ -119,11 +119,11 @@ Run 'python setup.py install'
 
 Test the Installation
 
- * From the distribution's directory, run:
-   ```
-   make test
-   ```
- * If it says "Test succeeded" at the end, you're ready to go.
+* From the distribution's directory, run:
+  ```
+  make test
+  ```
+* If it says "Test succeeded" at the end, you're ready to go.
 
 
 4 Getting Started with the Command-Line Tools
@@ -195,12 +195,12 @@ To run an HTTPS client, run `./tests/httpsclient.py`.
 
 Whether you're writing a client or server, there are six steps:
 
- 1. Create a socket and connect it to the other party.
- 2. Construct a TLSConnection instance with the socket.
- 3. Call a handshake function on TLSConnection to perform the TLS handshake.
- 4. Check the results to make sure you're talking to the right party.
- 5. Use the TLSConnection to exchange data.
- 6. Call close() on the TLSConnection when you're done.
+1. Create a socket and connect it to the other party.
+1. Construct a TLSConnection instance with the socket.
+1. Call a handshake function on TLSConnection to perform the TLS handshake.
+1. Check the results to make sure you're talking to the right party.
+1. Use the TLSConnection to exchange data.
+1. Call close() on the TLSConnection when you're done.
 
 tlslite-ng also integrates with several stdlib python libraries. See the
 sections following this one for details.
@@ -417,32 +417,32 @@ signalled by the client or server.
 
 Client `handshake_failure`:
 
- * SRP parameters are not recognized by client
- * Server's TACK was unrelated to its certificate chain
+* SRP parameters are not recognized by client
+* Server's TACK was unrelated to its certificate chain
 
 Client `insufficient_security`:
 
- * SRP parameters are too small
+* SRP parameters are too small
 
 Client `protocol_version`:
 
- * Client doesn't support the server's protocol version
+* Client doesn't support the server's protocol version
 
 Server `protocol_version`:
 
- * Server doesn't support the client's protocol version
+* Server doesn't support the client's protocol version
 
 Server `bad_record_mac`:
 
- * bad SRP username or password
+* bad SRP username or password
 
 Server `unknown_psk_identity`:
 
- * bad SRP username (`bad_record_mac` could be used for the same thing)
+* bad SRP username (`bad_record_mac` could be used for the same thing)
 
 Server `handshake_failure`:
 
- * no matching cipher suites
+* no matching cipher suites
 
 5 Step 5 - exchange data
 -------------------------
@@ -477,7 +477,6 @@ close. (NOTE: some TLS implementations will not respond properly to the
 `close_notify` alert that close() generates, so the connection will hang if
 closeSocket is set to True.)
 
-
 6 Using tlslite-ng with httplib
 ===============================
 
@@ -503,7 +502,6 @@ different types of authentication.
   [...]
 ```
 
-
 7 Using tlslite-ng with poplib or imaplib
 =========================================
 
@@ -525,7 +523,6 @@ behave similarly.
           x509Fingerprint="00c14371227b3b677ddb9c4901e6f2aee18d3e45")
   [...]
 ```
-
 
 8 Using tlslite-ng with smtplib
 ===============================
@@ -555,14 +552,12 @@ handshake() method, doing some sort of server handshake on the connection
 argument.  If the handshake method returns True, the RequestHandler will be
 triggered.  See the tests/httpsserver.py example.
 
-
 10 Using tlslite-ng with asyncore
 =================================
 
 tlslite-ng can be used with subclasses of asyncore.dispatcher.  See the comments
 in TLSAsyncDispatcherMixIn.py for details.  This is still experimental, and
 may not work with all asyncore.dispatcher subclasses.
-
 
 11 Security Considerations
 ===========================
@@ -589,128 +584,128 @@ encrypt-then-MAC mode for CBC ciphers.
 
 0.6.0 - WIP
 
- * Session Hash a.k.a. Extended Master Secret extension from RFC 7627
- * make the library work on systems working in FIPS mode
- * support for the padding extension from RFC 7685 (Karel Srot)
- * abitlity to perform reverse lookups on many of the TLS type enumerations
- * added ECDHE_RSA key exchange together with associated ciphersuites
- * refactor key exchange code to remove duplication and make adding new methods
-   easier
- * add support for all hashes for ServerKeyExchange and CertificateVerify
-   messages in TLS 1.2
- * mark library as compatible with Python 3.5 (it was previously, but now
-   it is verified with Continous Integration)
- * small cleanups and more documentation
- * add support for ChaCha20 and Poly1305
- * add TLS_DHE_RSA_WITH_CHACHA20_POLY1305 ciphersuite
- * expose padding and MAC-ing functions and blockSize property in RecordLayer
+* Session Hash a.k.a. Extended Master Secret extension from RFC 7627
+* make the library work on systems working in FIPS mode
+* support for the padding extension from RFC 7685 (Karel Srot)
+* abitlity to perform reverse lookups on many of the TLS type enumerations
+* added ECDHE_RSA key exchange together with associated ciphersuites
+* refactor key exchange code to remove duplication and make adding new methods
+  easier
+* add support for all hashes for ServerKeyExchange and CertificateVerify
+  messages in TLS 1.2
+* mark library as compatible with Python 3.5 (it was previously, but now
+  it is verified with Continous Integration)
+* small cleanups and more documentation
+* add support for ChaCha20 and Poly1305
+* add TLS_DHE_RSA_WITH_CHACHA20_POLY1305 ciphersuite
+* expose padding and MAC-ing functions and blockSize property in RecordLayer
 
 0.5.1 - 2015-11-05
 
- * fix SRP_SHA_RSA ciphersuites in TLSv1.2 (for real this time)
- * minor enchancements in test scripts
- * NOTE: KeyExchange class is not part of stable API yet (it will be moved to
-   different module later)!
+* fix SRP_SHA_RSA ciphersuites in TLSv1.2 (for real this time)
+* minor enchancements in test scripts
+* NOTE: KeyExchange class is not part of stable API yet (it will be moved to
+  different module later)!
 
 0.5.0 - 10/10/2015
 
- * fix generators in AsyncStateMachine to work on Python3 (Theron Lewis)
- * fix CVE-2015-3220 - remote DoS caused by incorrect malformed packet handling
- * removed RC4 from ciphers supported by default
- * add supported_groups, supported_point_formats, signature_algorithms and
-   renegotiation_info extensions
- * remove most CBC MAC-ing and padding timing side-channel leaks (should fix
-   CVE-2013-0169, a.k.a. Lucky13)
- * add support for NULL encryption - TLS_RSA_WITH_NULL_MD5,
-   TLS_RSA_WITH_NULL_SHA and TLS_RSA_WITH_NULL_SHA256 ciphersuites
- * add more ADH ciphers (TLS_DH_ANON_WITH_RC4_128_MD5,
-   TLS_DH_ANON_WITH_3DES_EDE_CBC_SHA, TLS_DH_ANON_WITH_AES_128_CBC_SHA256,
-   TLS_DH_ANON_WITH_AES_256_CBC_SHA256, TLS_DH_ANON_WITH_AES_128_GCM_SHA256,
-   TLS_DH_ANON_WITH_AES_256_GCM_SHA384)
- * implement a TLS record layer abstraction that makes it very easy to handle
-   TLS handshake and alert protocol messages (MessageSocket)
- * fix reqCert option in tls.py server
- * implement AES-256-GCM ciphersuites and SHA384 PRF
- * implement AES-GCM cipher and AES-128-GCM ciphersuites (David Benjamin -
-   Chromium)
- * implement client side DHE_RSA key exchange and DHE with certificate based
-   client authentication
- * implement server side DHE_RSA key exchange (David Benjamin - Chromium)
- * don't use TLSv1.2 ciphers in earlier protocols (David Benjamin - Chromium)
- * fix certificate-based client authentication in TLSv1.2 (David Benjamin -
-   Chromium)
- * fix SRP_SHA_RSA ciphersuites
- * properly implement record layer fragmentation (previously worked just for
-   Application Data) - RFC 5246 Section 6.2.1
- * Implement RFC 7366 - Encrypt-then-MAC
- * generate minimal padding for CBC ciphers (David Benjamin - Chromium)
- * implementation of `FALLBACK_SCSV` (David Benjamin - Chromium)
- * fix issue with handling keys in session cache (Mirko Dziadzka)
- * coverage measurement for unit tests
- * introduced Continous Integration, targetting 2.6, 2.7, 3.2, 3.3 and 3.4
- * support PKCS#8 files with m2crypto installed for loading private keys
- * fix Writer not to silently overflow integers
- * fix Parser getFixBytes boundary checking
- * big code refactors, mainly TLSRecordLayer and TLSConnection, lot of code put
-   under unit test coverage
+* fix generators in AsyncStateMachine to work on Python3 (Theron Lewis)
+* fix CVE-2015-3220 - remote DoS caused by incorrect malformed packet handling
+* removed RC4 from ciphers supported by default
+* add supported_groups, supported_point_formats, signature_algorithms and
+  renegotiation_info extensions
+* remove most CBC MAC-ing and padding timing side-channel leaks (should fix
+  CVE-2013-0169, a.k.a. Lucky13)
+* add support for NULL encryption - TLS_RSA_WITH_NULL_MD5,
+  TLS_RSA_WITH_NULL_SHA and TLS_RSA_WITH_NULL_SHA256 ciphersuites
+* add more ADH ciphers (TLS_DH_ANON_WITH_RC4_128_MD5,
+  TLS_DH_ANON_WITH_3DES_EDE_CBC_SHA, TLS_DH_ANON_WITH_AES_128_CBC_SHA256,
+  TLS_DH_ANON_WITH_AES_256_CBC_SHA256, TLS_DH_ANON_WITH_AES_128_GCM_SHA256,
+  TLS_DH_ANON_WITH_AES_256_GCM_SHA384)
+* implement a TLS record layer abstraction that makes it very easy to handle
+  TLS handshake and alert protocol messages (MessageSocket)
+* fix reqCert option in tls.py server
+* implement AES-256-GCM ciphersuites and SHA384 PRF
+* implement AES-GCM cipher and AES-128-GCM ciphersuites (David Benjamin -
+  Chromium)
+* implement client side DHE_RSA key exchange and DHE with certificate based
+  client authentication
+* implement server side DHE_RSA key exchange (David Benjamin - Chromium)
+* don't use TLSv1.2 ciphers in earlier protocols (David Benjamin - Chromium)
+* fix certificate-based client authentication in TLSv1.2 (David Benjamin -
+  Chromium)
+* fix SRP_SHA_RSA ciphersuites
+* properly implement record layer fragmentation (previously worked just for
+  Application Data) - RFC 5246 Section 6.2.1
+* Implement RFC 7366 - Encrypt-then-MAC
+* generate minimal padding for CBC ciphers (David Benjamin - Chromium)
+* implementation of `FALLBACK_SCSV` (David Benjamin - Chromium)
+* fix issue with handling keys in session cache (Mirko Dziadzka)
+* coverage measurement for unit tests
+* introduced Continous Integration, targetting 2.6, 2.7, 3.2, 3.3 and 3.4
+* support PKCS#8 files with m2crypto installed for loading private keys
+* fix Writer not to silently overflow integers
+* fix Parser getFixBytes boundary checking
+* big code refactors, mainly TLSRecordLayer and TLSConnection, lot of code put
+  under unit test coverage
 
 0.4.8 - 11/12/2014
 
- * Added more acknowledgements and security considerations
+* Added more acknowledgements and security considerations
 
 0.4.7 - 11/12/2014
 
- * Added TLS 1.2 support (Yngve Pettersen and Paul Sokolovsky)
- * Don't offer SSLv3 by default (e.g. POODLE)
- * Fixed bug with `PyCrypto_RSA` integration
- * Fixed harmless bug that added non-prime into sieves list
- * Added "make test" and "make test-dev" targets (Hubert Kario)
+* Added TLS 1.2 support (Yngve Pettersen and Paul Sokolovsky)
+* Don't offer SSLv3 by default (e.g. POODLE)
+* Fixed bug with `PyCrypto_RSA` integration
+* Fixed harmless bug that added non-prime into sieves list
+* Added "make test" and "make test-dev" targets (Hubert Kario)
 
 0.4.5 - 3/20/2013
 
- * **API CHANGE**: TLSClosedConnectionError instead of ValueError when writing
-   to a closed connection.  This inherits from socket.error, so should
-   interact better with SocketServer (see http://bugs.python.org/issue14574)
-   and other things expecting a socket.error in this situation.
- * Added support for RC4-MD5 ciphersuite (if enabled in settings)
-   * This is allegedly necessary to connect to some Internet servers.
- * Added TLSConnection.unread() function
- * Switched to New-style classes (inherit from 'object')
- * Minor cleanups
+* **API CHANGE**: TLSClosedConnectionError instead of ValueError when writing
+  to a closed connection.  This inherits from socket.error, so should
+  interact better with SocketServer (see http://bugs.python.org/issue14574)
+  and other things expecting a socket.error in this situation.
+* Added support for RC4-MD5 ciphersuite (if enabled in settings)
+  * This is allegedly necessary to connect to some Internet servers.
+* Added TLSConnection.unread() function
+* Switched to New-style classes (inherit from 'object')
+* Minor cleanups
 
 0.4.4 - 2/25/2013
 
- * Added Python 3 support (Martin von Loewis)
- * Added NPN client support (Marcelo Fernandez)
- * Switched to RC4 as preferred cipher
-   * faster in Python, avoids "Lucky 13" timing attacks
- * Fixed bug when specifying ciphers for anon ciphersuites
- * Made RSA hashAndVerify() tolerant of sigs w/o encoded NULL AlgorithmParam
-   * (this function is not used for TLS currently, and this tolerance may
-      not even be necessary)
+* Added Python 3 support (Martin von Loewis)
+* Added NPN client support (Marcelo Fernandez)
+* Switched to RC4 as preferred cipher
+  * faster in Python, avoids "Lucky 13" timing attacks
+* Fixed bug when specifying ciphers for anon ciphersuites
+* Made RSA hashAndVerify() tolerant of sigs w/o encoded NULL AlgorithmParam
+  * (this function is not used for TLS currently, and this tolerance may
+     not even be necessary)
 
 0.4.3 - 9/27/2012
 
- * Minor bugfix (0.4.2 doesn't load tackpy)
+* Minor bugfix (0.4.2 doesn't load tackpy)
 
 0.4.2 - 9/25/2012
 
- * Updated TACK (compatible with tackpy 0.9.9)
+* Updated TACK (compatible with tackpy 0.9.9)
 
 0.4.1 - 5/22/2012
 
- * Fixed RSA padding bugs (w/help from John Randolph)
- * Updated TACK (compatible with tackpy 0.9.7)
- * Added SNI
- * Added NPN server support (Sam Rushing/Google)
- * Added AnonDH (Dimitris Moraitis)
- * Added X509CertChain.parsePemList
- * Improved XML-RPC (Kees Bos)
+* Fixed RSA padding bugs (w/help from John Randolph)
+* Updated TACK (compatible with tackpy 0.9.7)
+* Added SNI
+* Added NPN server support (Sam Rushing/Google)
+* Added AnonDH (Dimitris Moraitis)
+* Added X509CertChain.parsePemList
+* Improved XML-RPC (Kees Bos)
 
 0.4.0 - 2/11/2012
 
- * Fixed pycrypto support
- * Fixed python 2.6 problems
+* Fixed pycrypto support
+* Fixed python 2.6 problems
 
 0.3.9.x - 2/7/2012
 
@@ -721,148 +716,148 @@ https://github.com/moxie0/Convergence/wiki/TACK ).
 
 Also:
 
- * Security Fixes
-   * Sends SCSV ciphersuite as per RFC 5746, to signal non-renegotiated
-     Client Hello.  Does not support renegotiation (never has).
-   * Change from e=3 to e=65537 for generated RSA keys, not strictly
-     necessary but mitigates risk of sloppy verifier.
-   * 1/(n-1) countermeasure for BEAST.
+* Security Fixes
+  * Sends SCSV ciphersuite as per RFC 5746, to signal non-renegotiated
+    Client Hello.  Does not support renegotiation (never has).
+  * Change from e=3 to e=65537 for generated RSA keys, not strictly
+    necessary but mitigates risk of sloppy verifier.
+  * 1/(n-1) countermeasure for BEAST.
 
- * Behavior changes:
-   * Split cmdline into tls.py and tlstest.py, improved options.
-   * Formalized LICENSE.
-   * Defaults to closing socket after sending `close_notify`, fixes hanging.
-     problem that would occur sometime when waiting for other party's
-     close_notify.
-   * Update SRP to RFC 5054 compliance.
-   * Removed client handshake "callbacks", no longer support the SRP
-     re-handshake idiom within a single handshake function.
+* Behavior changes:
+  * Split cmdline into tls.py and tlstest.py, improved options.
+  * Formalized LICENSE.
+  * Defaults to closing socket after sending `close_notify`, fixes hanging.
+    problem that would occur sometime when waiting for other party's
+    close_notify.
+  * Update SRP to RFC 5054 compliance.
+  * Removed client handshake "callbacks", no longer support the SRP
+    re-handshake idiom within a single handshake function.
 
- * Bugfixes
-   * Added hashlib support, removes Deprecation Warning due to sha and md5.
-   * Handled GeneratorExit exceptions that are a new Python feature, and
-     interfere with the async code if not handled.
+* Bugfixes
+  * Added hashlib support, removes Deprecation Warning due to sha and md5.
+  * Handled GeneratorExit exceptions that are a new Python feature, and
+    interfere with the async code if not handled.
 
- * Removed:
-   * Shared keys (it was based on an ancient I-D, not TLS-PSK).
-   * cryptlib support, it wasn't used much, we have enough other options.
-   * cryptoIDs (TACK is better).
-   * win32prng extension module, as os.urandom is now available.
-   * Twisted integration (unused?, slowed down loading).
-   * Jython code (ancient, didn't work).
-   * Compat support for python versions < 2.7.
+* Removed:
+  * Shared keys (it was based on an ancient I-D, not TLS-PSK).
+  * cryptlib support, it wasn't used much, we have enough other options.
+  * cryptoIDs (TACK is better).
+  * win32prng extension module, as os.urandom is now available.
+  * Twisted integration (unused?, slowed down loading).
+  * Jython code (ancient, didn't work).
+  * Compat support for python versions < 2.7.
 
- * Additions
-   * Support for TACK via TACKpy.
-   * Support for `CertificateRequest.certificate_authorities` ("reqCAs")
-   * Added TLSConnection.shutdown() to better mimic socket.
-   * Enabled Session resumption for XMLRPCTransport.
+* Additions
+  * Support for TACK via TACKpy.
+  * Support for `CertificateRequest.certificate_authorities` ("reqCAs")
+  * Added TLSConnection.shutdown() to better mimic socket.
+  * Enabled Session resumption for XMLRPCTransport.
 
 0.3.8 - 2/21/2005
 
- * Added support for poplib, imaplib, and smtplib
- * Added python 2.4 windows installer
- * Fixed occassional timing problems with test suite
+* Added support for poplib, imaplib, and smtplib
+* Added python 2.4 windows installer
+* Fixed occassional timing problems with test suite
 
 0.3.7 - 10/05/2004
 
- * Added support for Python 2.2
- * Cleaned up compatibility code, and docs, a bit
+* Added support for Python 2.2
+* Cleaned up compatibility code, and docs, a bit
 
 0.3.6 - 9/28/2004
 
- * Fixed script installation on UNIX
- * Give better error message on old Python versions
+* Fixed script installation on UNIX
+* Give better error message on old Python versions
 
 0.3.5 - 9/16/2004
 
- * TLS 1.1 support
- * os.urandom() support
- * Fixed win32prng on some systems
+* TLS 1.1 support
+* os.urandom() support
+* Fixed win32prng on some systems
 
 0.3.4 - 9/12/2004
 
- * Updated for TLS/SRP draft 8
- * Bugfix: was setting `_versioncheck` on SRP 1st hello, causing problems
-   with GnuTLS (which was offering TLS 1.1)
- * Removed `_versioncheck` checking, since it could cause interop problems
- * Minor bugfix: when `cryptlib_py` and and cryptoIDlib present, cryptlib
-   was complaining about being initialized twice
+* Updated for TLS/SRP draft 8
+* Bugfix: was setting `_versioncheck` on SRP 1st hello, causing problems
+  with GnuTLS (which was offering TLS 1.1)
+* Removed `_versioncheck` checking, since it could cause interop problems
+* Minor bugfix: when `cryptlib_py` and and cryptoIDlib present, cryptlib
+  was complaining about being initialized twice
 
 0.3.3 - 6/10/2004
 
- * Updated for TLS/SRP draft 7
- * Updated test cryptoID cert chains for cryptoIDlib 0.3.1
+* Updated for TLS/SRP draft 7
+* Updated test cryptoID cert chains for cryptoIDlib 0.3.1
 
 0.3.2 - 5/21/2004
 
- * fixed bug when handling multiple handshake messages per record (e.g. IIS)
+* fixed bug when handling multiple handshake messages per record (e.g. IIS)
 
 0.3.1 - 4/21/2004
 
- * added xmlrpclib integration
- * fixed hanging bug in Twisted integration
- * fixed win32prng to work on a wider range of win32 sytems
- * fixed import problem with cryptoIDlib
- * fixed port allocation problem when test scripts are run on some UNIXes
- * made tolerant of buggy IE sending wrong version in premaster secret
+* added xmlrpclib integration
+* fixed hanging bug in Twisted integration
+* fixed win32prng to work on a wider range of win32 sytems
+* fixed import problem with cryptoIDlib
+* fixed port allocation problem when test scripts are run on some UNIXes
+* made tolerant of buggy IE sending wrong version in premaster secret
 
 0.3.0 - 3/20/2004
 
- * added API docs thanks to epydoc
- * added X.509 path validation via cryptlib
- * much cleaning/tweaking/re-factoring/minor fixes
+* added API docs thanks to epydoc
+* added X.509 path validation via cryptlib
+* much cleaning/tweaking/re-factoring/minor fixes
 
 0.2.7 - 3/12/2004
 
- * changed Twisted error handling to use connectionLost()
- * added ignoreAbruptClose
+* changed Twisted error handling to use connectionLost()
+* added ignoreAbruptClose
 
 0.2.6 - 3/11/2004
 
- * added Twisted errorHandler
- * added TLSAbruptCloseError
- * added 'integration' subdirectory
+* added Twisted errorHandler
+* added TLSAbruptCloseError
+* added 'integration' subdirectory
 
 0.2.5 - 3/10/2004
 
- * improved asynchronous support a bit
- * added first-draft of Twisted support
+* improved asynchronous support a bit
+* added first-draft of Twisted support
 
 0.2.4 - 3/5/2004
 
- * cleaned up asyncore support
- * added proof-of-concept for Twisted
+* cleaned up asyncore support
+* added proof-of-concept for Twisted
 
 0.2.3 - 3/4/2004
 
- * added pycrypto RSA support
- * added asyncore support
+* added pycrypto RSA support
+* added asyncore support
 
 0.2.2 - 3/1/2004
 
- * added GMPY support
- * added pycrypto support
- * added support for PEM-encoded private keys, in pure python
+* added GMPY support
+* added pycrypto support
+* added support for PEM-encoded private keys, in pure python
 
 0.2.1 - 2/23/2004
 
- * improved PRNG use (cryptlib, or /dev/random, or CryptoAPI)
- * added RSA blinding, to avoid timing attacks
- * don't install local copy of M2Crypto, too problematic
+* improved PRNG use (cryptlib, or /dev/random, or CryptoAPI)
+* added RSA blinding, to avoid timing attacks
+* don't install local copy of M2Crypto, too problematic
 
 0.2.0 - 2/19/2004
 
- * changed VerifierDB to take per-user parameters
- * renamed `tls_lite` -> tlslite
+* changed VerifierDB to take per-user parameters
+* renamed `tls_lite` -> tlslite
 
 0.1.9 - 2/16/2004
 
- * added post-handshake 'Checker'
- * made compatible with Python 2.2
- * made more forgiving of abrupt closure, since everyone does it:
-   if the socket is closed while sending/recv'ing `close_notify`,
-   just ignore it.
+* added post-handshake 'Checker'
+* made compatible with Python 2.2
+* made more forgiving of abrupt closure, since everyone does it:
+  if the socket is closed while sending/recv'ing `close_notify`,
+  just ignore it.
 
 0.1.8 - 2/12/2004
 
@@ -871,53 +866,53 @@ Also:
 
 0.1.7 - 2/11/2004
 
- * fixed httplib.HTTPTLSConnection with multiple requests
- * fixed SocketServer to handle `close_notify`
- * changed handshakeClientNoAuth() to ignore CertificateRequests
- * changed handshakeClient() to ignore non-resumable session arguments
+* fixed httplib.HTTPTLSConnection with multiple requests
+* fixed SocketServer to handle `close_notify`
+* changed handshakeClientNoAuth() to ignore CertificateRequests
+* changed handshakeClient() to ignore non-resumable session arguments
 
 0.1.6 - 2/10/2004
 
- * fixed httplib support
+* fixed httplib support
 
 0.1.5 - 2/09/2004
 
- * added support for httplib and SocketServer
- * added support for SSLv3
- * added support for 3DES
- * cleaned up read()/write() behavior
- * improved HMAC speed
+* added support for httplib and SocketServer
+* added support for SSLv3
+* added support for 3DES
+* cleaned up read()/write() behavior
+* improved HMAC speed
 
 0.1.4 - 2/06/2004
 
- * fixed dumb bug in tls.py
+* fixed dumb bug in tls.py
 
 0.1.3 - 2/05/2004
 
- * change read() to only return requested number of bytes
- * added support for shared-key and in-memory databases
- * added support for PEM-encoded X.509 certificates
- * added support for SSLv2 ClientHello
- * fixed shutdown/re-handshaking behavior
- * cleaned up handling of `missing_srp_username`
- * renamed readString()/writeString() -> read()/write()
- * added documentation
+* change read() to only return requested number of bytes
+* added support for shared-key and in-memory databases
+* added support for PEM-encoded X.509 certificates
+* added support for SSLv2 ClientHello
+* fixed shutdown/re-handshaking behavior
+* cleaned up handling of `missing_srp_username`
+* renamed readString()/writeString() -> read()/write()
+* added documentation
 
 0.1.2 - 2/04/2004
 
- * added clienttest/servertest functions
- * improved OpenSSL cipher wrappers speed
- * fixed server when it has a key, but client selects plain SRP
- * fixed server to postpone errors until it has read client's messages
- * fixed ServerHello to only include extension data if necessary
+* added clienttest/servertest functions
+* improved OpenSSL cipher wrappers speed
+* fixed server when it has a key, but client selects plain SRP
+* fixed server to postpone errors until it has read client's messages
+* fixed ServerHello to only include extension data if necessary
 
 0.1.1 - 2/02/2004
 
- * fixed `close_notify` behavior
- * fixed handling of empty application data packets
- * fixed socket reads to not consume extra bytes
- * added testing functions to tls.py
+* fixed `close_notify` behavior
+* fixed handling of empty application data packets
+* fixed socket reads to not consume extra bytes
+* added testing functions to tls.py
 
 0.1.0 - 2/01/2004
 
- * first release
+* first release
