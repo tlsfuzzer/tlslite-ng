@@ -48,20 +48,14 @@ CONTRIBUTING.md file for more information.
 tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 
 Implemented features of TLS include:
-
- *   SSLv3, TLSv1.0, TLSv1.1 and TLSv1.2
-
- *   ciphersuites with DHE, ECDHE, RSA and SRP key exchange together with
-     AES (including GCM variant), 3DES, RC4 and (the experimental) ChaCha20
-     symmetric ciphers.
-
- *   Secure Renegotiation
-
- *   Encrypt Then MAC extension
-
- *   TLS_FALLBACK_SCSV
-
- *   (experimental) TACK extension
+ * SSLv3, TLSv1.0, TLSv1.1 and TLSv1.2
+ * ciphersuites with DHE, ECDHE, RSA and SRP key exchange together with
+   AES (including GCM variant), 3DES, RC4 and (the experimental) ChaCha20
+   symmetric ciphers.
+ * Secure Renegotiation
+ * Encrypt Then MAC extension
+ * TLS_FALLBACK_SCSV
+ * (experimental) TACK extension
 
 2 Licenses/Acknowledgements
 ============================
@@ -85,24 +79,21 @@ Thanks to Edward Loper for Epydoc, which generated the API docs.
 
 Requirements:
 
-  *   Python 2.6 or higher is required.
-  *   Python 3.2 or higher is supported.
-  *   python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
-      [PyPI](https://pypi.python.org/pypi/ecdsa))
+  * Python 2.6 or higher is required.
+  * Python 3.2 or higher is supported.
+  * python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
+    [PyPI](https://pypi.python.org/pypi/ecdsa))
 
 Options:
 
-  *   If you have the M2Crypto interface to OpenSSL, this will be used for fast
-      RSA operations and fast ciphers.
-
-  *   If you have pycrypto this will be used for fast RSA operations and fast
-      ciphers.
-
-  *   If you have the GMPY interface to GMP, this will be used for fast RSA and
-      SRP operations.
-
-  *   These modules don't need to be present at installation - you can install
-      them any time.
+  * If you have the M2Crypto interface to OpenSSL, this will be used for fast
+    RSA operations and fast ciphers.
+  * If you have pycrypto this will be used for fast RSA operations and fast
+    ciphers.
+  * If you have the GMPY interface to GMP, this will be used for fast RSA and
+    SRP operations.
+  * These modules don't need to be present at installation - you can install
+    them any time.
 
 3.1 Automatic
 -------------
