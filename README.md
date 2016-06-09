@@ -120,9 +120,11 @@ Run 'python setup.py install'
 Test the Installation
 
 * From the distribution's directory, run:
-  ```
-  make test
-  ```
+
+    ```
+    make test
+    ```
+
 * If it says "Test succeeded" at the end, you're ready to go.
 
 
@@ -257,7 +259,7 @@ authenticate itself using an X.509 certificate chain.
 The ClientCert function can also be used to do client authentication with an
 X.509 certificate chain and corresponding private key. To use X.509 chains,
 you'll need some way of creating these, such as OpenSSL (see
-http://www.openssl.org/docs/HOWTO/ for details).
+[HOWTO](http://www.openssl.org/docs/HOWTO/) for details).
 
 Below is an example of loading an X.509 chain and private key:
 
@@ -665,7 +667,7 @@ encrypt-then-MAC mode for CBC ciphers.
 
 * **API CHANGE**: TLSClosedConnectionError instead of ValueError when writing
   to a closed connection.  This inherits from socket.error, so should
-  interact better with SocketServer (see http://bugs.python.org/issue14574)
+  interact better with SocketServer (see [issue14574](http://bugs.python.org/issue14574))
   and other things expecting a socket.error in this situation.
 * Added support for RC4-MD5 ciphersuite (if enabled in settings)
   * This is allegedly necessary to connect to some Internet servers.
@@ -712,7 +714,7 @@ encrypt-then-MAC mode for CBC ciphers.
 Much code cleanup, in particular decomposing the handshake functions so they
 are readable. The main new feature is support for TACK, an experimental
 authentication method that provides a new way to pin server certificates (See
-https://github.com/moxie0/Convergence/wiki/TACK ).
+[moxie0/Convergance](https://github.com/moxie0/Convergence/wiki/TACK) ).
 
 Also:
 
@@ -861,8 +863,8 @@ Also:
 
 0.1.8 - 2/12/2004
 
- * TLSConnections now emulate sockets, including makefile()
- * HTTPTLSConnection and TLSMixIn simplified as a result
+* TLSConnections now emulate sockets, including makefile()
+* HTTPTLSConnection and TLSMixIn simplified as a result
 
 0.1.7 - 2/11/2004
 
