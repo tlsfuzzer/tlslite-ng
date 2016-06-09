@@ -23,20 +23,20 @@ install local python packages (ability to run pip).
 
 The list goes as follows:
 
- * python (2.7 or 3.4)
- * git
- * GNU make
- * pip
+* python (2.7 or 3.4)
+* git
+* GNU make
+* pip
 
 The python module dependencies are as follows:
 
- * unittest (unittest2 on Python 2; should be part of Python 3 install)
- * mock (should be part of Python 3 distribution of unittest)
- * ecdsa
- * pylint
- * diff_cover
- * coverage
- * hypothesis
+* unittest (unittest2 on Python 2; should be part of Python 3 install)
+* mock (should be part of Python 3 distribution of unittest)
+* ecdsa
+* pylint
+* diff_cover
+* coverage
+* hypothesis
 
 On Fedora they can be installed using:
 
@@ -48,10 +48,10 @@ dnf install python-ecdsa python3-ecdsa pylint python3-pylint python-diff-cover \
 
 Optional module dependencies:
 
- * tackpy
- * m2crypto
- * pycrypto
- * gmpy
+* tackpy
+* m2crypto
+* pycrypto
+* gmpy
 
 On Fedora they can be installed using:
 
