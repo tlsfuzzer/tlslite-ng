@@ -14,18 +14,18 @@ https://github.com/tomato42/tlslite-ng/
 Table of Contents
 ==================
 
-1.  Introduction
-2.  License/Acknowledgements
-3.  Installation
-4.  Getting Started with the Command-Line Tools
-5.  Getting Started with the Library
-6.  Using tlslite-ng with httplib
-7.  Using tlslite-ng with poplib or imaplib
-8.  Using tlslite-ng with smtplib
-9.  Using tlslite-ng with SocketServer
-10. Using tlslite-ng with asyncore
-11. SECURITY CONSIDERATIONS
-12. History
+ 1. Introduction
+ 2. License/Acknowledgements
+ 3. Installation
+ 4. Getting Started with the Command-Line Tools
+ 5. Getting Started with the Library
+ 6. Using tlslite-ng with httplib
+ 7. Using tlslite-ng with poplib or imaplib
+ 8. Using tlslite-ng with smtplib
+ 9. Using tlslite-ng with SocketServer
+ 10. Using tlslite-ng with asyncore
+ 11. SECURITY CONSIDERATIONS
+ 12. History
 
 
 1 Introduction
@@ -128,6 +128,7 @@ Test the Installation
 
 4 Getting Started with the Command-Line Tools
 ==============================================
+
 tlslite-ng installs two command-line scripts: `tlsdb.py` and `tls.py`.
 
 `tls.py` lets you run test clients and servers. It can be used for testing
@@ -140,6 +141,7 @@ a TLS server when authenticating clients with SRP.
 
 X.509
 ------
+
 To run an X.509 server, go to the ./tests directory and do:
 
 ```
@@ -154,6 +156,7 @@ tls.py client localhost:4443
 
 X.509 with TACK
 ----------------
+
 To run an X.509 server using a TACK, install TACKpy, then run the same server
 command as above with added arguments:
 
@@ -163,6 +166,7 @@ command as above with added arguments:
 
 SRP
 ----
+
 To run an SRP server, try something like:
 
 ```
@@ -181,28 +185,29 @@ tls.py client localhost:4443 alice abra123cadabra
 
 HTTPS
 ------
+
 To run an HTTPS server with less typing, run `./tests/httpsserver.sh`.
 
 To run an HTTPS client, run `./tests/httpsclient.py`.
-
 
 5 Getting Started with the Library
 ===================================
 
 Whether you're writing a client or server, there are six steps:
 
-1. Create a socket and connect it to the other party.
-2. Construct a TLSConnection instance with the socket.
-3. Call a handshake function on TLSConnection to perform the TLS handshake.
-4. Check the results to make sure you're talking to the right party.
-5. Use the TLSConnection to exchange data.
-6. Call close() on the TLSConnection when you're done.
+ 1. Create a socket and connect it to the other party.
+ 2. Construct a TLSConnection instance with the socket.
+ 3. Call a handshake function on TLSConnection to perform the TLS handshake.
+ 4. Check the results to make sure you're talking to the right party.
+ 5. Use the TLSConnection to exchange data.
+ 6. Call close() on the TLSConnection when you're done.
 
 tlslite-ng also integrates with several stdlib python libraries. See the
 sections following this one for details.
 
 5 Step 1 - create a socket
 ---------------------------
+
 Below demonstrates a socket connection to Amazon's secure site.
 
 ```
@@ -213,6 +218,7 @@ Below demonstrates a socket connection to Amazon's secure site.
 
 5 Step 2 - construct a TLSConnection
 -------------------------------------
+
 You can import tlslite objects individually, such as:
 
 ```
@@ -233,6 +239,7 @@ Then do:
 
 5 Step 3 - call a handshake function (client)
 ----------------------------------------------
+
 If you're a client, there's two different handshake functions you can call,
 depending on how you want to authenticate:
 
@@ -306,6 +313,7 @@ finish more quickly. Otherwise, the full handshake will be done. For example:
 
 5 Step 3 - call a handshake function (server)
 ----------------------------------------------
+
 If you're a server, there's only one handshake function, but you can pass it
 several different parameters, depending on which types of authentication
 you're willing to perform.
@@ -361,6 +369,7 @@ thread-safe.
 
 5 Step 4 - check the results
 -----------------------------
+
 If the handshake completes without raising an exception, authentication
 results will be stored in the connection's session object.  The following
 variables will be populated if applicable, or else set to None:
@@ -437,6 +446,7 @@ Server `handshake_failure`:
 
 5 Step 5 - exchange data
 -------------------------
+
 Now that you have a connection, you can call read() and write() as if it were
 a socket.SSL object. You can also call send(), sendall(), recv(), and
 makefile() as if it were a socket. These calls may raise TLSLocalAlert,
@@ -451,6 +461,7 @@ socket.error.
 
 5 Step 6 - close the connection
 --------------------------------
+
 When you're finished sending data, you should call close() to close the
 connection and socket. When the connection is closed properly, the session
 object can be used for session resumption.
@@ -469,6 +480,7 @@ closeSocket is set to True.)
 
 6 Using tlslite-ng with httplib
 ===============================
+
 tlslite-ng comes with an HTTPTLSConnection class that extends httplib to work
 over SSL/TLS connections.  Depending on how you construct it, it will do
 different types of authentication.
@@ -494,6 +506,7 @@ different types of authentication.
 
 7 Using tlslite-ng with poplib or imaplib
 =========================================
+
 tlslite-ng comes with `POP3_TLS` and `IMAP4_TLS` classes that extend poplib and
 imaplib to work over SSL/TLS connections.  These classes can be constructed
 with the same parameters as HTTPTLSConnection (see previous section), and
@@ -516,6 +529,7 @@ behave similarly.
 
 8 Using tlslite-ng with smtplib
 ===============================
+
 tlslite-ng comes with an `SMTP_TLS` class that extends smtplib to work
 over SSL/TLS connections.  This class accepts the same parameters as
 HTTPTLSConnection (see previous section), and behaves similarly.  Depending
@@ -532,6 +546,7 @@ on how you call starttls(), it will do different types of authentication.
 
 9 Using tlslite-ng with SocketServer
 ====================================
+
 You can use tlslite-ng to implement servers using Python's SocketServer
 framework.  tlslite-ng comes with a TLSSocketServerMixIn class.  You can combine
 this with a TCPServer such as HTTPServer.  To combine them, define a new class
@@ -543,6 +558,7 @@ triggered.  See the tests/httpsserver.py example.
 
 10 Using tlslite-ng with asyncore
 =================================
+
 tlslite-ng can be used with subclasses of asyncore.dispatcher.  See the comments
 in TLSAsyncDispatcherMixIn.py for details.  This is still experimental, and
 may not work with all asyncore.dispatcher subclasses.
@@ -550,6 +566,7 @@ may not work with all asyncore.dispatcher subclasses.
 
 11 Security Considerations
 ===========================
+
 tlslite-ng is beta-quality code. It hasn't received much security analysis. Use
 at your own risk.
 
