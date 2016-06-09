@@ -10,7 +10,6 @@ https://github.com/tomato42/tlslite-ng/
 [![Code Climate](https://codeclimate.com/github/tomato42/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tomato42/tlslite-ng)
 [![Code Issues](https://www.quantifiedcode.com/api/v1/project/59e6019ef3c84ad7ba30c49ec46d990f/badge.svg)](https://www.quantifiedcode.com/app/project/59e6019ef3c84ad7ba30c49ec46d990f)
 
-
 Table of Contents
 ==================
 
@@ -26,7 +25,6 @@ Table of Contents
 1. Using tlslite-ng with asyncore
 1. SECURITY CONSIDERATIONS
 1. History
-
 
 1 Introduction
 ===============
