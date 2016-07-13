@@ -28,7 +28,7 @@ from .mathtls import *
 from .handshakesettings import HandshakeSettings
 from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
-        ECDHE_RSAKeyExchange, SRPKeyExchange
+        ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange
 from .handshakehelpers import HandshakeHelpers
 
 class TLSConnection(TLSRecordLayer):
@@ -1274,8 +1274,11 @@ class TLSConnection(TLSRecordLayer):
 
         # Perform anonymous Diffie Hellman key exchange
         elif cipherSuite in CipherSuite.anonSuites:
-            for result in self._serverAnonKeyExchange(clientHello, serverHello, 
-                                        cipherSuite, settings):
+            keyExchange = ADHKeyExchange(cipherSuite, clientHello,
+                                         serverHello, privateKey)
+            for result in self._serverAnonKeyExchange(clientHello, serverHello,
+                                                      keyExchange, cipherSuite,
+                                                      settings):
                 if result in (0,1): yield result
                 else: break
             premasterSecret = result
@@ -1695,47 +1698,31 @@ class TLSConnection(TLSRecordLayer):
         yield (premasterSecret, clientCertChain)
 
 
-    def _serverAnonKeyExchange(self, clientHello, serverHello, cipherSuite, 
-                               settings):
-        # Calculate DH p, g, Xs, Ys
-        # TODO make configurable
-        dh_g, dh_p = goodGroupParameters[2]
-        dh_Xs = bytesToNumber(getRandomBytes(32))
-        dh_Ys = powMod(dh_g, dh_Xs, dh_p)
+    def _serverAnonKeyExchange(self, clientHello, serverHello, keyExchange,
+                               cipherSuite, settings):
 
-        #Create ServerKeyExchange
-        serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
-        serverKeyExchange.createDH(dh_p, dh_g, dh_Ys)
-        
-        #Send ServerHello[, Certificate], ServerKeyExchange,
-        #ServerHelloDone  
+        # Create ServerKeyExchange
+        serverKeyExchange = keyExchange.makeServerKeyExchange()
+
+        # Send ServerHello[, Certificate], ServerKeyExchange,
+        # ServerHelloDone
         msgs = []
         msgs.append(serverHello)
         msgs.append(serverKeyExchange)
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result
-        
-        #Get and check ClientKeyExchange
+
+        # Get and check ClientKeyExchange
         for result in self._getMsg(ContentType.handshake,
                                    HandshakeType.client_key_exchange,
                                    cipherSuite):
             if result in (0,1):
-                yield result 
+                yield result
             else:
                 break
         clientKeyExchange = result
-        dh_Yc = clientKeyExchange.dh_Yc
-        
-        if dh_Yc % dh_p == 0:
-            for result in self._sendError(AlertDescription.illegal_parameter,
-                    "Suspicious dh_Yc value"):
-                yield result
-            assert(False) # Just to ensure we don't fall through somehow            
-
-        #Calculate premaster secre
-        S = powMod(dh_Yc,dh_Xs,dh_p)
-        premasterSecret = numberToByteArray(S)
+        premasterSecret = keyExchange.processClientKeyExchange(clientKeyExchange)
         
         yield premasterSecret
 
