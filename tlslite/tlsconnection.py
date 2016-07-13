@@ -30,6 +30,8 @@ from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange
 from .handshakehelpers import HandshakeHelpers
+from .utils.ecc import getCurveByName, encodeX962Point, decodeX962Point, \
+        getPointByteSize
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -1272,8 +1274,9 @@ class TLSConnection(TLSRecordLayer):
                 else: break
             (premasterSecret, clientCertChain) = result
 
-        # Perform anonymous Diffie Hellman key exchange
-        elif cipherSuite in CipherSuite.anonSuites:
+        # Perform anonymous (Elliptic curve) Diffie Hellman key exchange
+        elif (cipherSuite in CipherSuite.anonSuites or
+              cipherSuite in CipherSuite.ecdhAnonSuites):
             for result in self._serverAnonKeyExchange(clientHello, serverHello, 
                                         cipherSuite, settings):
                 if result in (0,1): yield result
@@ -1382,6 +1385,7 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getDheCertSuites(settings, self.version)
             cipherSuites += CipherSuite.getCertSuites(settings, self.version)
         elif anon:
+            cipherSuites += CipherSuite.getEcdhAnonSuites(settings, self.version)
             cipherSuites += CipherSuite.getAnonSuites(settings, self.version)
         else:
             assert(False)
@@ -1697,15 +1701,39 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverAnonKeyExchange(self, clientHello, serverHello, cipherSuite, 
                                settings):
+        # Calculate ECDH Xs, Ys
+        print("1")
+        if cipherSuite in CipherSuite.ecdhAnonSuites:
+            #Get client supported groups
+            acceptedCurves = self._curveNamesToList(settings)
+            client_curves = clientHello.getExtension(\
+                    ExtensionType.supported_groups)
+            client_curves = client_curves.groups
+            
+            group_id = next((x for x in client_curves \
+                    if x in acceptedCurves), None)
+            if group_id is None:
+                raise TLSInsufficientSecurity("No mutual groups")
+            generator = getCurveByName(GroupName.toRepr(group_id)).generator
+            ecdhXs = ecdsa.util.randrange(generator.order())
+            ecdhYs = encodeX962Point(generator * ecdhXs)
+            
+            #Create ECDH ServerKeyExchange
+            serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
+            serverKeyExchange.createECDH(ECCurveType.named_curve,
+                        named_curve=group_id,
+                        point=ecdhYs)
+                        
         # Calculate DH p, g, Xs, Ys
         # TODO make configurable
-        dh_g, dh_p = goodGroupParameters[2]
-        dh_Xs = bytesToNumber(getRandomBytes(32))
-        dh_Ys = powMod(dh_g, dh_Xs, dh_p)
+        else:
+            dh_g, dh_p = goodGroupParameters[2]
+            dh_Xs = bytesToNumber(getRandomBytes(32))
+            dh_Ys = powMod(dh_g, dh_Xs, dh_p)
 
-        #Create ServerKeyExchange
-        serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
-        serverKeyExchange.createDH(dh_p, dh_g, dh_Ys)
+            #Create ServerKeyExchange
+            serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
+            serverKeyExchange.createDH(dh_p, dh_g, dh_Ys)
         
         #Send ServerHello[, Certificate], ServerKeyExchange,
         #ServerHelloDone  
@@ -1725,17 +1753,25 @@ class TLSConnection(TLSRecordLayer):
             else:
                 break
         clientKeyExchange = result
-        dh_Yc = clientKeyExchange.dh_Yc
         
-        if dh_Yc % dh_p == 0:
-            for result in self._sendError(AlertDescription.illegal_parameter,
-                    "Suspicious dh_Yc value"):
-                yield result
-            assert(False) # Just to ensure we don't fall through somehow            
+        #Calculate premaster secret
+        if cipherSuite in CipherSuite.ecdhAnonSuites:
+            curveName = GroupName.toRepr(group_id)
+            ecdhYc = decodeX962Point(clientKeyExchange.ecdh_Yc,
+				     getCurveByName(curveName))
+            sharedSecret = ecdhYc * ecdhXs
+            premasterSecret = numberToByteArray(sharedSecret.x(),
+						      getPointByteSize(ecdhYc))
+        else:
+            dh_Yc = clientKeyExchange.dh_Yc
+            if dh_Yc % dh_p == 0:
+                for result in self._sendError(AlertDescription.illegal_parameter,
+                        "Suspicious dh_Yc value"):
+                    yield result
+                assert(False) # Just to ensure we don't fall through somehow            
 
-        #Calculate premaster secre
-        S = powMod(dh_Yc,dh_Xs,dh_p)
-        premasterSecret = numberToByteArray(S)
+            S = powMod(dh_Yc,dh_Xs,dh_p)
+            premasterSecret = numberToByteArray(S)
         
         yield premasterSecret
 
