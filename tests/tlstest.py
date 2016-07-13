@@ -445,6 +445,7 @@ def clientTestCmd(argv):
             h = connection.read(min=50000, max=50000)
             stopTime = time.time()
             sizeofdata = sys.getsizeof(h)*2
+            
             if stopTime-startTime:
                 print("100K exchanged at rate of %d bytes/sec" % int(sizeofdata/(stopTime-startTime)))
             else:
