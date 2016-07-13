@@ -8,7 +8,7 @@
 #   Martin von Loewis - python 3 port
 #   Hubert Kario - several improvements
 #   Google - FALLBACK_SCSV test
-#   Efthimis Iosifidis - improvements on the throughput measuring mechanism 
+#   Efthimis Iosifidis - Replaced the time.clock() with time.time() method. dynamic datasize on throughput calculation
 #
 # See the LICENSE file for legal information regarding use of this file.
 from __future__ import print_function
