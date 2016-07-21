@@ -84,6 +84,16 @@ class KeyExchange(object):
 
         serverKeyExchange.signature = self.privateKey.sign(hashBytes)
 
+        if not serverKeyExchange.signature:
+            raise TLSIllegalParameterException("Empty signature")
+
+        if not self.privateKey.verify(serverKeyExchange.signature, hashBytes):
+            raise TLSDecryptionFailed("Server Key Exchange signature "
+                                      "invalid")
+
+
+
+
     @staticmethod
     def verifyServerKeyExchange(serverKeyExchange, publicKey, clientRandom,
                                 serverRandom, validSigAlgs):

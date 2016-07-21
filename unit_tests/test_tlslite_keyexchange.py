@@ -8,6 +8,12 @@ try:
     import unittest2 as unittest
 except ImportError:
     import unittest
+try:
+    import mock
+    from mock import call
+except ImportError:
+    import unittest.mock as mock
+    from unittest.mock import call
 
 from tlslite.handshakesettings import HandshakeSettings
 from tlslite.messages import ServerHello, ClientHello, ServerKeyExchange,\
@@ -572,6 +578,17 @@ class TestDHE_RSAKeyExchange(unittest.TestCase):
 
         with self.assertRaises(TLSInsufficientSecurity):
             client_keyExchange.processServerKeyExchange(None, srv_key_ex)
+
+    def test_DHE_RSA_key_exchange_empty_signature(self):
+        self.keyExchange.privateKey.sign = mock.Mock(return_value=bytearray(0))
+        with self.assertRaises(TLSIllegalParameterException):
+            self.keyExchange.makeServerKeyExchange('sha1')
+
+
+    def test_DHE_RSA_key_exchange_wrong_signature(self):
+        self.keyExchange.privateKey.sign = mock.Mock(return_value=bytearray(20))
+        with self.assertRaises(TLSDecryptionFailed):
+            self.keyExchange.makeServerKeyExchange('sha1')
 
 class TestSRPKeyExchange(unittest.TestCase):
     def setUp(self):
