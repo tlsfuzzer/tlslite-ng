@@ -13,7 +13,8 @@ from hypothesis.strategies import integers
 import math
 
 from tlslite.utils.cryptomath import isPrime, numBits, numBytes, \
-        numberToByteArray, MD5, SHA1, secureHash
+        numberToByteArray, MD5, SHA1, secureHash, HMAC_MD5, HMAC_SHA1, \
+        HMAC_SHA256, HMAC_SHA384
 
 class TestIsPrime(unittest.TestCase):
     def test_with_small_primes(self):
@@ -116,6 +117,31 @@ class TestNumBits(unittest.TestCase):
     @example((1<<8192)-1)
     def test_numBytes(self, number):
         self.assertEqual(numBytes(number), self.num_bytes(number))
+
+class TestHMACMethods(unittest.TestCase):
+    def test_HMAC_MD5(self):
+        self.assertEqual(HMAC_MD5(b'abc', b'def'),
+                         bytearray(b'\xde\xbd\xa7{|\xc3\xe7\xa1\x0e\xe7'
+                                   b'\x01\x04\xe6qzk'))
+
+    def test_HMAC_SHA1(self):
+        self.assertEqual(HMAC_SHA1(b'abc', b'def'),
+                         bytearray(b'\x12UN\xab\xba\xf7\xe8\xe1.G7\x02'
+                                   b'\x0f\x98|\xa7\x90\x10\x16\xe5'))
+
+    def test_HMAC_SHA256(self):
+        self.assertEqual(HMAC_SHA256(b'abc', b'def'),
+                         bytearray(b' \xeb\xc0\xf0\x93DG\x014\xf3P@\xf6>'
+                                   b'\xa9\x8b\x1d\x8eAB\x12\x94\x9e\xe5\xc5\x00B'
+                                   b'\x9d\x15\xea\xb0\x81'))
+
+    def test_HMAC_SHA384(self):
+        print(HMAC_SHA384(b'abc', b'def'))
+        self.assertEqual(HMAC_SHA384(b'abc', b'def'),
+                         bytearray(b'\xec\x14\xd6\x94\x86\tHp\x84\x07\xect\x0e\t~'
+                                   b'\x85?\xe8\xfd\xba\xd4\x86s\x05\xaa\xe8\xfcB\xd0'
+                                   b'\xe8\xaa\xa6V\xe07\x9e\xc5\xc9n\x15\x97\xe0\xbc'
+                                   b'\xefZ\xa6\xdb\x05'))
 
 class TestHashMethods(unittest.TestCase):
     def test_MD5(self):
