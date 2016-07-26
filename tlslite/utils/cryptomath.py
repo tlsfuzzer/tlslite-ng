@@ -89,25 +89,23 @@ def secureHash(data, algorithm):
     hashInstance.update(compat26Str(data))
     return bytearray(hashInstance.digest())
 
-def HMAC_MD5(k, b):
+def secureHMAC(k, b, algorithm):
+    """Return a HMAC using `b` and `k` using `algorithm`"""
     k = compatHMAC(k)
     b = compatHMAC(b)
-    return bytearray(hmac.new(k, b, hashlib.md5).digest())
+    return bytearray(hmac.new(k, b, getattr(hashlib, algorithm)).digest())
+
+def HMAC_MD5(k, b):
+    return secureHMAC(k, b, 'md5')
 
 def HMAC_SHA1(k, b):
-    k = compatHMAC(k)
-    b = compatHMAC(b)
-    return bytearray(hmac.new(k, b, hashlib.sha1).digest())
+    return secureHMAC(k, b, 'sha1')
 
 def HMAC_SHA256(k, b):
-    k = compatHMAC(k)
-    b = compatHMAC(b)
-    return bytearray(hmac.new(k, b, hashlib.sha256).digest())
+    return secureHMAC(k, b, 'sha256')
 
 def HMAC_SHA384(k, b):
-    k = compatHMAC(k)
-    b = compatHMAC(b)
-    return bytearray(hmac.new(k, b, hashlib.sha384).digest())
+    return secureHMAC(k, b, 'sha384')
 
 # **************************************************************************
 # Converter Functions
