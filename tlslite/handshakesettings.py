@@ -12,7 +12,7 @@ from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves
 
-CIPHER_NAMES = ["chacha20-poly1305",
+CIPHER_NAMES = ["chacha20-poly1305_draft00",
                 "aes256gcm", "aes128gcm",
                 "aes256", "aes128",
                 "3des"]

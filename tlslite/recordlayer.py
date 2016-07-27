@@ -658,7 +658,7 @@ class RecordLayer(object):
             keyLength = 16
             ivLength = 4
             createCipherFunc = createAESGCM
-        elif cipherSuite in CipherSuite.chacha20Suites:
+        elif cipherSuite in CipherSuite.chacha20draft00Suites:
             keyLength = 32
             ivLength = 4
             createCipherFunc = createCHACHA20
