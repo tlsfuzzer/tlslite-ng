@@ -14,7 +14,7 @@ import math
 
 from tlslite.utils.cryptomath import isPrime, numBits, numBytes, \
         numberToByteArray, MD5, SHA1, secureHash, HMAC_MD5, HMAC_SHA1, \
-        HMAC_SHA256, HMAC_SHA384
+        HMAC_SHA256, HMAC_SHA384, HKDF_expand
 
 class TestIsPrime(unittest.TestCase):
     def test_with_small_primes(self):
@@ -141,6 +141,83 @@ class TestHMACMethods(unittest.TestCase):
                                    b'\x85?\xe8\xfd\xba\xd4\x86s\x05\xaa\xe8\xfcB\xd0'
                                    b'\xe8\xaa\xa6V\xe07\x9e\xc5\xc9n\x15\x97\xe0\xbc'
                                    b'\xefZ\xa6\xdb\x05'))
+
+    def test_HMAC_expand_1(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x077709362c2e32df0ddc3f0dc4'
+                                                           '7bba6390b6c73bb50f9c3122ec84'
+                                                           '4ad7c2b3e5', 16), 32),
+                                     numberToByteArray(0xf0f1f2f3f4f5f6f7f8f9, 10), 42,
+                                     'sha256'),
+                         numberToByteArray(int('0x3cb25f25faacd57a90434f64d0362f2a2d2d0a'
+                                               '90cf1a5a4c5db02d56ecc4c5bf34007208d5b887'
+                                               '185865', 16), 42))
+
+    def test_HMAC_expand_2(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x06a6b88c5853361a06104c9ceb'
+                                                           '35b45cef760014904671014a193f'
+                                                           '40c15fc244', 16), 32),
+                                     numberToByteArray(int('0xb0b1b2b3b4b5b6b7b8b9babbbc'
+                                                           'bdbebfc0c1c2c3c4c5c6c7c8c9ca'
+                                                           'cbcccdcecfd0d1d2d3d4d5d6d7d8'
+                                                           'd9dadbdcdddedfe0e1e2e3e4e5e6'
+                                                           'e7e8e9eaebecedeeeff0f1f2f3f4'
+                                                           'f5f6f7f8f9fafbfcfdfeff', 16),
+                                                       80), 82, 'sha256'),
+                         numberToByteArray(int('0xb11e398dc80327a1c8e7f78c596a49344f012e'
+                                               'da2d4efad8a050cc4c19afa97c59045a99cac782'
+                                               '7271cb41c65e590e09da3275600c2f09b8367793'
+                                               'a9aca3db71cc30c58179ec3e87c14c01d5c1f343'
+                                               '4f1d87', 16), 82))
+
+    def test_HMAC_expand_3(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x19ef24a32c717b167f33a91d6f'
+                                                           '648bdf96596776afdb6377ac434c'
+                                                           '1c293ccb04', 16),
+                                                       32), bytearray(), 42, 'sha256'),
+                         numberToByteArray(int('0x8da4e775a563c18f715f802a063c5a31b8a11f'
+                                               '5c5ee1879ec3454e5f3c738d2d9d201395faa4b6'
+                                               '1a96c8', 16), 42))
+
+    def test_HMAC_expand_4(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x9b6c18c432a7bf8f0e71c8eb88'
+                                                           'f4b30baa2ba243', 16), 20),
+                                     numberToByteArray(int('0xf0f1f2f3f4f5f6f7f8f9', 16),
+                                                       10), 42, 'sha1'),
+                         numberToByteArray(int('0x085a01ea1b10f36933068b56efa5ad81a4f14b'
+                                               '822f5b091568a9cdd4f155fda2c22e422478d305'
+                                               'f3f896', 16), 42))
+
+    def test_HMAC_expand_5(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x8adae09a2a307059478d309b26'
+                                                           'c4115a224cfaf6', 16), 20),
+                                     numberToByteArray(int('0xb0b1b2b3b4b5b6b7b8b9babbbc'
+                                                           'bdbebfc0c1c2c3c4c5c6c7c8c9ca'
+                                                           'cbcccdcecfd0d1d2d3d4d5d6d7d8'
+                                                           'd9dadbdcdddedfe0e1e2e3e4e5e6'
+                                                           'e7e8e9eaebecedeeeff0f1f2f3f4'
+                                                           'f5f6f7f8f9fafbfcfdfeff', 16),
+                                                       80), 82, 'sha1'),
+                         numberToByteArray(int('0x0bd770a74d1160f7c9f12cd5912a06ebff6adc'
+                                               'ae899d92191fe4305673ba2ffe8fa3f1a4e5ad79'
+                                               'f3f334b3b202b2173c486ea37ce3d397ed034c7f'
+                                               '9dfeb15c5e927336d0441f4c4300e2cff0d0900b'
+                                               '52d3b4', 16), 82))
+
+    def test_HMAC_expand_6(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0xda8c8a73c7fa77288ec6f5e7c2'
+                                                           '97786aa0d32d01', 16), 20),
+                                     bytearray(), 42, 'sha1'),
+                         numberToByteArray(int('0x0ac1af7002b3d761d1e55298da9d0506b9ae52'
+                                               '057220a306e07b6b87e8df21d0ea00033de03984'
+                                               'd34918', 16), 42))
+
+    def test_HMAC_expand_7(self):
+        self.assertEqual(HKDF_expand(numberToByteArray(int('0x2adccada18779e7c2077ad2eb1'
+                                                           '9d3f3e731385dd', 16), 20),
+                                     bytearray(), 42, 'sha1'),
+                         numberToByteArray(int('0x2c91117204d745f3500d636a62f64f0ab3bae5'
+                                               '48aa53d423b0d1f27ebba6f5e5673a081d70cce7'
+                                               'acfc48', 16), 42))
 
 class TestHashMethods(unittest.TestCase):
     def test_MD5(self):

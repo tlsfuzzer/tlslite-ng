@@ -107,6 +107,15 @@ def HMAC_SHA256(k, b):
 def HMAC_SHA384(k, b):
     return secureHMAC(k, b, 'sha384')
 
+def HKDF_expand(PRK, info, L, algorithm):
+    N = math.ceil(L/getattr(hashlib, algorithm)().digest_size)
+    T = bytearray()
+    Titer = bytearray()
+    for x in range(0, N+1):
+        T += Titer
+        Titer = secureHMAC(PRK, Titer + info + numberToByteArray(x+1), algorithm)
+    return T[:L]
+
 # **************************************************************************
 # Converter Functions
 # **************************************************************************
