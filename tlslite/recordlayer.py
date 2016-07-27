@@ -371,6 +371,20 @@ class RecordLayer(object):
 
         return buf
 
+    @staticmethod
+    def _getNonce(state, seqnum):
+        """Calculate a nonce for a given enc/dec context"""
+        # ChaCha is using the draft-TLS1.3-like nonce derivation
+        if state.encContext.name == "chacha20-poly1305" and \
+                len(state.fixedNonce) == 12:
+            # 4 byte nonce is used by the draft cipher
+            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqnum,
+                                                    state.fixedNonce))
+        else:
+            nonce = state.fixedNonce + seqnum
+        return nonce
+
+
     def _encryptThenSeal(self, buf, contentType):
         """Encrypt with AEAD cipher"""
         #Assemble the authenticated data.
@@ -381,15 +395,7 @@ class RecordLayer(object):
                                             len(buf)//256,
                                             len(buf)%256])
 
-        # ChaCha is using the draft-TLS1.3-like nonce derivation
-        if self._writeState.encContext.name == "chacha20-poly1305" and \
-                len(self._writeState.fixedNonce) == 12:
-            # 4 byte nonce is used by the draft cipher
-            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqNumBytes,
-                                                    self._writeState.
-                                                    fixedNonce))
-        else:
-            nonce = self._writeState.fixedNonce + seqNumBytes
+        nonce = self._getNonce(self._writeState, seqNumBytes)
 
         assert len(nonce) == self._writeState.encContext.nonceLength
 
@@ -578,14 +584,8 @@ class RecordLayer(object):
                 raise TLSBadRecordMAC("Truncated nonce")
             nonce = self._readState.fixedNonce + buf[:explicitNonceLength]
             buf = buf[8:]
-        elif self._readState.encContext.name == "chacha20-poly1305" and \
-                len(self._readState.fixedNonce) == 12:
-            # the shorter nonce is used by the draft-00 version
-            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqnumBytes,
-                                                    self._readState.
-                                                    fixedNonce))
         else:
-            nonce = self._readState.fixedNonce + seqnumBytes
+            nonce = self._getNonce(self._readState, seqnumBytes)
 
         if self._readState.encContext.tagLength > len(buf):
             #Publicly invalid.
