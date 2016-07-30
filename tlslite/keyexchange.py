@@ -223,17 +223,17 @@ class RSAKeyExchange(KeyExchange):
         clientKeyExchange.createRSA(self.encPremasterSecret)
         return clientKeyExchange
 
-# the DHE_RSA part comes from IETF ciphersuite names, we want to keep it
-#pylint: disable = invalid-name
-class DHE_RSAKeyExchange(KeyExchange):
+
+# FFDHE without signing serverKeyExchange useful for anonymous DH
+class ADHKeyExchange(KeyExchange):
     """
-    Handling of ephemeral Diffe-Hellman Key exchange
+    Handling of anonymous Diffe-Hellman Key exchange
 
     NOT stable API, do NOT use
     """
 
     def __init__(self, cipherSuite, clientHello, serverHello, privateKey):
-        super(DHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
+        super(ADHKeyExchange, self).__init__(cipherSuite, clientHello,
                                                  serverHello, privateKey)
 #pylint: enable = invalid-name
         self.dh_Xs = None
@@ -242,20 +242,19 @@ class DHE_RSAKeyExchange(KeyExchange):
     # 2048-bit MODP Group (RFC 3526, Section 3)
     dh_g, dh_p = goodGroupParameters[2]
 
-    # RFC 3526, Section 8.
-    strength = 160
-
-    def makeServerKeyExchange(self, sigHash=None):
-        """Prepare server side of key exchange with selected parameters"""
+    def makeServerKeyExchange(self):
+        """
+        Prepare server side of anonymous key exchange with selected parameters
+        """
         # Per RFC 3526, Section 1, the exponent should have double the entropy
         # of the strength of the curve.
-        self.dh_Xs = bytesToNumber(getRandomBytes(self.strength * 2 // 8))
+        self.dh_Xs = bytesToNumber(getRandomBytes(32))
         dh_Ys = powMod(self.dh_g, self.dh_Xs, self.dh_p)
 
         version = self.serverHello.server_version
         serverKeyExchange = ServerKeyExchange(self.cipherSuite, version)
         serverKeyExchange.createDH(self.dh_p, self.dh_g, dh_Ys)
-        self.signServerKeyExchange(serverKeyExchange, sigHash)
+        # No sign for anonymous ServerKeyExchange.
         return serverKeyExchange
 
     def processClientKeyExchange(self, clientKeyExchange):
@@ -267,6 +266,12 @@ class DHE_RSAKeyExchange(KeyExchange):
         if not 2 <= dh_Yc <= self.dh_p - 1:
             raise TLSLocalAlert(AlertDescription.illegal_parameter,
                                 "Invalid dh_Yc value")
+
+        """if dh_Yc % dh_p == 0:
+            for result in self._sendError(AlertDescription.illegal_parameter,
+                    "Suspicious dh_Yc value"):
+                yield result
+            assert(False)  # Just to ensure we don't fall through somehow"""
 
         S = powMod(dh_Yc, self.dh_Xs, self.dh_p)
         return numberToByteArray(S)
@@ -291,6 +296,38 @@ class DHE_RSAKeyExchange(KeyExchange):
         cke = super(DHE_RSAKeyExchange, self).makeClientKeyExchange()
         cke.createDH(self.dh_Yc)
         return cke
+
+# the DHE_RSA part comes from IETF ciphersuite names, we want to keep it
+#pylint: disable = invalid-name
+class DHE_RSAKeyExchange(ADHKeyExchange):
+    """
+    Handling of ephemeral Diffe-Hellman Key exchange
+
+    NOT stable API, do NOT use
+    """
+
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey):
+        super(DHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                 serverHello, privateKey)
+#pylint: enable = invalid-name
+        self.dh_Xs = None
+        self.dh_Yc = None
+
+    # RFC 3526, Section 8.
+    strength = 160
+
+    def makeServerKeyExchange(self, sigHash=None):
+        """Prepare server side of key exchange with selected parameters"""
+        # Per RFC 3526, Section 1, the exponent should have double the entropy
+        # of the strength of the curve.
+        self.dh_Xs = bytesToNumber(getRandomBytes(self.strength * 2 // 8))
+        dh_Ys = powMod(self.dh_g, self.dh_Xs, self.dh_p)
+
+        version = self.serverHello.server_version
+        serverKeyExchange = ServerKeyExchange(self.cipherSuite, version)
+        serverKeyExchange.createDH(self.dh_p, self.dh_g, dh_Ys)
+        self.signServerKeyExchange(serverKeyExchange, sigHash)
+        return serverKeyExchange
 
 # The ECDHE_RSA part comes from the IETF names of ciphersuites, so we want to
 # keep it
