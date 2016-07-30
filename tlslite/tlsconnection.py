@@ -28,10 +28,8 @@ from .mathtls import *
 from .handshakesettings import HandshakeSettings
 from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
-        ECDHE_RSAKeyExchange, SRPKeyExchange
+        ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange
 from .handshakehelpers import HandshakeHelpers
-from .utils.ecc import getCurveByName, encodeX962Point, decodeX962Point, \
-        getPointByteSize
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -70,38 +68,6 @@ class TLSConnection(TLSRecordLayer):
         self.ecdhCurve = None
         self.dhGroupSize = None
         self.extendedMasterSecret = False
-        self._clientRandom = bytearray(0)
-        self._serverRandom = bytearray(0)
-
-    def keyingMaterialExporter(self, label, length=20):
-        """Return keying material as described in RFC 5705
-
-        @type label: bytearray
-        @param label: label to be provided for the exporter
-
-        @type length: int
-        @param length: number of bytes of the keying material to export
-        """
-        if label in (b'server finished', b'client finished',
-                     b'master secret', b'key expansion'):
-            raise ValueError("Forbidden label value")
-        if self.version < (3, 1):
-            raise ValueError("Supported only in TLSv1.0 and later")
-        elif self.version < (3, 3):
-            return PRF(self.session.masterSecret, label,
-                       self._clientRandom + self._serverRandom,
-                       length)
-        elif self.version == (3, 3):
-            if self.session.cipherSuite in CipherSuite.sha384PrfSuites:
-                return PRF_1_2_SHA384(self.session.masterSecret, label,
-                                      self._clientRandom + self._serverRandom,
-                                      length)
-            else:
-                return PRF_1_2(self.session.masterSecret, label,
-                               self._clientRandom + self._serverRandom,
-                               length)
-        else:
-            raise AssertionError("Unknown protocol version")
 
     #*********************************************************
     # Client Handshake Functions
@@ -485,8 +451,6 @@ class TLSConnection(TLSRecordLayer):
             else: break
         if result == "resumed_and_finished":
             self._handshakeDone(resumed=True)
-            self._serverRandom = serverHello.random
-            self._clientRandom = clientHello.random
             return
 
         #If the server selected an SRP ciphersuite, the client finishes
@@ -558,8 +522,6 @@ class TLSConnection(TLSRecordLayer):
                             encryptThenMAC=self._recordLayer.encryptThenMAC,
                             extendedMasterSecret=self.extendedMasterSecret)
         self._handshakeDone(resumed=False)
-        self._serverRandom = serverHello.random
-        self._clientRandom = clientHello.random
 
 
     def _clientSendClientHello(self, settings, session, srpUsername,
@@ -1274,11 +1236,15 @@ class TLSConnection(TLSRecordLayer):
                 else: break
             (premasterSecret, clientCertChain) = result
 
-        # Perform anonymous (Elliptic curve) Diffie Hellman key exchange
-        elif (cipherSuite in CipherSuite.anonSuites or
-              cipherSuite in CipherSuite.ecdhAnonSuites):
-            for result in self._serverAnonKeyExchange(clientHello, serverHello, 
-                                        cipherSuite, settings):
+        # Perform anonymous Diffie Hellman key exchange
+        elif cipherSuite in CipherSuite.anonSuites:
+            keyExchange = ADHKeyExchange(cipherSuite,
+                                         clientHello,
+                                         serverHello,
+                                         privateKey)
+            for result in self._serverAnonKeyExchange(clientHello, serverHello,
+                                                      keyExchange, cipherSuite,
+                                                      settings):
                 if result in (0,1): yield result
                 else: break
             premasterSecret = result
@@ -1318,8 +1284,6 @@ class TLSConnection(TLSRecordLayer):
             sessionCache[sessionID] = self.session
 
         self._handshakeDone(resumed=False)
-        self._serverRandom = serverHello.random
-        self._clientRandom = clientHello.random
 
 
     def _serverGetClientHello(self, settings, certChain, verifierDB,
@@ -1385,8 +1349,6 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getDheCertSuites(settings, self.version)
             cipherSuites += CipherSuite.getCertSuites(settings, self.version)
         elif anon:
-            cipherSuites += CipherSuite.getEcdhAnonSuites(settings, 
-                                                          self.version)
             cipherSuites += CipherSuite.getAnonSuites(settings, self.version)
         else:
             assert(False)
@@ -1482,8 +1444,7 @@ class TLSConnection(TLSRecordLayer):
 
                 #Set the session
                 self.session = session
-                self._clientRandom = clientHello.random
-                self._serverRandom = serverHello.random
+                    
                 yield None # Handshake done!
 
         #Calculate the first cipher suite intersection.
@@ -1699,83 +1660,33 @@ class TLSConnection(TLSRecordLayer):
                     yield result
         yield (premasterSecret, clientCertChain)
 
+    def _serverAnonKeyExchange(self, clientHello, serverHello, keyExchange,
+                               cipherSuite, settings):
 
-    def _serverAnonKeyExchange(self, clientHello, serverHello, cipherSuite, 
-                               settings):
-        # Calculate ECDH Xs, Ys
-        if cipherSuite in CipherSuite.ecdhAnonSuites:
-            #Get client supported groups
-            acceptedCurves = self._curveNamesToList(settings)
-            client_curves = clientHello.getExtension(\
-                    ExtensionType.supported_groups)
-            client_curves = client_curves.groups
-            
-            group_id = next((x for x in client_curves \
-                             if x in acceptedCurves), None)
-            if group_id is None:
-                raise TLSInsufficientSecurity("No mutual groups")
-            generator = getCurveByName(GroupName.toRepr(group_id)).generator
-            ecdhXs = ecdsa.util.randrange(generator.order())
-            ecdhYs = encodeX962Point(generator * ecdhXs)
-            
-            #Create ECDH ServerKeyExchange
-            serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
-            serverKeyExchange.createECDH(ECCurveType.named_curve,
-                                         named_curve=group_id,
-                                         point=ecdhYs)
-                        
-        # Calculate DH p, g, Xs, Ys
-        # TODO make configurable
-        else:
-            dh_g, dh_p = goodGroupParameters[2]
-            dh_Xs = bytesToNumber(getRandomBytes(32))
-            dh_Ys = powMod(dh_g, dh_Xs, dh_p)
+        # Create ServerKeyExchange
+        serverKeyExchange = keyExchange.makeServerKeyExchange()
 
-            #Create ServerKeyExchange
-            serverKeyExchange = ServerKeyExchange(cipherSuite, self.version)
-            serverKeyExchange.createDH(dh_p, dh_g, dh_Ys)
-        
-        #Send ServerHello[, Certificate], ServerKeyExchange,
-        #ServerHelloDone  
+        # Send ServerHello[, Certificate], ServerKeyExchange,
+        # ServerHelloDone
         msgs = []
         msgs.append(serverHello)
         msgs.append(serverKeyExchange)
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
             yield result
-        
-        #Get and check ClientKeyExchange
+
+        # Get and check ClientKeyExchange
         for result in self._getMsg(ContentType.handshake,
                                    HandshakeType.client_key_exchange,
                                    cipherSuite):
             if result in (0,1):
-                yield result 
+                yield result
             else:
                 break
         clientKeyExchange = result
-        
-        #Calculate premaster secret
-        if cipherSuite in CipherSuite.ecdhAnonSuites:
-            curveName = GroupName.toRepr(group_id)
-            ecdhYc = decodeX962Point(clientKeyExchange.ecdh_Yc,
-                                     getCurveByName(curveName))
-            sharedSecret = ecdhYc * ecdhXs
-            premasterSecret = numberToByteArray(sharedSecret.x(),
-                                                getPointByteSize(ecdhYc))
-        else:
-            dh_Yc = clientKeyExchange.dh_Yc
-            if dh_Yc % dh_p == 0:
-                for result in self._sendError(\
-                        AlertDescription.illegal_parameter,
-                        "Suspicious dh_Yc value"):
-                    yield result
-                assert(False) # Just to ensure we don't fall through somehow            
-
-            S = powMod(dh_Yc,dh_Xs,dh_p)
-            premasterSecret = numberToByteArray(S)
+        premasterSecret = keyExchange.processClientKeyExchange(clientKeyExchange)
         
         yield premasterSecret
-
 
     def _serverFinished(self,  premasterSecret, clientRandom, serverRandom,
                         cipherSuite, cipherImplementations, nextProtos):
