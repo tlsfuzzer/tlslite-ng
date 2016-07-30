@@ -68,6 +68,38 @@ class TLSConnection(TLSRecordLayer):
         self.ecdhCurve = None
         self.dhGroupSize = None
         self.extendedMasterSecret = False
+        self._clientRandom = bytearray(0)
+        self._serverRandom = bytearray(0)
+
+    def keyingMaterialExporter(self, label, length=20):
+        """Return keying material as described in RFC 5705
+
+        @type label: bytearray
+        @param label: label to be provided for the exporter
+
+        @type length: int
+        @param length: number of bytes of the keying material to export
+        """
+        if label in (b'server finished', b'client finished',
+                     b'master secret', b'key expansion'):
+            raise ValueError("Forbidden label value")
+        if self.version < (3, 1):
+            raise ValueError("Supported only in TLSv1.0 and later")
+        elif self.version < (3, 3):
+            return PRF(self.session.masterSecret, label,
+                       self._clientRandom + self._serverRandom,
+                       length)
+        elif self.version == (3, 3):
+            if self.session.cipherSuite in CipherSuite.sha384PrfSuites:
+                return PRF_1_2_SHA384(self.session.masterSecret, label,
+                                      self._clientRandom + self._serverRandom,
+                                      length)
+            else:
+                return PRF_1_2(self.session.masterSecret, label,
+                               self._clientRandom + self._serverRandom,
+                               length)
+        else:
+            raise AssertionError("Unknown protocol version")
 
     #*********************************************************
     # Client Handshake Functions
@@ -451,6 +483,8 @@ class TLSConnection(TLSRecordLayer):
             else: break
         if result == "resumed_and_finished":
             self._handshakeDone(resumed=True)
+            self._serverRandom = serverHello.random
+            self._clientRandom = clientHello.random
             return
 
         #If the server selected an SRP ciphersuite, the client finishes
@@ -522,6 +556,8 @@ class TLSConnection(TLSRecordLayer):
                             encryptThenMAC=self._recordLayer.encryptThenMAC,
                             extendedMasterSecret=self.extendedMasterSecret)
         self._handshakeDone(resumed=False)
+        self._serverRandom = serverHello.random
+        self._clientRandom = clientHello.random
 
 
     def _clientSendClientHello(self, settings, session, srpUsername,
@@ -1238,10 +1274,8 @@ class TLSConnection(TLSRecordLayer):
 
         # Perform anonymous Diffie Hellman key exchange
         elif cipherSuite in CipherSuite.anonSuites:
-            keyExchange = ADHKeyExchange(cipherSuite,
-                                         clientHello,
-                                         serverHello,
-                                         privateKey)
+            keyExchange = ADHKeyExchange(cipherSuite, clientHello,
+                                         serverHello, privateKey)
             for result in self._serverAnonKeyExchange(clientHello, serverHello,
                                                       keyExchange, cipherSuite,
                                                       settings):
@@ -1284,6 +1318,8 @@ class TLSConnection(TLSRecordLayer):
             sessionCache[sessionID] = self.session
 
         self._handshakeDone(resumed=False)
+        self._serverRandom = serverHello.random
+        self._clientRandom = clientHello.random
 
 
     def _serverGetClientHello(self, settings, certChain, verifierDB,
@@ -1444,7 +1480,8 @@ class TLSConnection(TLSRecordLayer):
 
                 #Set the session
                 self.session = session
-                    
+                self._clientRandom = clientHello.random
+                self._serverRandom = serverHello.random
                 yield None # Handshake done!
 
         #Calculate the first cipher suite intersection.
@@ -1660,6 +1697,7 @@ class TLSConnection(TLSRecordLayer):
                     yield result
         yield (premasterSecret, clientCertChain)
 
+
     def _serverAnonKeyExchange(self, clientHello, serverHello, keyExchange,
                                cipherSuite, settings):
 
@@ -1687,6 +1725,7 @@ class TLSConnection(TLSRecordLayer):
         premasterSecret = keyExchange.processClientKeyExchange(clientKeyExchange)
         
         yield premasterSecret
+
 
     def _serverFinished(self,  premasterSecret, clientRandom, serverRandom,
                         cipherSuite, cipherImplementations, nextProtos):
