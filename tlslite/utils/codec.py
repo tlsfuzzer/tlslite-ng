@@ -125,26 +125,72 @@ class Writer(object):
         for e in seq:
             self.add(e, length)
 
-    def addVarSeq(self, seq, length, lengthLength):
-        """
-        Add a bounded list of same-sized values
+    if sys.version_info < (2, 7):
+        # struct.pack on Python2.6 does not raise exception if the value
+        # is larger than can fit inside the specified size
+        def _addVarSeqTwo(self, seq):
+            """Helper method for addVarSeq"""
+            if not all(0 <= i <= 0xffff for i in seq):
+                raise ValueError("Can't represent value in specified "
+                                 "length")
+            self.bytes += pack('>' + 'H' * len(seq), *seq)
 
-        Create a list of specific length with all items being of the same
-        size
+        def addVarSeq(self, seq, length, lengthLength):
+            """
+            Add a bounded list of same-sized values
 
-        @type seq: list of int
-        @param seq: list of positive integers to encode
+            Create a list of specific length with all items being of the same
+            size
 
-        @type length: int
-        @param length: amount of bytes in which to encode every item
+            @type seq: list of int
+            @param seq: list of positive integers to encode
 
-        @type lengthLength: int
-        @param lengthLength: amount of bytes in which to encode the overall
-            length of the array
-        """
-        self.add(len(seq)*length, lengthLength)
-        for e in seq:
-            self.add(e, length)
+            @type length: int
+            @param length: amount of bytes in which to encode every item
+
+            @type lengthLength: int
+            @param lengthLength: amount of bytes in which to encode the overall
+                length of the array
+            """
+            self.add(len(seq)*length, lengthLength)
+            if length == 1:
+                self.bytes.extend(seq)
+            elif length == 2:
+                self._addVarSeqTwo(seq)
+            else:
+                for i in seq:
+                    self.add(i, length)
+    else:
+        def addVarSeq(self, seq, length, lengthLength):
+            """
+            Add a bounded list of same-sized values
+
+            Create a list of specific length with all items being of the same
+            size
+
+            @type seq: list of int
+            @param seq: list of positive integers to encode
+
+            @type length: int
+            @param length: amount of bytes in which to encode every item
+
+            @type lengthLength: int
+            @param lengthLength: amount of bytes in which to encode the overall
+                length of the array
+            """
+            seqLen = len(seq)
+            self.add(seqLen*length, lengthLength)
+            if length == 1:
+                self.bytes.extend(seq)
+            elif length == 2:
+                try:
+                    self.bytes += pack('>' + 'H' * seqLen, *seq)
+                except struct.error:
+                    raise ValueError("Can't represent value in specified "
+                                     "length")
+            else:
+                for i in seq:
+                    self.add(i, length)
 
     def addVarTupleSeq(self, seq, length, lengthLength):
         """
