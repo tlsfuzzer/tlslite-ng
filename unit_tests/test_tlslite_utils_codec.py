@@ -222,17 +222,92 @@ class TestWriter(unittest.TestCase):
 
         self.assertEqual(bytearray(b'\x02\x00'), w.bytes)
 
+    def test_add_with_three_byte_data(self):
+        w = Writer()
+        w.add(0xbacc01, 3)
+
+        self.assertEqual(bytearray(b'\xba\xcc\x01'), w.bytes)
+
+    def test_add_with_three_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(0x01000000, 3)
+
+    def test_add_with_three_underflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(-1, 3)
+
     def test_add_with_overflowing_data(self):
         w = Writer()
 
         with self.assertRaises(ValueError):
             w.add(256, 1)
 
+    def test_add_with_underflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(-1, 1)
+
+    def test_add_with_four_byte_data(self):
+        w = Writer()
+        w.add(0x01020304, 4)
+
+        self.assertEqual(bytearray(b'\x01\x02\x03\x04'), w.bytes)
+
+    def test_add_with_five_bytes_data(self):
+        w = Writer()
+        w.add(0x02, 5)
+
+        self.assertEqual(bytearray(b'\x00\x00\x00\x00\x02'), w.bytes)
+
+    def test_add_with_six_bytes_data(self):
+        w = Writer()
+        w.add(0x010203040506, 6)
+
+        self.assertEqual(bytearray(b'\x01\x02\x03\x04\x05\x06'), w.bytes)
+
+    def test_add_with_five_overflowing_bytes(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(0x010000000000, 5)
+
+    def test_add_with_five_underflowing_bytes(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(-1, 5)
+
+    def test_add_with_four_bytes_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.add(0x0100000000, 4)
+
+    def test_add_five_twice(self):
+        w = Writer()
+        w.add(0x0102030405, 5)
+        w.add(0x1112131415, 5)
+
+        self.assertEqual(bytearray(b'\x01\x02\x03\x04\x05'
+                                   b'\x11\x12\x13\x14\x15'),
+                         w.bytes)
+
     def test_addFixSeq(self):
         w = Writer()
         w.addFixSeq([16,17,18], 2)
 
         self.assertEqual(bytearray(b'\x00\x10\x00\x11\x00\x12'), w.bytes)
+
+    def test_addFixSeq_with_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.addFixSeq([16, 17, 256], 1)
 
     def test_addVarSeq(self):
         w = Writer()
@@ -243,6 +318,44 @@ class TestWriter(unittest.TestCase):
             b'\x00\x10' +
             b'\x00\x11' +
             b'\x00\x12'), w.bytes)
+
+    def test_addVarSeq_single_byte_data(self):
+        w = Writer()
+        w.addVarSeq([0xaa, 0xbb, 0xcc], 1, 2)
+
+        self.assertEqual(bytearray(
+            b'\x00\x03' +
+            b'\xaa' +
+            b'\xbb' +
+            b'\xcc'), w.bytes)
+
+    def test_addVarSeq_triple_byte_data(self):
+        w = Writer()
+        w.addVarSeq([0xaa, 0xbb, 0xcc], 3, 2)
+
+        self.assertEqual(bytearray(
+            b'\x00\x09' +
+            b'\x00\x00\xaa' +
+            b'\x00\x00\xbb' +
+            b'\x00\x00\xcc'), w.bytes)
+
+    def test_addVarSeq_with_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.addVarSeq([16, 17, 0x10000], 2, 2)
+
+    def test_addVarSeq_with_one_byte_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.addVarSeq([16, 17, 0x100], 1, 2)
+
+    def test_addVarSeq_with_three_byte_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.addVarSeq([16, 17, 0x1000000], 3, 2)
 
     def test_bytes(self):
         w = Writer()
@@ -282,6 +395,12 @@ class TestWriter(unittest.TestCase):
         w = Writer()
         with self.assertRaises(ValueError):
             w.addVarTupleSeq([(1, 2), (2, 3, 9)], 1, 2)
+
+    def test_addVarTupleSeq_with_overflowing_data(self):
+        w = Writer()
+
+        with self.assertRaises(ValueError):
+            w.addVarTupleSeq([(1, 2), (2, 256)], 1, 2)
 
 if __name__ == '__main__':
     unittest.main()
