@@ -3,6 +3,9 @@
 
 """Classes for reading/writing binary data (such as TLS records)."""
 
+import sys
+import struct
+from struct import pack
 from .compat import *
 
 class Writer(object):
@@ -12,26 +15,99 @@ class Writer(object):
         """Initialise the serializer with no data."""
         self.bytes = bytearray(0)
 
-    def add(self, x, length):
-        """
-        Add a single positive integer value x, encode it in length bytes
+    def addOne(self, val):
+        """Add a single-byte wide element to buffer, see add()."""
+        self.bytes.append(val)
 
-        Encode positive integer x in big-endian format using length bytes,
-        add to the internal buffer.
+    if sys.version_info < (2, 7):
+        # struct.pack on Python2.6 does not raise exception if the value
+        # is larger than can fit inside the specified size
+        def addTwo(self, val):
+            """Add a double-byte wide element to buffer, see add()."""
+            if not 0 <= val <= 0xffff:
+                raise ValueError("Can't represent value in specified length")
+            self.bytes += pack('>H', val)
 
-        @type x: int
-        @param x: value to encode
+        def addThree(self, val):
+            """Add a thee-byte wide element to buffer, see add()."""
+            if not 0 <= val <= 0xffffff:
+                raise ValueError("Can't represent value in specified length")
+            self.bytes += pack('>BH', val >> 16, val & 0xffff)
 
-        @type length: int
-        @param length: number of bytes to use for encoding the value
-        """
-        self.bytes += bytearray(length)
-        newIndex = len(self.bytes) - 1
-        for i in range(newIndex, newIndex - length, -1):
-            self.bytes[i] = x & 0xFF
-            x >>= 8
-        if x != 0:
-            raise ValueError("Can't represent value in specified length")
+        def addFour(self, val):
+            """Add a four-byte wide element to buffer, see add()."""
+            if not 0 <= val <= 0xffffffff:
+                raise ValueError("Can't represent value in specified length")
+            self.bytes += pack('>I', val)
+    else:
+        def addTwo(self, val):
+            """Add a double-byte wide element to buffer, see add()."""
+            try:
+                self.bytes += pack('>H', val)
+            except struct.error:
+                raise ValueError("Can't represent value in specified length")
+
+        def addThree(self, val):
+            """Add a thee-byte wide element to buffer, see add()."""
+            try:
+                self.bytes += pack('>BH', val >> 16, val & 0xffff)
+            except struct.error:
+                raise ValueError("Can't represent value in specified length")
+
+        def addFour(self, val):
+            """Add a four-byte wide element to buffer, see add()."""
+            try:
+                self.bytes += pack('>I', val)
+            except struct.error:
+                raise ValueError("Can't represent value in specified length")
+
+    if sys.version_info >= (3, 0):
+        # the method is called thousands of times, so it's better to extern
+        # the version info check
+        def add(self, x, length):
+            """
+            Add a single positive integer value x, encode it in length bytes
+
+            Encode positive integer x in big-endian format using length bytes,
+            add to the internal buffer.
+
+            @type x: int
+            @param x: value to encode
+
+            @type length: int
+            @param length: number of bytes to use for encoding the value
+            """
+            try:
+                self.bytes += x.to_bytes(length, 'big')
+            except OverflowError:
+                raise ValueError("Can't represent value in specified length")
+    else:
+        _addMethods = {1: addOne, 2: addTwo, 3: addThree, 4: addFour}
+
+        def add(self, x, length):
+            """
+            Add a single positive integer value x, encode it in length bytes
+
+            Encode positive iteger x in big-endian format using length bytes,
+            add to the internal buffer.
+
+            @type x: int
+            @param x: value to encode
+
+            @type length: int
+            @param length: number of bytes to use for encoding the value
+            """
+            try:
+                self._addMethods[length](self, x)
+            except KeyError:
+                self.bytes += bytearray(length)
+                newIndex = len(self.bytes) - 1
+                for i in range(newIndex, newIndex - length, -1):
+                    self.bytes[i] = x & 0xFF
+                    x >>= 8
+                if x != 0:
+                    raise ValueError("Can't represent value in specified "
+                                     "length")
 
     def addFixSeq(self, seq, length):
         """
