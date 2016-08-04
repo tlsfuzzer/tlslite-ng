@@ -629,7 +629,7 @@ class ClientHello(HandshakeMsg):
         w = Writer()
         w.add(self.client_version[0], 1)
         w.add(self.client_version[1], 1)
-        w.addFixSeq(self.random, 1)
+        w.bytes += self.random
         w.addVarSeq(self.session_id, 1, 1)
         w.addVarSeq(self.cipher_suites, 2, 2)
         w.addVarSeq(self.compression_methods, 1, 1)
@@ -887,7 +887,7 @@ class ServerHello(HandshakeMsg):
         w = Writer()
         w.add(self.server_version[0], 1)
         w.add(self.server_version[1], 1)
-        w.addFixSeq(self.random, 1)
+        w.bytes += self.random
         w.addVarSeq(self.session_id, 1, 1)
         w.add(self.cipher_suite, 2)
         w.add(self.compression_method, 1)
@@ -1429,7 +1429,7 @@ class ClientKeyExchange(HandshakeMsg):
             if self.version in ((3,1), (3,2), (3,3)):
                 w.addVarSeq(self.encryptedPreMasterSecret, 1, 2)
             elif self.version == (3,0):
-                w.addFixSeq(self.encryptedPreMasterSecret, 1)
+                w.bytes += self.encryptedPreMasterSecret
             else:
                 raise AssertionError()
         elif self.cipherSuite in CipherSuite.dhAllSuites:
@@ -1621,7 +1621,7 @@ class Finished(HandshakeMsg):
 
     def write(self):
         w = Writer()
-        w.addFixSeq(self.verify_data, 1)
+        w.bytes += self.verify_data
         return self.postWrite(w)
 
 
@@ -1646,7 +1646,7 @@ class SSL2Finished(HandshakeMsg):
         """Serialise the message to on the wire data"""
         writer = Writer()
         writer.add(self.handshakeType, 1)
-        writer.addFixSeq(self.verify_data, 1)
+        writer.bytes += self.verify_data
         # does not use postWrite() as it's a SSLv2 message
         return writer.bytes
 

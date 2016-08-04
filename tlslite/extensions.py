@@ -159,9 +159,10 @@ class TLSExtension(object):
         assert self.extType is not None
 
         w = Writer()
-        w.add(self.extType, 2)
-        w.add(len(self.extData), 2)
-        w.addFixSeq(self.extData, 1)
+        w.addTwo(self.extType)
+        data = self.extData
+        w.addTwo(len(data))
+        w.bytes += data
         return w.bytes
 
     @staticmethod
