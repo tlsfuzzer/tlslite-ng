@@ -5,6 +5,10 @@ engines:
     enabled: true
   duplication:
     enabled: true
+    exclude_fingerprints:
+    # duplication in tlslite/utils/codec.py Writer.addTwo() .addFour()
+    - 2e783666ce368f4223c1e7f5b162e2d9
+    - 2c398389f33ea2572edefc5370ed49c0
     config:
       languages:
       - python
