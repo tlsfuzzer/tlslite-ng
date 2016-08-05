@@ -27,10 +27,9 @@ class Writer(object):
         """
         self.bytes += bytearray(length)
         newIndex = len(self.bytes) - 1
-        for count in range(length):
-            self.bytes[newIndex] = x & 0xFF
+        for i in range(newIndex, newIndex - length, -1):
+            self.bytes[i] = x & 0xFF
             x >>= 8
-            newIndex -= 1
         if x != 0:
             raise ValueError("Can't represent value in specified length")
 
