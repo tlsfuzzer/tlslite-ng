@@ -402,5 +402,15 @@ class TestWriter(unittest.TestCase):
         with self.assertRaises(ValueError):
             w.addVarTupleSeq([(1, 2), (2, 256)], 1, 2)
 
+    def test_addVarTupleSeq_with_double_byte_invalid_sized_tuples(self):
+        w = Writer()
+        with self.assertRaises(ValueError):
+            w.addVarTupleSeq([(1, 2), (2, 3, 4)], 2, 2)
+
+    def test_addVarTupleSeq_with_double_byte_overflowing_data(self):
+        w = Writer()
+        with self.assertRaises(ValueError):
+            w.addVarTupleSeq([(1, 2), (3, 0x10000)], 2, 2)
+
 if __name__ == '__main__':
     unittest.main()
