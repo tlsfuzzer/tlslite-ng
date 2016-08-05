@@ -6,10 +6,25 @@
 from .compat import *
 
 class Writer(object):
+    """Serialisation helper for complex byte-based structures."""
+
     def __init__(self):
+        """Initialise the serializer with no data."""
         self.bytes = bytearray(0)
 
     def add(self, x, length):
+        """
+        Add a single positive integer value x, encode it in length bytes
+
+        Encode positive integer x in big-endian format using length bytes,
+        add to the internal buffer.
+
+        @type x: int
+        @param x: value to encode
+
+        @type length: int
+        @param length: number of bytes to use for encoding the value
+        """
         self.bytes += bytearray(length)
         newIndex = len(self.bytes) - 1
         for count in range(length):
@@ -20,10 +35,38 @@ class Writer(object):
             raise ValueError("Can't represent value in specified length")
 
     def addFixSeq(self, seq, length):
+        """
+        Add a list of items, encode every item in length bytes
+
+        Uses the unbounded iterable seq to produce items, each of
+        which is then encoded to length bytes
+
+        @type seq: iterable of int
+        @param seq: list of positive integers to encode
+
+        @type length: int
+        @param length: number of bytes to which encode every element
+        """
         for e in seq:
             self.add(e, length)
 
     def addVarSeq(self, seq, length, lengthLength):
+        """
+        Add a bounded list of same-sized values
+
+        Create a list of specific length with all items being of the same
+        size
+
+        @type seq: list of int
+        @param seq: list of positive integers to encode
+
+        @type length: int
+        @param length: amount of bytes in which to encode every item
+
+        @type lengthLength: int
+        @param lengthLength: amount of bytes in which to encode the overall
+            length of the array
+        """
         self.add(len(seq)*length, lengthLength)
         for e in seq:
             self.add(e, length)
