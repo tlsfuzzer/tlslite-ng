@@ -6,7 +6,7 @@
 import sys
 import struct
 from struct import pack
-from .compat import *
+
 
 class Writer(object):
     """Serialisation helper for complex byte-based structures."""
