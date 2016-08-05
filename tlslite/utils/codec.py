@@ -209,17 +209,24 @@ class Writer(object):
         @type lengthLength: int
         @param lengthLength: length in bytes of overall length field
         """
-        if len(seq) == 0:
+        if not seq:
             self.add(0, lengthLength)
         else:
-            tupleSize = len(seq[0])
-            tupleLength = tupleSize*length
-            self.add(len(seq)*tupleLength, lengthLength)
-            for elemTuple in seq:
-                if len(elemTuple) != tupleSize:
-                    raise ValueError("Tuples of different sizes")
-                for elem in elemTuple:
-                    self.add(elem, length)
+            startPos = len(self.bytes)
+            dataLength = len(seq) * len(seq[0]) * length
+            self.add(dataLength, lengthLength)
+            # since at the time of writing, all the calls encode single byte
+            # elements, and it's very easy to speed up that case, give it
+            # special case
+            if length == 1:
+                for elemTuple in seq:
+                    self.bytes.extend(elemTuple)
+            else:
+                for elemTuple in seq:
+                    self.addFixSeq(elemTuple, length)
+            if startPos + dataLength + lengthLength != len(self.bytes):
+                raise ValueError("Tuples of different lengths")
+
 
 class Parser(object):
     def __init__(self, bytes):
