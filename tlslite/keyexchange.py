@@ -228,10 +228,9 @@ class RSAKeyExchange(KeyExchange):
         clientKeyExchange.createRSA(self.encPremasterSecret)
         return clientKeyExchange
 
-
 class ADHKeyExchange(KeyExchange):
     """
-    Handling of anonymous Diffe-Hellman Key exchange
+    Handling of anonymous Diffie-Hellman Key exchange
 
     FFDHE without signing serverKeyExchange useful for anonymous DH
     """
@@ -318,16 +317,15 @@ class DHE_RSAKeyExchange(ADHKeyExchange):
         self.signServerKeyExchange(ske, sigHash)
         return ske
 
-# The ECDHE_RSA part comes from the IETF names of ciphersuites, so we want to
-# keep it
-#pylint: disable = invalid-name
-class ECDHE_RSAKeyExchange(KeyExchange):
-    """Helper class for conducting ECDHE key exchange"""
+class AECDHKeyExchange(KeyExchange):
+    """
+    Handling of anonymous Eliptic curve Diffie-Hellman Key exchange
 
-    def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
-                 acceptedCurves):
-        super(ECDHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
-                                                   serverHello, privateKey)
+    ECDHE without signing serverKeyExchange useful for anonymous ECDH
+    """
+    def __init__(self, cipherSuite, clientHello, serverHello, acceptedCurves):
+        super(AECDHKeyExchange, self).__init__(cipherSuite, clientHello,
+                                               serverHello)
 #pylint: enable = invalid-name
         self.ecdhXs = None
         self.acceptedCurves = acceptedCurves
@@ -335,7 +333,7 @@ class ECDHE_RSAKeyExchange(KeyExchange):
         self.ecdhYc = None
 
     def makeServerKeyExchange(self, sigHash=None):
-        """Create ECDHE version of Server Key Exchange"""
+        """Create AECDHE version of Server Key Exchange"""
         #Get client supported groups
         client_curves = self.clientHello.getExtension(\
                 ExtensionType.supported_groups)
@@ -346,8 +344,7 @@ class ECDHE_RSAKeyExchange(KeyExchange):
 
         #Pick first client preferred group we support
         self.group_id = next((x for x in client_curves \
-                              if x in self.acceptedCurves),
-                             None)
+                              if x in self.acceptedCurves), None)
         if self.group_id is None:
             raise TLSInsufficientSecurity("No mutual groups")
         generator = getCurveByName(GroupName.toRepr(self.group_id)).generator
@@ -360,7 +357,7 @@ class ECDHE_RSAKeyExchange(KeyExchange):
         serverKeyExchange.createECDH(ECCurveType.named_curve,
                                      named_curve=self.group_id,
                                      point=ecdhYs)
-        self.signServerKeyExchange(serverKeyExchange, sigHash)
+        # No sign for anonymous ServerKeyExchange
         return serverKeyExchange
 
     def processClientKeyExchange(self, clientKeyExchange):
@@ -398,9 +395,29 @@ class ECDHE_RSAKeyExchange(KeyExchange):
 
     def makeClientKeyExchange(self):
         """Make client key exchange for ECDHE"""
-        cke = super(ECDHE_RSAKeyExchange, self).makeClientKeyExchange()
+        cke = super(AECDHKeyExchange, self).makeClientKeyExchange()
         cke.createECDH(self.ecdhYc)
         return cke
+
+# The ECDHE_RSA part comes from the IETF names of ciphersuites, so we want to
+# keep it
+#pylint: disable = invalid-name
+class ECDHE_RSAKeyExchange(AECDHKeyExchange):
+    """Helper class for conducting ECDHE key exchange"""
+
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
+                 acceptedCurves):
+        super(ECDHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                   serverHello,
+                                                   acceptedCurves)
+#pylint: enable = invalid-name
+        self.privateKey = privateKey
+
+    def makeServerKeyExchange(self, sigHash=None):
+        """Create ECDHE version of Server Key Exchange"""
+        ske = super(ECDHE_RSAKeyExchange, self).makeServerKeyExchange()
+        self.signServerKeyExchange(ske, sigHash)
+        return ske
 
 class SRPKeyExchange(KeyExchange):
     """Helper class for conducting SRP key exchange"""
