@@ -28,7 +28,7 @@ from .mathtls import *
 from .handshakesettings import HandshakeSettings
 from .utils.tackwrapper import *
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
-        ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange
+        ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, AECDHKeyExchange
 from .handshakehelpers import HandshakeHelpers
 
 class TLSConnection(TLSRecordLayer):
@@ -1175,7 +1175,7 @@ class TLSConnection(TLSRecordLayer):
                 return # Handshake was resumed, we're done 
             else: break
         (clientHello, cipherSuite) = result
-        
+
         #If not a resumption...
 
         # Create the ServerHello message
@@ -1299,15 +1299,21 @@ class TLSConnection(TLSRecordLayer):
             (premasterSecret, clientCertChain) = result
 
         # Perform anonymous Diffie Hellman key exchange
-        elif cipherSuite in CipherSuite.anonSuites:
-            keyExchange = ADHKeyExchange(cipherSuite, clientHello,
-                                         serverHello)
+        elif (cipherSuite in CipherSuite.anonSuites or
+              cipherSuite in CipherSuite.ecdhAnonSuites):
+            if cipherSuite in CipherSuite.anonSuites:
+                keyExchange = ADHKeyExchange(cipherSuite, clientHello,
+                                             serverHello)
+            else:
+                acceptedCurves = self._curveNamesToList(settings)
+                keyExchange = AECDHKeyExchange(cipherSuite, clientHello,
+                                               serverHello, acceptedCurves)
             for result in self._serverAnonKeyExchange(serverHello, keyExchange,
                                                       cipherSuite):
                 if result in (0,1): yield result
                 else: break
             premasterSecret = result
-        
+
         else:
             assert(False)
                         
@@ -1411,12 +1417,13 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getCertSuites(settings, self.version)
         elif anon:
             cipherSuites += CipherSuite.getAnonSuites(settings, self.version)
+            cipherSuites += CipherSuite.getEcdhAnonSuites(settings,
+                                                          self.version)
         else:
             assert(False)
         cipherSuites = CipherSuite.filterForVersion(cipherSuites,
                                                     minVersion=self.version,
                                                     maxVersion=self.version)
-
         #If resumption was requested and we have a session cache...
         if clientHello.session_id and sessionCache:
             session = None
