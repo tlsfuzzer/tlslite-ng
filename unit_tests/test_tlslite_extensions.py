@@ -12,7 +12,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SRPExtension, ClientCertTypeExtension, ServerCertTypeExtension,\
         TACKExtension, SupportedGroupsExtension, ECPointFormatsExtension,\
         SignatureAlgorithmsExtension, PaddingExtension, VarListExtension, \
-        RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension
+        RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
+        SCTExtension
 from tlslite.utils.codec import Parser
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -1586,6 +1587,90 @@ class TestAPLNExtension(unittest.TestCase):
         self.assertIsInstance(ext2, ALPNExtension)
         self.assertEqual(ext2.protocol_names, [bytearray(b'http/1.1'),
                                                bytearray(b'spdy/1')])
+
+
+class TestSCTExtension(unittest.TestCase):
+    def setUp(self):
+        self.ext = SCTExtension()
+
+    def test___int__(self):
+        self.assertIsNotNone(self.ext)
+        self.assertEqual(self.ext.extType, 18)
+        self.assertEqual(self.ext.extData, bytearray())
+        self.assertIsNone(self.ext.sct_list)
+
+    def test_create(self):
+        ext2 = self.ext.create([bytearray(b'SCT number 1'),
+                                bytearray(b'SCT number 2')])
+
+        self.assertIs(self.ext, ext2)
+        self.assertEqual(self.ext.sct_list, [bytearray(b'SCT number 1'),
+                                             bytearray(b'SCT number 2')])
+
+    def test_extData_with_empty_array(self):
+        self.ext.create([])
+
+        self.assertEqual(self.ext.extData, bytearray(b'\x00\x00'))
+
+    def test_extData_with_empty_SCTs(self):
+        self.ext.create([bytearray(), bytearray()])
+
+        self.assertEqual(self.ext.extData, bytearray(b'\x00\x04'
+                                                     b'\x00\x00'
+                                                     b'\x00\x00'))
+
+    def test_extData(self):
+        self.ext.create([bytearray(b'test'), bytearray(b'example')])
+
+        self.assertEqual(self.ext.extData, bytearray(b'\x00\x0f'
+                                                     b'\x00\x04test'
+                                                     b'\x00\x07example'))
+
+    def test_parse_with_empty_data(self):
+        parser = Parser(bytearray(b''))
+
+        ret = self.ext.parse(parser)
+
+        self.assertIs(ret, self.ext)
+        self.assertIsNone(self.ext.sct_list)
+
+    def test_parse_with_empty_array(self):
+        parser = Parser(bytearray(b'\x00\x00'))
+
+        ret = self.ext.parse(parser)
+
+        self.assertIs(ret, self.ext)
+        self.assertEqual(self.ext.sct_list, [])
+
+    def test_parse_with_empty_elements(self):
+        parser = Parser(bytearray(b'\x00\x04\x00\x00\x00\x00'))
+
+        self.ext.parse(parser)
+
+        self.assertEqual(self.ext.sct_list, [bytearray(), bytearray()])
+
+    def test_parse_with_value(self):
+        parser = Parser(bytearray(b'\x00\x06\x00\x04test'))
+
+        self.ext.parse(parser)
+
+        self.assertEqual(self.ext.sct_list, [bytearray(b'test')])
+
+    def test_parse_with_overflowing_data(self):
+        parser = Parser(bytearray(b'\x00\x00test'))
+
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(parser)
+
+    def test_parse_from_TLSExtension(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(b'\x00\x12\x00\x08'
+                                  b'\x00\x06\x00\x04test'))
+
+        ret = ext.parse(parser)
+        self.assertIsInstance(ret, SCTExtension)
+        self.assertEqual(ret.sct_list, [bytearray(b'test')])
 
 
 class TestStatusRequestExtension(unittest.TestCase):

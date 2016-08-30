@@ -129,6 +129,7 @@ class ExtensionType(TLSEnum):
     srp = 12  # RFC 5054
     signature_algorithms = 13  # RFC 5246
     alpn = 16  # RFC 7301
+    signed_certificate_timestamp = 18  # RFC 6962
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
