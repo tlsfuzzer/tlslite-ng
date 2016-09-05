@@ -51,45 +51,81 @@ class RSAKey(object):
         """
         raise NotImplementedError()
 
-    def hashAndSign(self, bytes):
+    def hashAndSign(self, bytes, rsaType='PKCS1', hAlg='sha1', sLen=0):
         """Hash and sign the passed-in bytes.
 
         This requires the key to have a private component.  It performs
-        a PKCS1-SHA1 signature on the passed-in data.
+        a PKCS1 or PSS signature on the passed-in data with selected hash
+        algorithm.
 
         @type bytes: str or L{bytearray} of unsigned bytes
         @param bytes: The value which will be hashed and signed.
 
+        @type rsaType: str
+        @param rsaType: The type of RSA algorithm that will be applied
+
+        @type hAlg: str
+        @param hAlg: The hash algorithm that will be used
+
+        @type sLen: int
+        @param sLen: The length of intended salt value
+
         @rtype: L{bytearray} of unsigned bytes.
-        @return: A PKCS1-SHA1 signature on the passed-in data.
+        @return: A PKCS1 or PSS signature on the passed-in data.
         """
-        hashBytes = SHA1(bytearray(bytes))
-        prefixedHashBytes = self.addPKCS1SHA1Prefix(hashBytes)
-        sigBytes = self.sign(prefixedHashBytes)
+        if rsaType == "PKCS1":
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes = self.addPKCS1Prefix(hashBytes, hAlg)
+            sigBytes = self.sign(prefixedHashBytes)
+        elif rsaType == "PSS":
+            sigBytes = self.RSASSA_PSS_sign(bytearray(bytes), hAlg, sLen)
+        else:
+            raise UnknownRSAType("Unknown RSA algorithm type")
         return sigBytes
 
-    def hashAndVerify(self, sigBytes, bytes):
+    def hashAndVerify(self, sigBytes, bytes, rsaType='PKCS1', hAlg='sha1', sLen=0):
         """Hash and verify the passed-in bytes with the signature.
 
-        This verifies a PKCS1-SHA1 signature on the passed-in data.
+        This verifies a PKCS1 or PSS signature on the passed-in data
+        with selected hash algorithm.
 
         @type sigBytes: L{bytearray} of unsigned bytes
-        @param sigBytes: A PKCS1-SHA1 signature.
+        @param sigBytes: A PKCS1 or PSS signature.
 
         @type bytes: str or L{bytearray} of unsigned bytes
         @param bytes: The value which will be hashed and verified.
 
+        @type rsaType: str
+        @param rsaType: The type of RSA algorithm that will be applied
+
+        @type hAlg: str
+        @param hAlg: The hash algorithm that will be used
+
+        @type sLen: int
+        @param sLen: The length of intended salt value
+
         @rtype: bool
         @return: Whether the signature matches the passed-in data.
         """
-        hashBytes = SHA1(bytearray(bytes))
         
         # Try it with/without the embedded NULL
-        prefixedHashBytes1 = self.addPKCS1SHA1Prefix(hashBytes, False)
-        prefixedHashBytes2 = self.addPKCS1SHA1Prefix(hashBytes, True)
-        result1 = self.verify(sigBytes, prefixedHashBytes1)
-        result2 = self.verify(sigBytes, prefixedHashBytes2)
-        return (result1 or result2)
+        if rsaType == "PKCS1" and hAlg == 'sha1':
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes1 = self.addPKCS1SHA1Prefix(hashBytes, False)
+            prefixedHashBytes2 = self.addPKCS1SHA1Prefix(hashBytes, True)
+            result1 = self.verify(sigBytes, prefixedHashBytes1)
+            result2 = self.verify(sigBytes, prefixedHashBytes2)
+            return (result1 or result2)
+        elif rsaType == 'PKCS1':
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes = self.addPKCS1Prefix(hashBytes, hAlg)
+            r = self.verify(sigBytes, prefixedHashBytes)
+            return r
+        elif rsaType == "PSS":
+            r = self.RSASSA_PSS_verify(bytearray(bytes), sigBytes, hAlg, sLen)
+            return r
+        else:
+            raise UnknownRSAType("Unknown RSA algorithm type")
 
     def MGF1(self, mgfSeed, maskLen, hAlg):
         """Generate mask from passed-in seed.
