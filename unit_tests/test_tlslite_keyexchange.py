@@ -873,4 +873,3 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
                                                   [GroupName.secp256r1])
         with self.assertRaises(TLSIllegalParameterException):
             client_keyExchange.processServerKeyExchange(None, srv_key_ex)
-
