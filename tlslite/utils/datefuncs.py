@@ -54,8 +54,7 @@ else:
         return c
 
     def printDateClass(d):
-        return "%04d-%02d-%02dT%02d:%02d:%02dZ" % \
-        (d.get(d.YEAR), d.get(d.MONTH)+1, d.get(d.DATE), \
+        return "{0:04d}-{1:02d}-{2:02d}T{3:02d}:{4:02d}:{5:02d}Z".format(d.get(d.YEAR), d.get(d.MONTH)+1, d.get(d.DATE), \
         d.get(d.HOUR_OF_DAY), d.get(d.MINUTE), d.get(d.SECOND))
 
     def getNow():

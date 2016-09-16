@@ -46,7 +46,7 @@ class BaseDB(object):
         self.db = anydbm.open(self.filename, "w") #raises anydbm.error
         try:
             if self.db["--Reserved--type"] != self.type:
-                raise ValueError("Not a %s database" % self.type)
+                raise ValueError("Not a {0!s} database".format(self.type))
         except KeyError:
             raise ValueError("Not a recognized database")
 

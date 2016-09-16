@@ -69,8 +69,7 @@ class Checker(object):
                     if self.x509Fingerprint:
                         if chain.getFingerprint() != self.x509Fingerprint:
                             raise TLSFingerprintError(\
-                                "X.509 fingerprint mismatch: %s, %s" % \
-                                (chain.getFingerprint(), self.x509Fingerprint))
+                                "X.509 fingerprint mismatch: {0!s}, {1!s}".format(chain.getFingerprint(), self.x509Fingerprint))
                 elif chain:
                     raise TLSAuthenticationTypeError()
                 else:

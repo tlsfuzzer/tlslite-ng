@@ -22,15 +22,15 @@ def dePem(s, name):
     The first such PEM block in the input will be found, and its
     payload will be base64 decoded and returned.
     """
-    prefix  = "-----BEGIN %s-----" % name
-    postfix = "-----END %s-----" % name    
+    prefix  = "-----BEGIN {0!s}-----".format(name)
+    postfix = "-----END {0!s}-----".format(name)    
     start = s.find(prefix)
     if start == -1:
         raise SyntaxError("Missing PEM prefix")
     end = s.find(postfix, start+len(prefix))
     if end == -1:
         raise SyntaxError("Missing PEM postfix")
-    s = s[start+len("-----BEGIN %s-----" % name) : end]
+    s = s[start+len("-----BEGIN {0!s}-----".format(name)) : end]
     retBytes = a2b_base64(s) # May raise SyntaxError
     return retBytes
     
@@ -59,8 +59,8 @@ def dePemList(s, name):
     of bytearrays, which may have zero elements if not PEM blocks are found.
     """
     bList = []
-    prefix  = "-----BEGIN %s-----" % name
-    postfix = "-----END %s-----" % name
+    prefix  = "-----BEGIN {0!s}-----".format(name)
+    postfix = "-----END {0!s}-----".format(name)
     while 1:
         start = s.find(prefix)
         if start == -1:
@@ -90,10 +90,10 @@ def pem(b, name):
     while s1:
         s2 += s1[:64] + "\n"
         s1 = s1[64:]
-    s = ("-----BEGIN %s-----\n" % name) + s2 + \
-        ("-----END %s-----\n" % name)     
+    s = ("-----BEGIN {0!s}-----\n".format(name)) + s2 + \
+        ("-----END {0!s}-----\n".format(name))     
     return s
 
 def pemSniff(inStr, name):
-    searchStr = "-----BEGIN %s-----" % name
+    searchStr = "-----BEGIN {0!s}-----".format(name)
     return searchStr in inStr

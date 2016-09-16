@@ -53,14 +53,14 @@ def printUsage(s=None):
     else:
         crypto = "Python crypto"        
     if s:
-        print("ERROR: %s" % s)
-    print("""\ntls.py version %s (using %s)  
+        print("ERROR: {0!s}".format(s))
+    print("""\ntls.py version {0!s} (using {1!s})  
 
 Commands:
   server HOST:PORT DIRECTORY
 
   client HOST:PORT DIRECTORY
-""" % (__version__, crypto))
+""".format(__version__, crypto))
     sys.exit(-1)
     
 
@@ -220,9 +220,9 @@ def clientTestCmd(argv):
         connection.fault = fault
         try:
             connection.handshakeClientSRP("test", "password")
-            print("  Good Fault %s" % (Fault.faultNames[fault]))
+            print("  Good Fault {0!s}".format((Fault.faultNames[fault])))
         except TLSFaultError as e:
-            print("  BAD FAULT %s: %s" % (Fault.faultNames[fault], str(e)))
+            print("  BAD FAULT {0!s}: {1!s}".format(Fault.faultNames[fault], str(e)))
             badFault = True
 
     test_no += 1
@@ -247,9 +247,9 @@ def clientTestCmd(argv):
         connection.fault = fault
         try:
             connection.handshakeClientSRP("test", "password")
-            print("  Good Fault %s" % (Fault.faultNames[fault]))
+            print("  Good Fault {0!s}".format((Fault.faultNames[fault])))
         except TLSFaultError as e:
-            print("  BAD FAULT %s: %s" % (Fault.faultNames[fault], str(e)))
+            print("  BAD FAULT {0!s}: {1!s}".format(Fault.faultNames[fault], str(e)))
             badFault = True
 
     test_no += 1
@@ -261,9 +261,9 @@ def clientTestCmd(argv):
         connection.fault = fault
         try:
             connection.handshakeClientCert()
-            print("  Good Fault %s" % (Fault.faultNames[fault]))
+            print("  Good Fault {0!s}".format((Fault.faultNames[fault])))
         except TLSFaultError as e:
-            print("  BAD FAULT %s: %s" % (Fault.faultNames[fault], str(e)))
+            print("  BAD FAULT {0!s}: {1!s}".format(Fault.faultNames[fault], str(e)))
             badFault = True
 
     test_no += 1
@@ -316,9 +316,9 @@ def clientTestCmd(argv):
         connection.fault = fault
         try:
             connection.handshakeClientCert(x509Chain, x509Key)
-            print("  Good Fault %s" % (Fault.faultNames[fault]))
+            print("  Good Fault {0!s}".format((Fault.faultNames[fault])))
         except TLSFaultError as e:
-            print("  BAD FAULT %s: %s" % (Fault.faultNames[fault], str(e)))
+            print("  BAD FAULT {0!s}: {1!s}".format(Fault.faultNames[fault], str(e)))
             badFault = True
 
     test_no += 1
@@ -416,7 +416,7 @@ def clientTestCmd(argv):
             settings.maxVersion = (3,1)            
             connection.handshakeClientCert(settings=settings)
             testConnClient(connection)
-            print("%s %s" % (connection.getCipherName(), connection.getCipherImplementation()))
+            print("{0!s} {1!s}".format(connection.getCipherName(), connection.getCipherImplementation()))
             connection.close()
 
     test_no += 1
@@ -448,14 +448,14 @@ def clientTestCmd(argv):
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
             connection.handshakeClientCert(settings=settings)
-            print("%s %s:" % (connection.getCipherName(), connection.getCipherImplementation()), end=' ')
+            print("{0!s} {1!s}:".format(connection.getCipherName(), connection.getCipherImplementation()), end=' ')
 
             startTime = time.clock()
             connection.write(b"hello"*10000)
             h = connection.read(min=50000, max=50000)
             stopTime = time.clock()
             if stopTime-startTime:
-                print("100K exchanged at rate of %d bytes/sec" % int(100000/(stopTime-startTime)))
+                print("100K exchanged at rate of {0:d} bytes/sec".format(int(100000/(stopTime-startTime))))
             else:
                 print("100K exchanged very fast")
 
@@ -657,9 +657,9 @@ def clientTestCmd(argv):
         # python 3.4.2 doesn't have it though
         context = ssl.create_default_context(\
                 cafile=os.path.join(dir, "serverX509Cert.pem"))
-        server = xmlrpclib.Server('https://%s:%s' % address, context=context)
+        server = xmlrpclib.Server('https://{0!s}:{1!s}'.format(*address), context=context)
     except (TypeError, AttributeError):
-        server = xmlrpclib.Server('https://%s:%s' % address)
+        server = xmlrpclib.Server('https://{0!s}:{1!s}'.format(*address))
 
     synchro.recv(1)
     assert server.add(1,2) == 3
@@ -670,7 +670,7 @@ def clientTestCmd(argv):
 
     print('Test {0} - good tlslite XMLRPC client'.format(test_no))
     transport = XMLRPCTransport(ignoreAbruptClose=True)
-    server = xmlrpclib.Server('https://%s:%s' % address, transport)
+    server = xmlrpclib.Server('https://{0!s}:{1!s}'.format(*address), transport)
     synchro.recv(1)
     assert server.add(1,2) == 3
     synchro.recv(1)
@@ -679,7 +679,7 @@ def clientTestCmd(argv):
     test_no += 1
 
     print('Test {0} - good XMLRPC ignored protocol'.format(test_no))
-    server = xmlrpclib.Server('http://%s:%s' % address, transport)
+    server = xmlrpclib.Server('http://{0!s}:{1!s}'.format(*address), transport)
     synchro.recv(1)
     assert server.add(1,2) == 3
     synchro.recv(1)
@@ -1311,4 +1311,4 @@ if __name__ == '__main__':
     elif sys.argv[1] == "server"[:len(sys.argv[1])]:
         serverTestCmd(sys.argv[2:])
     else:
-        printUsage("Unknown command: %s" % sys.argv[1])
+        printUsage("Unknown command: {0!s}".format(sys.argv[1]))

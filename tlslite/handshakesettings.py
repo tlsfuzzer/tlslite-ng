@@ -178,28 +178,28 @@ class HandshakeSettings(object):
         unknownCiphers = [val for val in other.cipherNames \
                           if val not in ALL_CIPHER_NAMES]
         if unknownCiphers:
-            raise ValueError("Unknown cipher name: %s" % unknownCiphers)
+            raise ValueError("Unknown cipher name: {0!s}".format(unknownCiphers))
 
         unknownMacs = [val for val in other.macNames \
                        if val not in ALL_MAC_NAMES]
         if unknownMacs:
-            raise ValueError("Unknown MAC name: %s" % unknownMacs)
+            raise ValueError("Unknown MAC name: {0!s}".format(unknownMacs))
 
         unknownKex = [val for val in other.keyExchangeNames \
                       if val not in KEY_EXCHANGE_NAMES]
         if unknownKex:
-            raise ValueError("Unknown key exchange name: %s" % unknownKex)
+            raise ValueError("Unknown key exchange name: {0!s}".format(unknownKex))
 
         unknownImpl = [val for val in other.cipherImplementations \
                        if val not in CIPHER_IMPLEMENTATIONS]
         if unknownImpl:
-            raise ValueError("Unknown cipher implementation: %s" % \
-                             unknownImpl)
+            raise ValueError("Unknown cipher implementation: {0!s}".format( \
+                             unknownImpl))
 
         unknownType = [val for val in other.certificateTypes \
                        if val not in CERTIFICATE_TYPES]
         if unknownType:
-            raise ValueError("Unknown certificate type: %s" % unknownType)
+            raise ValueError("Unknown certificate type: {0!s}".format(unknownType))
 
         unknownCurve = [val for val in other.eccCurves \
                         if val not in ALL_CURVE_NAMES]

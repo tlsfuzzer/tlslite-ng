@@ -31,7 +31,7 @@ if sys.version_info >= (3,0):
         try:
             b = bytearray(binascii.a2b_hex(bytearray(s, "ascii")))
         except Exception as e:
-            raise SyntaxError("base16 error: %s" % e) 
+            raise SyntaxError("base16 error: {0!s}".format(e)) 
         return b  
 
     def a2b_base64(s):
@@ -40,7 +40,7 @@ if sys.version_info >= (3,0):
                 s = bytearray(s, "ascii")
             b = bytearray(binascii.a2b_base64(s))
         except Exception as e:
-            raise SyntaxError("base64 error: %s" % e)
+            raise SyntaxError("base64 error: {0!s}".format(e))
         return b
 
     def b2a_hex(b):
@@ -76,14 +76,14 @@ else:
         try:
             b = bytearray(binascii.a2b_hex(s))
         except Exception as e:
-            raise SyntaxError("base16 error: %s" % e)
+            raise SyntaxError("base16 error: {0!s}".format(e))
         return b
 
     def a2b_base64(s):
         try:
             b = bytearray(binascii.a2b_base64(s))
         except Exception as e:
-            raise SyntaxError("base64 error: %s" % e)
+            raise SyntaxError("base64 error: {0!s}".format(e))
         return b
         
     def b2a_hex(b):
