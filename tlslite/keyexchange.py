@@ -6,11 +6,10 @@
 
 from .mathtls import goodGroupParameters, makeK, makeU, makeX, calcMasterSecret
 from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
-        TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError, \
-        TLSLocalAlert
+        TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError
 from .messages import ServerKeyExchange, ClientKeyExchange, CertificateVerify
 from .constants import SignatureAlgorithm, HashAlgorithm, CipherSuite, \
-        ExtensionType, GroupName, ECCurveType, AlertDescription
+        ExtensionType, GroupName, ECCurveType
 from .utils.ecc import decodeX962Point, encodeX962Point, getCurveByName, \
         getPointByteSize
 from .utils.rsakey import RSAKey
@@ -25,7 +24,7 @@ class KeyExchange(object):
     NOT stable, will get moved from this file
     """
 
-    def __init__(self, cipherSuite, clientHello, serverHello, privateKey):
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey=None):
         """Initialize KeyExchange. privateKey is the signing private key"""
         self.cipherSuite = cipherSuite
         self.clientHello = clientHello
@@ -176,6 +175,7 @@ class KeyExchange(object):
 
         return certificateVerify
 
+
 class RSAKeyExchange(KeyExchange):
     """
     Handling of RSA key exchange
@@ -229,30 +229,32 @@ class RSAKeyExchange(KeyExchange):
         clientKeyExchange.createRSA(self.encPremasterSecret)
         return clientKeyExchange
 
-# the DHE_RSA part comes from IETF ciphersuite names, we want to keep it
-#pylint: disable = invalid-name
-class DHE_RSAKeyExchange(KeyExchange):
-    """
-    Handling of ephemeral Diffe-Hellman Key exchange
 
-    NOT stable API, do NOT use
+class ADHKeyExchange(KeyExchange):
+    """
+    Handling of anonymous Diffie-Hellman Key exchange
+
+    FFDHE without signing serverKeyExchange useful for anonymous DH
     """
 
-    def __init__(self, cipherSuite, clientHello, serverHello, privateKey):
-        super(DHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
-                                                 serverHello, privateKey)
+    def __init__(self, cipherSuite, clientHello, serverHello):
+        super(ADHKeyExchange, self).__init__(cipherSuite, clientHello,
+                                             serverHello)
 #pylint: enable = invalid-name
         self.dh_Xs = None
         self.dh_Yc = None
 
     # 2048-bit MODP Group (RFC 3526, Section 3)
+    # TODO make configurable
     dh_g, dh_p = goodGroupParameters[2]
 
     # RFC 3526, Section 8.
     strength = 160
 
-    def makeServerKeyExchange(self, sigHash=None):
-        """Prepare server side of key exchange with selected parameters"""
+    def makeServerKeyExchange(self):
+        """
+        Prepare server side of anonymous key exchange with selected parameters
+        """
         # Per RFC 3526, Section 1, the exponent should have double the entropy
         # of the strength of the curve.
         self.dh_Xs = bytesToNumber(getRandomBytes(self.strength * 2 // 8))
@@ -261,7 +263,7 @@ class DHE_RSAKeyExchange(KeyExchange):
         version = self.serverHello.server_version
         serverKeyExchange = ServerKeyExchange(self.cipherSuite, version)
         serverKeyExchange.createDH(self.dh_p, self.dh_g, dh_Ys)
-        self.signServerKeyExchange(serverKeyExchange, sigHash)
+        # No sign for anonymous ServerKeyExchange.
         return serverKeyExchange
 
     def processClientKeyExchange(self, clientKeyExchange):
@@ -271,8 +273,7 @@ class DHE_RSAKeyExchange(KeyExchange):
         # First half of RFC 2631, Section 2.1.5. Validate the client's public
         # key.
         if not 2 <= dh_Yc <= self.dh_p - 1:
-            raise TLSLocalAlert(AlertDescription.illegal_parameter,
-                                "Invalid dh_Yc value")
+            raise TLSIllegalParameterException("Invalid dh_Yc value")
 
         S = powMod(dh_Yc, self.dh_Xs, self.dh_p)
         return numberToByteArray(S)
@@ -294,28 +295,49 @@ class DHE_RSAKeyExchange(KeyExchange):
 
     def makeClientKeyExchange(self):
         """Create client key share for the key exchange"""
-        cke = super(DHE_RSAKeyExchange, self).makeClientKeyExchange()
+        cke = super(ADHKeyExchange, self).makeClientKeyExchange()
         cke.createDH(self.dh_Yc)
         return cke
 
-# The ECDHE_RSA part comes from the IETF names of ciphersuites, so we want to
-# keep it
-#pylint: disable = invalid-name
-class ECDHE_RSAKeyExchange(KeyExchange):
-    """Helper class for conducting ECDHE key exchange"""
 
-    def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
-                 acceptedCurves):
-        super(ECDHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
-                                                   serverHello, privateKey)
+# the DHE_RSA part comes from IETF ciphersuite names, we want to keep it
+#pylint: disable = invalid-name
+class DHE_RSAKeyExchange(ADHKeyExchange):
+    """
+    Handling of ephemeral Diffe-Hellman Key exchange
+
+    NOT stable API, do NOT use
+    """
+
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey):
+        super(DHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                 serverHello)
 #pylint: enable = invalid-name
+        self.privateKey = privateKey
+
+    def makeServerKeyExchange(self, sigHash=None):
+        """Prepare server side of key exchange with selected parameters"""
+        ske = super(DHE_RSAKeyExchange, self).makeServerKeyExchange()
+        self.signServerKeyExchange(ske, sigHash)
+        return ske
+
+
+class AECDHKeyExchange(KeyExchange):
+    """
+    Handling of anonymous Eliptic curve Diffie-Hellman Key exchange
+
+    ECDHE without signing serverKeyExchange useful for anonymous ECDH
+    """
+    def __init__(self, cipherSuite, clientHello, serverHello, acceptedCurves):
+        super(AECDHKeyExchange, self).__init__(cipherSuite, clientHello,
+                                               serverHello)
         self.ecdhXs = None
         self.acceptedCurves = acceptedCurves
         self.group_id = None
         self.ecdhYc = None
 
     def makeServerKeyExchange(self, sigHash=None):
-        """Create ECDHE version of Server Key Exchange"""
+        """Create AECDHE version of Server Key Exchange"""
         #Get client supported groups
         client_curves = self.clientHello.getExtension(\
                 ExtensionType.supported_groups)
@@ -326,8 +348,7 @@ class ECDHE_RSAKeyExchange(KeyExchange):
 
         #Pick first client preferred group we support
         self.group_id = next((x for x in client_curves \
-                              if x in self.acceptedCurves),
-                             None)
+                              if x in self.acceptedCurves), None)
         if self.group_id is None:
             raise TLSInsufficientSecurity("No mutual groups")
         generator = getCurveByName(GroupName.toRepr(self.group_id)).generator
@@ -340,14 +361,18 @@ class ECDHE_RSAKeyExchange(KeyExchange):
         serverKeyExchange.createECDH(ECCurveType.named_curve,
                                      named_curve=self.group_id,
                                      point=ecdhYs)
-        self.signServerKeyExchange(serverKeyExchange, sigHash)
+        # No sign for anonymous ServerKeyExchange
         return serverKeyExchange
 
     def processClientKeyExchange(self, clientKeyExchange):
         """Calculate premaster secret from previously generated SKE and CKE"""
         curveName = GroupName.toRepr(self.group_id)
-        ecdhYc = decodeX962Point(clientKeyExchange.ecdh_Yc,
-                                 getCurveByName(curveName))
+        try:
+            ecdhYc = decodeX962Point(clientKeyExchange.ecdh_Yc,
+                                     getCurveByName(curveName))
+        # TODO update python-ecdsa library to raise something more on point
+        except AssertionError:
+            raise TLSIllegalParameterException("Invalid ECC point")
 
         sharedSecret = ecdhYc * self.ecdhXs
 
@@ -374,9 +399,31 @@ class ECDHE_RSAKeyExchange(KeyExchange):
 
     def makeClientKeyExchange(self):
         """Make client key exchange for ECDHE"""
-        cke = super(ECDHE_RSAKeyExchange, self).makeClientKeyExchange()
+        cke = super(AECDHKeyExchange, self).makeClientKeyExchange()
         cke.createECDH(self.ecdhYc)
         return cke
+
+
+# The ECDHE_RSA part comes from the IETF names of ciphersuites, so we want to
+# keep it
+#pylint: disable = invalid-name
+class ECDHE_RSAKeyExchange(AECDHKeyExchange):
+    """Helper class for conducting ECDHE key exchange"""
+
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
+                 acceptedCurves):
+        super(ECDHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                   serverHello,
+                                                   acceptedCurves)
+#pylint: enable = invalid-name
+        self.privateKey = privateKey
+
+    def makeServerKeyExchange(self, sigHash=None):
+        """Create ECDHE version of Server Key Exchange"""
+        ske = super(ECDHE_RSAKeyExchange, self).makeServerKeyExchange()
+        self.signServerKeyExchange(ske, sigHash)
+        return ske
+
 
 class SRPKeyExchange(KeyExchange):
     """Helper class for conducting SRP key exchange"""
@@ -395,10 +442,14 @@ class SRPKeyExchange(KeyExchange):
         self.srpUsername = srpUsername
         self.password = password
         self.settings = settings
+        if srpUsername is not None and not isinstance(srpUsername, bytearray):
+            raise TypeError("srpUsername must be a bytearray object")
+        if password is not None and not isinstance(password, bytearray):
+            raise TypeError("password must be a bytearray object")
 
     def makeServerKeyExchange(self, sigHash=None):
         """Create SRP version of Server Key Exchange"""
-        srpUsername = self.clientHello.srp_username.decode("utf-8")
+        srpUsername = bytes(self.clientHello.srp_username)
         #Get parameters from username
         try:
             entry = self.verifierDB[srpUsername]
@@ -456,8 +507,7 @@ class SRPKeyExchange(KeyExchange):
         self.A = powMod(g, a, N)
 
         #Calculate client's static DH values (x, v)
-        x = makeX(s, bytearray(self.srpUsername, "utf-8"),
-                  bytearray(self.password, "utf-8"))
+        x = makeX(s, self.srpUsername, self.password)
         v = powMod(g, x, N)
 
         #Calculate u
@@ -473,4 +523,3 @@ class SRPKeyExchange(KeyExchange):
         cke = super(SRPKeyExchange, self).makeClientKeyExchange()
         cke.createSRP(self.A)
         return cke
-

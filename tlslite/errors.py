@@ -24,6 +24,9 @@ class BaseTLSException(Exception):
 
     pass
 
+class EncryptionError(BaseTLSException):
+    """Base class for exceptions thrown while encrypting"""
+
 class TLSError(BaseTLSException):
 
     """Base class for all TLS Lite exceptions."""
@@ -230,3 +233,27 @@ class TLSUnknownPSKIdentity(TLSProtocolException):
 
     pass
 
+class MaskTooLongError(EncryptionError):
+    """The maskLen passed into function is too high"""
+
+    pass
+
+class MessageTooLongError(EncryptionError):
+    """The message passed into function is too long"""
+
+    pass
+
+class EncodingError(EncryptionError):
+    """An error appeared while encoding"""
+
+    pass
+
+class InvalidSignature(EncryptionError):
+    """Verification function found invalid signature"""
+
+    pass
+
+class UnknownRSAType(EncryptionError):
+    """Unknown RSA algorithm type passed"""
+
+    pass

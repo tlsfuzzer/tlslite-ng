@@ -567,9 +567,8 @@ class TestTLSRecordLayer(unittest.TestCase):
         gen = record_layer._getMsg(ContentType.handshake,
                 HandshakeType.server_hello)
 
-        # XXX decoder handles messages over the 2**14 limit!
-        #with self.assertRaises(TLSLocalAlert):
-        message = next(gen)
+        with self.assertRaises(TLSLocalAlert):
+            message = next(gen)
 
     #
     # Temporary tests below

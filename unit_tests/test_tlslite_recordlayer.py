@@ -906,6 +906,133 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x00\x00\x00\x00\x00\x00\x00\xb5c\x15\x8c' +
             b'\xe3\x92H6l\x90\x19\xef\x96\xbfT}\xe8\xbaE\xa3'))
 
+    def test_sendRecord_with_ChaCha20_draft00(self):
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+
+        ciph = CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_draft_00
+        recordLayer.calcPendingStates(ciph,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(bytearray(b'test'))
+
+        self.assertIsNotNone(app_data)
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else: break
+
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +           # application data
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x14'         # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b'8k9<\xf3\xdc\x86d,\xf4\xb7\xe8L7\xecA\x7fi\xb1\xdc'))
+
+    def test_recvRecord_with_ChaCha20_draft00(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x14' +       # length
+            b'8k9<\xf3\xdc\x86d,\xf4\xb7\xe8L7\xecA\x7fi\xb1\xdc'))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+        recordLayer.client = False
+
+        ciph = CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_draft_00
+        recordLayer.calcPendingStates(ciph,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvRecord():
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+
+        head, parser = result
+
+        self.assertEqual((3, 3), head.version)
+        self.assertEqual(head.type, ContentType.application_data)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_sendRecord_with_ChaCha20(self):
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+
+        ciph = CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        recordLayer.calcPendingStates(ciph,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(bytearray(b'test'))
+
+        self.assertIsNotNone(app_data)
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else: break
+
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +           # application data
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x14'         # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b's\x1e\xe8(+h0\x84\xbf\x96,\xbc\xdf\\\x8c\xad=\x95\xa1\x9a'))
+
+    def test_recvRecord_with_ChaCha20(self):
+        sock = MockSocket(bytearray(
+            b'\x17' +           # application data
+            b'\x03\x03' +       # TLSv1.2
+            b'\x00\x14' +       # length
+            b's\x1e\xe8(+h0\x84\xbf\x96,\xbc\xdf\\\x8c\xad=\x95\xa1\x9a'))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 3)
+        recordLayer.client = False
+
+        ciph = CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        recordLayer.calcPendingStates(ciph,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+
+        for result in recordLayer.recvRecord():
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+
+        head, parser = result
+
+        self.assertEqual((3, 3), head.version)
+        self.assertEqual(head.type, ContentType.application_data)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+
     # tlslite has no pure python implementation of 3DES
     @unittest.skipUnless(cryptomath.m2cryptoLoaded or cryptomath.pycryptoLoaded,
                          "requires native 3DES implementation")

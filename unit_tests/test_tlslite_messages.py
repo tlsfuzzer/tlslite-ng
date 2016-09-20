@@ -17,7 +17,7 @@ from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
         SSL2HandshakeType
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
-    SRPExtension, TLSExtension
+    SRPExtension, TLSExtension, NPNExtension
 from tlslite.errors import TLSInternalError
 
 class TestMessage(unittest.TestCase):
@@ -79,6 +79,14 @@ class TestClientHello(unittest.TestCase):
         self.assertEqual(bytearray(0), client_hello.session_id)
         self.assertEqual([], client_hello.cipher_suites)
         self.assertEqual([0], client_hello.compression_methods)
+
+    def test_create_with_NPN_in_extensions(self):
+        client_hello = ClientHello()
+        client_hello.create((3, 0), bytearray(32), bytearray(0), [1],
+                            extensions=[NPNExtension()])
+
+        self.assertEqual((3, 0), client_hello.client_version)
+        self.assertEqual([NPNExtension()], client_hello.extensions)
 
     def test_parse(self):
         p = Parser(bytearray(
@@ -316,10 +324,16 @@ class TestClientHello(unittest.TestCase):
                 b'\x01'                 # type - OpenPGP
                 )), list(client_hello.write()))
 
+    def test_invalid_srp_username(self):
+        with self.assertRaises(TypeError):
+            ClientHello().create((3, 1),
+                    bytearray(b'\x00'*32), bytearray(0),
+                    [], srpUsername='test')
+
     def test_write_with_srp_username(self):
         client_hello = ClientHello().create((3,1),
                 bytearray(b'\x00'*31 + b'\xff'), bytearray(0),
-                [], srpUsername="example-test")
+                [], srpUsername=bytearray(b"example-test"))
 
         self.assertEqual(list(bytearray(
                 b'\x01' +               # type of message - client_hello
@@ -650,6 +664,111 @@ class TestClientHello(unittest.TestCase):
             b'\x00\x00\x2f' +     # cipher - TLS_RSA_WITH_AES_128_CBC_SHA
             b'\xab'*16),          # challange
             client_hello.write())
+
+    def test_parse_with_short_message(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x25' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            #b'\x00'              # compression methods
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
+
+    def test_parse_with_short_message_trunc_extensions_list(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x28' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            b'\x00'               # compression methods
+            b'\x00\x04'           # extensions length
+            #b'\xff\xab'          # extension ID
+            #b'\x00\x00'          # extensions length
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
+
+    def test_parse_with_short_message_trunc_extension_header(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x2a' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            b'\x00'               # compression methods
+            b'\x00\x02'           # extensions length (invalid)
+            b'\xff\xab'           # extension ID
+            #b'\x00\x00'          # extensions length
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
+
+    def test_parse_with_short_message_trunc_extensions_with_ext(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x2c' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            b'\x00'               # compression methods
+            b'\x00\x08'           # extensions length (invalid)
+            b'\xff\xab'           # extension ID
+            b'\x00\x00'           # extensions length
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
+
+    def test_parse_with_padded_message(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x2c' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            b'\x00'               # compression methods
+            b'\x00\x00'           # extensions length
+            b'\xff\xff'           # garbage
+            b'\x00\x00'           # more garbage
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
+
+    def test_parse_with_short_message_trunc_extension(self):
+        p = Parser(bytearray(
+            #b'\x01' type of message
+            b'\x00\x00\x2c' +     # length
+            b'\x03\x03' +         # version
+            b'\x00'*32 +          # client random
+            b'\x00' +             # session id length
+            b'\x00\x00'           # cipher suites length
+            b'\x00'               # compression methods
+            b'\x00\x04'           # extensions length
+            b'\xff\xab'           # extension ID
+            b'\x00\x02'           # extensions length
+            ))
+
+        client_hello = ClientHello()
+        with self.assertRaises(SyntaxError):
+            client_hello.parse(p)
 
 class TestServerHello(unittest.TestCase):
     def test___init__(self):

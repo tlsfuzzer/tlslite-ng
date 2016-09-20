@@ -8,9 +8,9 @@ Functionality implemented include:
  - all above mentioned protocols, including support for client certificates
    (RFC 6101, RFC 2246, RFC 4346, RFC 5246)
  - RC4, 3DES-CBC, AES-CBC, AES-GCM and ChaCha20 ciphers (RFC 5246, RFC 6347,
-   RFC 4492, RFC 5288, RFC 5289, RFC 7539)
- - MD5, SHA1, SHA256 and SHA384 HMACs as well as AEAD mode of operation in GCM
-   or Poly1305 authenticator
+   RFC 4492, RFC 5288, RFC 5289, RFC 7539, RFC 7905)
+ - MD5, SHA1, SHA256 and SHA384 HMACs as well as AEAD mode of operation with
+   GCM or Poly1305 authenticator
  - RSA, DHE_RSA and ECDHE_RSA key exchange
  - full set of signature hashes (md5, sha1, sha224, sha256, sha384 and sha512)
    for ServerKeyExchange and CertfificateVerify in TLS v1.2
@@ -18,14 +18,17 @@ Functionality implemented include:
    for ECDHE_RSA key exchange (support for last two depends on the version
    of ecdsa library used)
  - anonymous DHE key exchange
- - anonymous ECDH key exchange in client
+ - anonymous ECDH key exchange
  - NULL encryption ciphersuites
  - FALLBACK_SCSV (RFC 7507)
  - encrypt-then-MAC mode of operation for CBC ciphersuites (RFC 7366)
- - client certificates
  - TACK certificate pinning
  - SRP_SHA_RSA and SRP_SHA ciphersuites (RFC 5054)
  - Extended Master Secret calculation for TLS connections (RFC 7627)
+ - padding extension (RFC 7685)
+ - Keying material exporter (RFC 5705)
+ - Next Protocol Negotiation
+ - Application-Layer Protocol Negotiation Extension (RFC 7301)
 
 
 tlslite-ng aims to be a drop-in replacement for tlslite while providing more

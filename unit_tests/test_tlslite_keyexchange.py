@@ -566,6 +566,15 @@ class TestDHE_RSAKeyExchange(unittest.TestCase):
 
         self.assertEqual(client_premaster, server_premaster)
 
+    def test_DHE_RSA_key_exchange_with_invalid_client_key_share(self):
+        clientKeyExchange = ClientKeyExchange(self.cipher_suite,
+                                              (3, 3))
+        clientKeyExchange.createDH(2**16000-1)
+
+        with self.assertRaises(TLSIllegalParameterException):
+            self.keyExchange.processClientKeyExchange(clientKeyExchange)
+
+
     def test_DHE_RSA_key_exchange_with_small_prime(self):
         client_keyExchange = DHE_RSAKeyExchange(self.cipher_suite,
                                                 self.client_hello,
@@ -599,7 +608,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                                  bytearray(32),
                                                  bytearray(0),
                                                  [],
-                                                 srpUsername='user')
+                                                 srpUsername=bytearray(b'user')
+                                                 )
         self.server_hello = ServerHello().create((3, 3),
                                                  bytearray(32),
                                                  bytearray(0),
@@ -608,7 +618,7 @@ class TestSRPKeyExchange(unittest.TestCase):
         verifierDB = VerifierDB()
         verifierDB.create()
         entry = verifierDB.makeVerifier('user', 'password', 2048)
-        verifierDB['user'] = entry
+        verifierDB[b'user'] = entry
 
         self.keyExchange = SRPKeyExchange(self.cipher_suite,
                                           self.client_hello,
@@ -685,6 +695,26 @@ class TestSRPKeyExchange(unittest.TestCase):
 
         self.assertEqual(cln_premaster, srv_premaster)
 
+    def test_SRP_init_with_invalid_name(self):
+        with self.assertRaises(TypeError):
+            SRPKeyExchange(self.cipher_suite,
+                           self.client_hello,
+                           self.server_hello,
+                           None, None,
+                           srpUsername='user',
+                           password=bytearray(b'password'),
+                           settings=HandshakeSettings())
+
+    def test_SRP_init_with_invalid_password(self):
+        with self.assertRaises(TypeError):
+            SRPKeyExchange(self.cipher_suite,
+                           self.client_hello,
+                           self.server_hello,
+                           None, None,
+                           srpUsername=bytearray(b'user'),
+                           password='password',
+                           settings=HandshakeSettings())
+
     def test_SRP_with_invalid_name(self):
         self.client_hello.srp_username = bytearray(b'test')
 
@@ -708,8 +738,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                             self.client_hello,
                                             self.server_hello,
                                             None, None,
-                                            srpUsername='user',
-                                            password='password',
+                                            srpUsername=bytearray(b'user'),
+                                            password=bytearray(b'password'),
                                             settings=HandshakeSettings())
 
         client_premaster = client_keyExchange.processServerKeyExchange(\
@@ -731,8 +761,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                             self.client_hello,
                                             self.server_hello,
                                             None, None,
-                                            srpUsername='user',
-                                            password='password')
+                                            srpUsername=bytearray(b'user'),
+                                            password=bytearray(b'password'))
         with self.assertRaises(TLSInsufficientSecurity):
             client_keyExchange.processServerKeyExchange(None, keyExchange)
 
@@ -745,8 +775,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                             self.client_hello,
                                             self.server_hello,
                                             None, None,
-                                            srpUsername='user',
-                                            password='password',
+                                            srpUsername=bytearray(b'user'),
+                                            password=bytearray(b'password'),
                                             settings=settings)
         with self.assertRaises(TLSInsufficientSecurity):
             client_keyExchange.processServerKeyExchange(None, keyExchange)
@@ -761,8 +791,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                             self.client_hello,
                                             self.server_hello,
                                             None, None,
-                                            srpUsername='user',
-                                            password='password',
+                                            srpUsername=bytearray(b'user'),
+                                            password=bytearray(b'password'),
                                             settings=settings)
         with self.assertRaises(TLSInsufficientSecurity):
             client_keyExchange.processServerKeyExchange(None, keyExchange)
@@ -776,8 +806,8 @@ class TestSRPKeyExchange(unittest.TestCase):
                                             self.client_hello,
                                             self.server_hello,
                                             None, None,
-                                            srpUsername='user',
-                                            password='password',
+                                            srpUsername=bytearray(b'user'),
+                                            password=bytearray(b'password'),
                                             settings=settings)
         with self.assertRaises(TLSIllegalParameterException):
             client_keyExchange.processServerKeyExchange(None, keyExchange)
@@ -833,6 +863,31 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
 
         self.assertEqual(cln_premaster, srv_premaster)
 
+    def test_ECDHE_key_exchange_with_invalid_CKE(self):
+        srv_key_ex = self.keyExchange.makeServerKeyExchange('sha1')
+
+        KeyExchange.verifyServerKeyExchange(srv_key_ex,
+                                            self.srv_pub_key,
+                                            self.client_hello.random,
+                                            self.server_hello.random,
+                                            [(HashAlgorithm.sha1,
+                                              SignatureAlgorithm.rsa)])
+
+        curveName = GroupName.toStr(srv_key_ex.named_curve)
+        curve = getCurveByName(curveName)
+        generator = curve.generator
+        cln_Xc = ecdsa.util.randrange(generator.order())
+        cln_Ys = decodeX962Point(srv_key_ex.ecdh_Ys, curve)
+        cln_Yc = encodeX962Point(generator * cln_Xc)
+
+        cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
+        cln_key_ex.createECDH(cln_Yc)
+
+        cln_key_ex.ecdh_Yc[-1] ^= 0x01
+
+        with self.assertRaises(TLSIllegalParameterException):
+            self.keyExchange.processClientKeyExchange(cln_key_ex)
+
     def test_ECDHE_key_exchange_with_missing_curves(self):
         self.client_hello.extensions = [SNIExtension().create(bytearray(b"a"))]
         with self.assertRaises(TLSInternalError):
@@ -873,4 +928,3 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
                                                   [GroupName.secp256r1])
         with self.assertRaises(TLSIllegalParameterException):
             client_keyExchange.processServerKeyExchange(None, srv_key_ex)
-

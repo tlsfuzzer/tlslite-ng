@@ -386,6 +386,20 @@ class RecordLayer(object):
 
         return buf
 
+    @staticmethod
+    def _getNonce(state, seqnum):
+        """Calculate a nonce for a given enc/dec context"""
+        # ChaCha is using the draft-TLS1.3-like nonce derivation
+        if state.encContext.name == "chacha20-poly1305" and \
+                len(state.fixedNonce) == 12:
+            # 4 byte nonce is used by the draft cipher
+            nonce = bytearray(i ^ j for i, j in zip(bytearray(4) + seqnum,
+                                                    state.fixedNonce))
+        else:
+            nonce = state.fixedNonce + seqnum
+        return nonce
+
+
     def _encryptThenSeal(self, buf, contentType):
         """Encrypt with AEAD cipher"""
         #Assemble the authenticated data.
@@ -396,8 +410,7 @@ class RecordLayer(object):
                                             len(buf)//256,
                                             len(buf)%256])
 
-        #The nonce is always the fixed nonce and the sequence number.
-        nonce = self._writeState.fixedNonce + seqNumBytes
+        nonce = self._getNonce(self._writeState, seqNumBytes)
 
         assert len(nonce) == self._writeState.encContext.nonceLength
 
@@ -615,7 +628,7 @@ class RecordLayer(object):
             nonce = self._readState.fixedNonce + buf[:explicitNonceLength]
             buf = buf[8:]
         else:
-            nonce = self._readState.fixedNonce + seqnumBytes
+            nonce = self._getNonce(self._readState, seqnumBytes)
 
         if self._readState.encContext.tagLength > len(buf):
             #Publicly invalid.
@@ -704,6 +717,10 @@ class RecordLayer(object):
         else:
             data = self._decryptStreamThenMAC(header.type, data)
 
+        # RFC 5246, section 6.2.1
+        if len(data) > 2**14:
+            raise TLSRecordOverflow()
+
         yield (header, Parser(data))
 
     #
@@ -750,6 +767,10 @@ class RecordLayer(object):
             ivLength = 4
             createCipherFunc = createAESGCM
         elif cipherSuite in CipherSuite.chacha20Suites:
+            keyLength = 32
+            ivLength = 12
+            createCipherFunc = createCHACHA20
+        elif cipherSuite in CipherSuite.chacha20draft00Suites:
             keyLength = 32
             ivLength = 4
             createCipherFunc = createCHACHA20

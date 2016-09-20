@@ -46,6 +46,10 @@ class Session(object):
     @type encryptThenMAC: bool
     @ivar encryptThenMAC: True if connection uses CBC cipher in
     encrypt-then-MAC mode
+
+    @type appProto: bytearray
+    @ivar appProto: name of the negotiated application level protocol, None
+    if not negotiated
     """
 
     def __init__(self):
@@ -61,11 +65,13 @@ class Session(object):
         self.resumable = False
         self.encryptThenMAC = False
         self.extendedMasterSecret = False
+        self.appProto = bytearray(0)
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
                tackExt, tackInHelloExt, serverName, resumable=True,
-               encryptThenMAC=False, extendedMasterSecret=False):
+               encryptThenMAC=False, extendedMasterSecret=False,
+               appProto=bytearray(0)):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -78,6 +84,7 @@ class Session(object):
         self.resumable = resumable
         self.encryptThenMAC = encryptThenMAC
         self.extendedMasterSecret = extendedMasterSecret
+        self.appProto = appProto
 
     def _clone(self):
         other = Session()
@@ -93,6 +100,7 @@ class Session(object):
         other.resumable = self.resumable
         other.encryptThenMAC = self.encryptThenMAC
         other.extendedMasterSecret = self.extendedMasterSecret
+        other.appProto = self.appProto
         return other
 
     def valid(self):

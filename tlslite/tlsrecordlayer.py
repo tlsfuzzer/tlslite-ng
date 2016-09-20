@@ -11,6 +11,9 @@
 """Helper class for TLSConnection."""
 from __future__ import generators
 
+import io
+import socket
+
 from .utils.compat import *
 from .utils.cryptomath import *
 from .utils.codec import Parser
@@ -22,9 +25,6 @@ from .recordlayer import RecordLayer
 from .defragmenter import Defragmenter
 from .handshakehashes import HandshakeHashes
 from .bufferedsocket import BufferedSocket
-
-import socket
-import traceback
 
 class TLSRecordLayer(object):
     """
@@ -460,6 +460,10 @@ class TLSRecordLayer(object):
         b[:len(data)] = data
         return len(data)
 
+    # while the SocketIO and _fileobject in socket is private we really need
+    # to use it as it's what the real socket does internally
+
+    # pylint: disable=no-member,protected-access
     def makefile(self, mode='r', bufsize=-1):
         """Create a file object for the TLS connection (socket emulation).
 
@@ -476,11 +480,20 @@ class TLSRecordLayer(object):
         # If this is the last close() on the outstanding fileobjects / 
         # TLSConnection, then the "actual" close alerts will be sent,
         # socket closed, etc.
+
+        # for writes, we MUST buffer otherwise the lengths of headers leak
+        # through record layer boundaries
+        if 'w' in mode and bufsize <= 0:
+            bufsize = 2**14
+
         if sys.version_info < (3,):
             return socket._fileobject(self, mode, bufsize, close=True)
         else:
-            # XXX need to wrap this further if buffering is requested
-            return socket.SocketIO(self, mode)
+            if 'w' in mode:
+                return io.BufferedWriter(socket.SocketIO(self, mode), bufsize)
+            else:
+                return socket.SocketIO(self, mode)
+    # pylint: enable=no-member,protected-access
 
     def getsockname(self):
         """Return the socket's own address (socket emulation)."""

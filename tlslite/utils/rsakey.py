@@ -4,6 +4,10 @@
 """Abstract class for RSA."""
 
 from .cryptomath import *
+from .poly1305 import Poly1305
+from . import tlshashlib as hashlib
+from ..errors import MaskTooLongError, MessageTooLongError, EncodingError, \
+    InvalidSignature, UnknownRSAType
 
 
 class RSAKey(object):
@@ -47,45 +51,250 @@ class RSAKey(object):
         """
         raise NotImplementedError()
 
-    def hashAndSign(self, bytes):
+    def hashAndSign(self, bytes, rsaScheme='PKCS1', hAlg='sha1', sLen=0):
         """Hash and sign the passed-in bytes.
 
         This requires the key to have a private component.  It performs
-        a PKCS1-SHA1 signature on the passed-in data.
+        a PKCS1 or PSS signature on the passed-in data with selected hash
+        algorithm.
 
         @type bytes: str or L{bytearray} of unsigned bytes
         @param bytes: The value which will be hashed and signed.
 
+        @type rsaScheme: str
+        @param rsaScheme: The type of RSA scheme that will be applied,
+                          "PKCS1" for RSASSA-PKCS#1 v1.5 signature and "PSS"
+                          for RSASSA-PSS with MGF1 signature method
+
+        @type hAlg: str
+        @param hAlg: The hash algorithm that will be used
+
+        @type sLen: int
+        @param sLen: The length of intended salt value, applicable only
+                     for RSASSA-PSS signatures
+
         @rtype: L{bytearray} of unsigned bytes.
-        @return: A PKCS1-SHA1 signature on the passed-in data.
+        @return: A PKCS1 or PSS signature on the passed-in data.
         """
-        hashBytes = SHA1(bytearray(bytes))
-        prefixedHashBytes = self.addPKCS1SHA1Prefix(hashBytes)
-        sigBytes = self.sign(prefixedHashBytes)
+        if rsaScheme == "PKCS1":
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes = self.addPKCS1Prefix(hashBytes, hAlg)
+            sigBytes = self.sign(prefixedHashBytes)
+        elif rsaScheme == "PSS":
+            sigBytes = self.RSASSA_PSS_sign(bytearray(bytes), hAlg, sLen)
+        else:
+            raise UnknownRSAType("Unknown RSA algorithm type")
         return sigBytes
 
-    def hashAndVerify(self, sigBytes, bytes):
+    def hashAndVerify(self, sigBytes, bytes, rsaScheme='PKCS1', hAlg='sha1',
+                      sLen=0):
         """Hash and verify the passed-in bytes with the signature.
 
-        This verifies a PKCS1-SHA1 signature on the passed-in data.
+        This verifies a PKCS1 or PSS signature on the passed-in data
+        with selected hash algorithm.
 
         @type sigBytes: L{bytearray} of unsigned bytes
-        @param sigBytes: A PKCS1-SHA1 signature.
+        @param sigBytes: A PKCS1 or PSS signature.
 
         @type bytes: str or L{bytearray} of unsigned bytes
         @param bytes: The value which will be hashed and verified.
 
+        @type rsaScheme: str
+        @param rsaScheme: The type of RSA scheme that will be applied,
+                          "PKCS1" for RSASSA-PKCS#1 v1.5 signature and "PSS"
+                          for RSASSA-PSS with MGF1 signature method
+
+        @type hAlg: str
+        @param hAlg: The hash algorithm that will be used
+
+        @type sLen: int
+        @param sLen: The length of intended salt value, applicable only
+                     for RSASSA-PSS signatures
+
         @rtype: bool
         @return: Whether the signature matches the passed-in data.
         """
-        hashBytes = SHA1(bytearray(bytes))
         
         # Try it with/without the embedded NULL
-        prefixedHashBytes1 = self.addPKCS1SHA1Prefix(hashBytes, False)
-        prefixedHashBytes2 = self.addPKCS1SHA1Prefix(hashBytes, True)
-        result1 = self.verify(sigBytes, prefixedHashBytes1)
-        result2 = self.verify(sigBytes, prefixedHashBytes2)
-        return (result1 or result2)
+        if rsaScheme == "PKCS1" and hAlg == 'sha1':
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes1 = self.addPKCS1SHA1Prefix(hashBytes, False)
+            prefixedHashBytes2 = self.addPKCS1SHA1Prefix(hashBytes, True)
+            result1 = self.verify(sigBytes, prefixedHashBytes1)
+            result2 = self.verify(sigBytes, prefixedHashBytes2)
+            return (result1 or result2)
+        elif rsaScheme == 'PKCS1':
+            hashBytes = secureHash(bytearray(bytes), hAlg)
+            prefixedHashBytes = self.addPKCS1Prefix(hashBytes, hAlg)
+            r = self.verify(sigBytes, prefixedHashBytes)
+            return r
+        elif rsaScheme == "PSS":
+            r = self.RSASSA_PSS_verify(bytearray(bytes), sigBytes, hAlg, sLen)
+            return r
+        else:
+            raise UnknownRSAType("Unknown RSA algorithm type")
+
+    def MGF1(self, mgfSeed, maskLen, hAlg):
+        """Generate mask from passed-in seed.
+
+        This generates mask based on passed-in seed and output maskLen.
+
+        @type mgfSeed: L{bytearray}
+        @param mgfSeed: Seed from which mask will be generated.
+
+        @type maskLen: int
+        @param maskLen: Wished length of the mask, in octets
+
+        @rtype: L{bytearray}
+        @return: Mask
+        """
+        hashLen = getattr(hashlib, hAlg)().digest_size
+        if maskLen > (2 ** 32) * hashLen:
+            raise MaskTooLongError("Incorrect parameter maskLen")
+        T = bytearray()
+        end = (Poly1305.divceil(maskLen, hashLen))
+        for x in range(0, end):
+            C = numberToByteArray(x, 4)
+            T += secureHash(mgfSeed + C, hAlg)
+        return T[:maskLen]
+
+    def EMSA_PSS_encode(self, M, emBits, hAlg, sLen=0):
+        """Encode the passed in message
+
+        This encodes the message using selected hash algorithm
+
+        @type M: bytearray
+        @param M: Message to be encoded
+
+        @type emBits: int
+        @param emBits: maximal length of returned EM
+
+        @type hAlg: str
+        @param hAlg: hash algorithm to be used
+
+        @type sLen: int
+        @param sLen: length of salt"""
+        hashLen = getattr(hashlib, hAlg)().digest_size
+        mHash = secureHash(M, hAlg)
+        emLen = Poly1305.divceil(emBits, 8)
+        if emLen < hashLen + sLen + 2:
+            raise EncodingError("The ending limit too short for " +
+                                "selected hash and salt length")
+        salt = getRandomBytes(sLen)
+        M2 = bytearray(8) + mHash + salt
+        H = secureHash(M2, hAlg)
+        PS = bytearray(emLen - sLen - hashLen - 2)
+        DB = PS + bytearray(b'\x01') + salt
+        dbMask = self.MGF1(H, emLen - hashLen - 1, hAlg)
+        maskedDB = bytearray(i ^ j for i, j in zip(DB, dbMask))
+        mLen = emLen*8 - emBits
+        mask = (1 << 8 - mLen) - 1
+        maskedDB[0] &= mask
+        EM = maskedDB + H + bytearray(b'\xbc')
+        return EM
+
+    def RSASSA_PSS_sign(self, M, hAlg, sLen=0):
+        """"Sign the passed in message
+
+        This signs the message using selected hash algorithm
+
+        @type M: bytearray
+        @param M: Message to be signed
+
+        @type hAlg: str
+        @param hAlg: hash algorithm to be used
+
+        @type sLen: int
+        @param sLen: length of salt"""
+        EM = self.EMSA_PSS_encode(M, numBits(self.n) - 1, hAlg, sLen)
+        m = bytesToNumber(EM)
+        if m >= self.n:
+            raise MessageTooLongError("Encode output too long")
+        s = self._rawPrivateKeyOp(m)
+        S = numberToByteArray(s, numBytes(self.n))
+        return S
+
+    def EMSA_PSS_verify(self, M, EM, emBits, hAlg, sLen=0):
+        """Verify signature in passed in encoded message
+
+        This verifies the signature in encoded message
+
+        @type M: bytearray
+        @param M: Original not signed message
+
+        @type EM: bytearray
+        @param EM: Encoded message
+
+        @type emBits: int
+        @param emBits: Length of the encoded message in bits
+
+        @type hAlg: str
+        @param hAlg: hash algorithm to be used
+
+        @type sLen: int
+        @param sLen: Length of salt
+        """
+        hashLen = getattr(hashlib, hAlg)().digest_size
+        mHash = secureHash(M, hAlg)
+        emLen = Poly1305.divceil(emBits, 8)
+        if emLen < hashLen + sLen + 2:
+            raise InvalidSignature("Invalid signature")
+        if EM[-1] != 0xbc:
+            raise InvalidSignature("Invalid signature")
+        maskedDB = EM[0:emLen - hashLen - 1]
+        H = EM[emLen - hashLen - 1:emLen - hashLen - 1 + hashLen]
+        DBHelpMask = 1 << 8 - (8*emLen - emBits)
+        DBHelpMask -= 1
+        DBHelpMask = (~DBHelpMask) & 0xff
+        if maskedDB[0] & DBHelpMask != 0:
+            raise InvalidSignature("Invalid signature")
+        dbMask = self.MGF1(H, emLen - hashLen - 1, hAlg)
+        DB = bytearray(i ^ j for i, j in zip(maskedDB, dbMask))
+        mLen = emLen*8 - emBits
+        mask = (1 << 8 - mLen) - 1
+        DB[0] &= mask
+        if any(x != 0 for x in DB[0:emLen - hashLen - sLen - 2 - 1]):
+            raise InvalidSignature("Invalid signature")
+        if DB[emLen - hashLen - sLen - 2] != 0x01:
+            raise InvalidSignature("Invalid signature")
+        if sLen != 0:
+            salt = DB[-sLen:]
+        else:
+            salt = bytearray()
+        newM = bytearray(8) + mHash + salt
+        newH = secureHash(newM, hAlg)
+        if H == newH:
+            return True
+        else:
+            raise InvalidSignature("Invalid signature")
+
+    def RSASSA_PSS_verify(self, M, S, hAlg, sLen=0):
+        """Verify the signature in passed in message
+
+        This verifies the signature in the signed message
+
+        @type M: bytearray
+        @param M: Original message
+
+        @type S: bytearray
+        @param S: Signed message
+
+        @type hAlg: str
+        @param hAlg: Hash algorithm to be used
+
+        @type sLen: int
+        @param sLen: Length of salt
+        """
+        if len(bytearray(S)) != len(numberToByteArray(self.n)):
+            raise InvalidSignature
+        s = bytesToNumber(S)
+        m = self._rawPublicKeyOp(s)
+        EM = numberToByteArray(m, Poly1305.divceil(numBits(self.n) - 1, 8))
+        result = self.EMSA_PSS_verify(M, EM, numBits(self.n) - 1, hAlg, sLen)
+        if result:
+            return True
+        else:
+            raise InvalidSignature("Invalid signature")
 
     def sign(self, bytes):
         """Sign the passed-in bytes.

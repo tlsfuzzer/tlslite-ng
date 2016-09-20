@@ -26,10 +26,10 @@ class VerifierDB(BaseDB):
         this with a call to open().  To create a new on-disk database,
         follow this with a call to create().
         """
-        BaseDB.__init__(self, filename, "verifier")
+        BaseDB.__init__(self, filename, b"verifier")
 
     def _getItem(self, username, valueStr):
-        (N, g, salt, verifier) = valueStr.split(" ")
+        (N, g, salt, verifier) = valueStr.split(b" ")
         N = bytesToNumber(a2b_base64(N))
         g = bytesToNumber(a2b_base64(g))
         salt = a2b_base64(salt)
@@ -56,11 +56,11 @@ class VerifierDB(BaseDB):
         if len(username)>=256:
             raise ValueError("username too long")
         N, g, salt, verifier = value
-        N = b2a_base64(numberToByteArray(N))
-        g = b2a_base64(numberToByteArray(g))
-        salt = b2a_base64(salt)
-        verifier = b2a_base64(numberToByteArray(verifier))
-        valueStr = " ".join( (N, g, salt, verifier)  )
+        N = b2a_base64(numberToByteArray(N)).encode("ascii")
+        g = b2a_base64(numberToByteArray(g)).encode("ascii")
+        salt = b2a_base64(salt).encode("ascii")
+        verifier = b2a_base64(numberToByteArray(verifier)).encode("ascii")
+        valueStr = b" ".join((N, g, salt, verifier))
         return valueStr
 
     def _checkItem(self, value, username, param):
@@ -89,7 +89,13 @@ class VerifierDB(BaseDB):
         @rtype: tuple
         @return: A tuple which may be stored in a VerifierDB.
         """
-        usernameBytes = bytearray(username, "utf-8")
-        passwordBytes = bytearray(password, "utf-8")
+        if isinstance(username, str):
+            usernameBytes = bytearray(username, "utf-8")
+        else:
+            usernameBytes = bytearray(username)
+        if isinstance(password, str):
+            passwordBytes = bytearray(password, "utf-8")
+        else:
+            passwordBytes = bytearray(password)
         return mathtls.makeVerifier(usernameBytes, passwordBytes, bits)
     makeVerifier = staticmethod(makeVerifier)

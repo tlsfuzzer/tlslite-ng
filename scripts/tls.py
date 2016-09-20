@@ -76,11 +76,13 @@ def printUsage(s=None):
     [--reqcert] HOST:PORT
 
   client
-    [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH]
+    [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
     HOST:PORT
 
   LABEL - TLS exporter label
   LENGTH - amount of info to export using TLS exporter
+  ALPN - name of protocol for ALPN negotiation, can be present multiple times
+         in client to specify multiple protocols supported
 """)
     sys.exit(-1)
 
@@ -109,6 +111,7 @@ def handleArgs(argv, argString, flagsList=[]):
     directory = None
     expLabel = None
     expLength = 20
+    alpn = []
     
     for opt, arg in opts:
         if opt == "-k":
@@ -142,9 +145,14 @@ def handleArgs(argv, argString, flagsList=[]):
             expLabel = arg
         elif opt == "-L":
             expLength = int(arg)
+        elif opt == "-a":
+            alpn.append(bytearray(arg, 'utf-8'))
         else:
             assert(False)
-            
+
+    # when no names provided, don't return array
+    if not alpn:
+        alpn = None
     if not argv:
         printError("Missing address")
     if len(argv)>1:
@@ -178,6 +186,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(expLabel)
     if "L" in argString:
         retList.append(expLength)
+    if "a" in argString:
+        retList.append(alpn)
     return retList
 
 
@@ -216,6 +226,9 @@ def printGoodConnection(connection, seconds):
             emptyStr = "\n  (via TACK Certificate)" 
         print("  TACK: %s" % emptyStr)
         print(str(connection.session.tackExt))
+    if connection.session.appProto:
+        print("  Application Layer Protocol negotiated: {0}".format(
+            connection.session.appProto.decode('utf-8')))
     print("  Next-Protocol Negotiated: %s" % connection.next_proto) 
     print("  Encrypt-then-MAC: {0}".format(connection.encryptThenMAC))
     print("  Extended Master Secret: {0}".format(
@@ -233,8 +246,8 @@ def printExporter(connection, expLabel, expLength):
 
 def clientCmd(argv):
     (address, privateKey, certChain, username, password, expLabel,
-            expLength) = \
-        handleArgs(argv, "kcuplL")
+            expLength, alpn) = \
+        handleArgs(argv, "kcuplLa")
         
     if (certChain and not privateKey) or (not certChain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -261,7 +274,7 @@ def clientCmd(argv):
                 settings=settings, serverName=address[0])
         else:
             connection.handshakeClientCert(certChain, privateKey,
-                settings=settings, serverName=address[0])
+                settings=settings, serverName=address[0], alpn=alpn)
         stop = time.clock()        
         print("Handshake success")        
     except TLSLocalAlert as a:
@@ -342,6 +355,7 @@ def serverCmd(argv):
                                               sessionCache=sessionCache,
                                               settings=settings,
                                               nextProtos=[b"http/1.1"],
+                                              alpn=[bytearray(b'http/1.1')],
                                               reqCert=reqCert)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])

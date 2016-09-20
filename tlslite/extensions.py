@@ -1108,6 +1108,146 @@ class PaddingExtension(TLSExtension):
         self.paddingData = p.getFixBytes(p.getRemainingLength())
         return self
 
+class RenegotiationInfoExtension(TLSExtension):
+    """
+    Client and Server Hello secure renegotiation extension from RFC 5746
+
+    Should have an empty renegotiated_connection field in case of initial
+    connection
+    """
+
+    def __init__(self):
+        """Create instance"""
+        extType = ExtensionType.renegotiation_info
+        super(RenegotiationInfoExtension, self).__init__(extType=extType)
+        self.renegotiated_connection = None
+
+    @property
+    def extData(self):
+        """
+        Return raw encoding of the extension.
+
+        @rtype: bytearray
+        """
+        if self.renegotiated_connection is None:
+            return bytearray(0)
+        writer = Writer()
+        writer.add(len(self.renegotiated_connection), 1)
+        writer.bytes += self.renegotiated_connection
+        return writer.bytes
+
+    def create(self, renegotiated_connection):
+        """
+        Set the finished message payload from previous connection.
+
+        @type renegotiated_connection: bytearray
+        """
+        self.renegotiated_connection = renegotiated_connection
+        return self
+
+    def parse(self, parser):
+        """
+        Deserialise extension from on the wire data.
+
+        @type parser: L{tlslite.util.codec.Parser}
+        @param parser: data to be parsed
+
+        @rtype: L{RenegotiationInfoExtension}
+        """
+        if parser.getRemainingLength() == 0:
+            self.renegotiated_connection = None
+        else:
+            self.renegotiated_connection = parser.getVarBytes(1)
+
+        return self
+
+
+class ALPNExtension(TLSExtension):
+    """
+    Handling of Application Layer Protocol Negotiation extension from RFC 7301.
+
+    @type protocol_names: list of bytearrays
+    @ivar protocol_names: list of protocol names acceptable or selected by peer
+
+    @type extType: int
+    @ivar extType: numberic type of ALPNExtension, i.e. 16
+
+    @type extData: bytearray
+    @ivar extData: raw encoding of the extension data
+    """
+
+    def __init__(self):
+        """
+        Create instance of ALPNExtension
+
+        See also: L{create} and L{parse}
+        """
+        super(ALPNExtension, self).__init__(extType=ExtensionType.alpn)
+
+        self.protocol_names = None
+
+    def __repr__(self):
+        """
+        Create programmer-readable representation of object
+
+        @rtype: str
+        """
+        return "ALPNExtension(protocol_names={0!r})".format(self.protocol_names)
+
+    @property
+    def extData(self):
+        """
+        Return encoded payload of the extension
+
+        @rtype: bytearray
+        """
+        if self.protocol_names is None:
+            return bytearray(0)
+
+        writer = Writer()
+        for prot in self.protocol_names:
+            writer.add(len(prot), 1)
+            writer.bytes += prot
+
+        writer2 = Writer()
+        writer2.add(len(writer.bytes), 2)
+        writer2.bytes += writer.bytes
+
+        return writer2.bytes
+
+    def create(self, protocol_names=None):
+        """
+        Create an instance of ALPNExtension with specified protocols
+
+        @type protocols: list of bytearray
+        @param protocols: list of protocol names that are to be sent
+        """
+        self.protocol_names = protocol_names
+        return self
+
+    def parse(self, parser):
+        """
+        Parse the extension from on the wire format
+
+        @type parser: L{tlslite.util.codec.Parser}
+        @param parser: data to be parsed as extension
+
+        @raise SyntaxError: when the encoding of the extension is self
+            inconsistent
+
+        @rtype: L{ALPNExtension}
+        """
+        self.protocol_names = []
+        parser.startLengthCheck(2)
+        while not parser.atLengthCheck():
+            name_len = parser.get(1)
+            self.protocol_names.append(parser.getFixBytes(name_len))
+        parser.stopLengthCheck()
+        if parser.getRemainingLength() != 0:
+            raise SyntaxError("Trailing data after protocol_name_list")
+        return self
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1116,8 +1256,10 @@ TLSExtension._universalExtensions = \
         ExtensionType.ec_point_formats: ECPointFormatsExtension,
         ExtensionType.srp: SRPExtension,
         ExtensionType.signature_algorithms: SignatureAlgorithmsExtension,
+        ExtensionType.alpn: ALPNExtension,
         ExtensionType.supports_npn: NPNExtension,
-        ExtensionType.client_hello_padding: PaddingExtension}
+        ExtensionType.client_hello_padding: PaddingExtension,
+        ExtensionType.renegotiation_info: RenegotiationInfoExtension}
 
 TLSExtension._serverExtensions = \
     {

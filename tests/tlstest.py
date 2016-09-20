@@ -17,6 +17,7 @@ import os.path
 import socket
 import time
 import getopt
+from tempfile import mkstemp
 try:
     from BaseHTTPServer import HTTPServer
     from SimpleHTTPServer import SimpleHTTPRequestHandler
@@ -195,6 +196,15 @@ def clientTestCmd(argv):
     test_no += 1
 
     print("Test {0} - good SRP".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    connection.handshakeClientSRP("test", "password")
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good SRP (db)".format(test_no))
     synchro.recv(1)
     connection = connect()
     connection.handshakeClientSRP("test", "password")
@@ -414,7 +424,8 @@ def clientTestCmd(argv):
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
         for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
-                       "rc4", "chacha20-poly1305"]:
+                       "rc4", "chacha20-poly1305_draft00",
+                       "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
             if cipher == "3des" and implementation not in ("openssl",
                                                            "pycrypto"):
@@ -423,8 +434,8 @@ def clientTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305", ) and \
-                    implementation not in ("python", ):
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+                    and implementation not in ("python", ):
                 continue
 
             test_no += 1
@@ -838,13 +849,34 @@ def serverTestCmd(argv):
     verifierDB = VerifierDB()
     verifierDB.create()
     entry = VerifierDB.makeVerifier("test", "password", 1536)
-    verifierDB["test"] = entry
+    verifierDB[b"test"] = entry
 
     synchro.send(b'R')
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB)
     testConnServer(connection)
     connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good SRP (db)".format(test_no))
+    try:
+        (db_file, db_name) = mkstemp()
+        os.close(db_file)
+        # this is race'y but the interface dbm interface is stupid like that...
+        os.remove(db_name)
+        verifierDB = VerifierDB(db_name)
+        verifierDB.create()
+        entry = VerifierDB.makeVerifier("test", "password", 1536)
+        verifierDB[b"test"] = entry
+
+        synchro.send(b'R')
+        connection = connect()
+        connection.handshakeServer(verifierDB=verifierDB)
+        testConnServer(connection)
+        connection.close()
+    finally:
+        os.remove(db_name)
 
     test_no += 1
 
@@ -1039,7 +1071,8 @@ def serverTestCmd(argv):
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
         for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
-                       "rc4", "chacha20-poly1305"]:
+                       "rc4", "chacha20-poly1305_draft00",
+                       "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
             if cipher == "3des" and implementation not in ("openssl",
                                                            "pycrypto"):
@@ -1048,8 +1081,8 @@ def serverTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305", ) and \
-                    implementation not in ("python", ):
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+                    and implementation not in ("python", ):
                 continue
 
             test_no += 1

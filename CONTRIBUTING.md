@@ -39,6 +39,7 @@ The python module dependencies are as follows:
 * diff_cover
 * coverage
 * hypothesis
+* enum34 (for Python2, in case of new hypothesis package)
 
 On Fedora they can be installed using:
 
