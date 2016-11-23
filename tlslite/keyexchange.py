@@ -9,7 +9,7 @@ from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
         TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError
 from .messages import ServerKeyExchange, ClientKeyExchange, CertificateVerify
 from .constants import SignatureAlgorithm, HashAlgorithm, CipherSuite, \
-        ExtensionType, GroupName, ECCurveType
+        ExtensionType, GroupName, ECCurveType, RSASignatureScheme
 from .utils.ecc import decodeX962Point, encodeX962Point, getCurveByName, \
         getPointByteSize
 from .utils.rsakey import RSAKey
@@ -85,8 +85,8 @@ class KeyExchange(object):
                                           hashBytes):
                 raise TLSInternalError("Server Key Exchange signature invalid")
         else:
-            serverKeyExchange.signAlg = SignatureAlgorithm.rsa
-            serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
+            serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
+                getattr(RSASignatureScheme, sigHash)
             hashBytes = self.clientHello.random + self.serverHello.random + \
                         ServerKeyExchange.writeParams(serverKeyExchange)
 
@@ -123,7 +123,7 @@ class KeyExchange(object):
                 raise TLSIllegalParameterException("Server selected "
                                                    "invalid signature "
                                                    "algorithm")
-            assert serverKeyExchange.signAlg == SignatureAlgorithm.rsa
+
             hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
             if hashName is None:
                 raise TLSIllegalParameterException("Unknown signature "

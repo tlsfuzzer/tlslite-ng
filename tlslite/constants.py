@@ -156,6 +156,24 @@ class SignatureAlgorithm(TLSEnum):
     dsa = 2
     ecdsa = 3
 
+class RSASignatureScheme(TLSEnum):
+    """Signature scheme used for RSA message signing"""
+
+    none = (0, 1)
+    md5 = (1, 1)
+    sha1 = (2, 1)
+    sha224 = (3, 1)
+    sha256 = (4, 1)
+    sha384 = (5, 1)
+    sha512 = (6, 1)
+    rsa_pkcs1_sha1 = (2, 1)
+    rsa_pkcs1_sha256 = (4, 1)
+    rsa_pkcs1_sha384 = (5, 1)
+    rsa_pkcs1_sha512 = (6, 1)
+    rsa_pss_sha256 = (8, 4)
+    rsa_pss_sha384 = (8, 5)
+    rsa_pss_sha512 = (8, 6)
+
 class GroupName(TLSEnum):
     """Name of groups supported for (EC)DH key exchange"""
 
