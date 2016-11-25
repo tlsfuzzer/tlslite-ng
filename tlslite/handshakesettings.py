@@ -157,6 +157,7 @@ class HandshakeSettings(object):
         self.usePaddingExtension = True
         self.useExtendedMasterSecret = True
         self.requireExtendedMasterSecret = False
+        self.signedCertificateTimestamp = None
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -267,6 +268,7 @@ class HandshakeSettings(object):
         other.eccCurves = self.eccCurves
         other.useExtendedMasterSecret = self.useExtendedMasterSecret
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
+        other.signedCertificateTimestamp = self.signedCertificateTimestamp
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]
