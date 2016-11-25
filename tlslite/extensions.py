@@ -1249,6 +1249,78 @@ class ALPNExtension(TLSExtension):
         return self
 
 
+class SCTExtension(TLSExtension):
+    """
+    Client and Server Hello extension from Certificate Transparency.
+
+    Extension containing a list of serialised SignedCertificateTimestamp
+    objects.
+
+    See RFC 6962
+    """
+
+    def __init__(self):
+        """Create instance of class"""
+        extType = ExtensionType.signed_certificate_timestamp
+        super(SCTExtension, self).__init__(extType=extType)
+        self.sct_list = None
+
+    def create(self, sct_list):
+        """
+        Set the list of signed certificate timestamps
+
+        @type sct_list: list of bytearrays
+        @param sct_list: list of serialised certificate time stamps
+        """
+        self.sct_list = sct_list
+        return self
+
+    @property
+    def extData(self):
+        """
+        Return raw encoding of the extension
+
+        @rtype: bytearray
+        """
+        if self.sct_list is None:
+            return bytearray(0)
+
+        writer = Writer()
+        # elements have 2 byte header lengths
+        for sct in self.sct_list:
+            writer.add(len(sct), 2)
+            writer.bytes += sct
+
+        writer2 = Writer()
+        writer2.add(len(writer.bytes), 2)
+        return writer2.bytes + writer.bytes
+
+    def parse(self, parser):
+        """
+        Deserialise extension from on the wire data.
+
+        @type parser: L{tlslite.util.codec.Parser}
+        @param parser: data to be parsed
+
+        @rtype: L{SCTExtension}
+        """
+        if parser.getRemainingLength() == 0:
+            self.sct_list = None
+            return self
+
+        self.sct_list = []
+
+        parser.startLengthCheck(2)
+        while not parser.atLengthCheck():
+            self.sct_list.append(parser.getVarBytes(2))
+        parser.stopLengthCheck()
+
+        if parser.getRemainingLength() != 0:
+            raise SyntaxError("Trailing data in SCTExtension")
+
+        return self
+
+
 class StatusRequestExtension(TLSExtension):
     """
     Handling of the Certificate Status Request extension from RFC 6066.
@@ -1367,6 +1439,7 @@ TLSExtension._universalExtensions = \
         ExtensionType.srp: SRPExtension,
         ExtensionType.signature_algorithms: SignatureAlgorithmsExtension,
         ExtensionType.alpn: ALPNExtension,
+        ExtensionType.signed_certificate_timestamp: SCTExtension,
         ExtensionType.supports_npn: NPNExtension,
         ExtensionType.client_hello_padding: PaddingExtension,
         ExtensionType.renegotiation_info: RenegotiationInfoExtension}
