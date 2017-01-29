@@ -512,6 +512,10 @@ class CipherSuite:
     ietfNames[0x009F] = 'TLS_DHE_RSA_WITH_AES_256_GCM_SHA384'
 
     # RFC 4492 - ECC Cipher Suites for TLS
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA = 0xC009
+    ietfNames[0xC009] = 'TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA'
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA = 0xC00A
+    ietfNames[0xC00A] = 'TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA'
     TLS_ECDHE_RSA_WITH_NULL_SHA = 0xC010
     ietfNames[0xC010] = 'TLS_ECDHE_RSA_WITH_NULL_SHA'
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA = 0xC013
@@ -579,6 +583,7 @@ class CipherSuite:
     aes128Suites.append(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA)
     aes128Suites.append(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
     aes128Suites.append(TLS_ECDH_ANON_WITH_AES_128_CBC_SHA)
+    aes128Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
 
     # AES-256 CBC ciphers
     aes256Suites = []
@@ -593,6 +598,7 @@ class CipherSuite:
     aes256Suites.append(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA)
     aes256Suites.append(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384)
     aes256Suites.append(TLS_ECDH_ANON_WITH_AES_256_CBC_SHA)
+    aes256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
 
     # AES-128 GCM ciphers
     aes128GcmSuites = []
@@ -660,6 +666,8 @@ class CipherSuite:
     shaSuites.append(TLS_ECDH_ANON_WITH_3DES_EDE_CBC_SHA)
     shaSuites.append(TLS_ECDH_ANON_WITH_RC4_128_SHA)
     shaSuites.append(TLS_ECDH_ANON_WITH_NULL_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
 
     # SHA-256 HMAC, SHA-256 PRF
     sha256Suites = []
