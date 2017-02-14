@@ -468,24 +468,27 @@ class AECDHKeyExchange(KeyExchange):
 
     ECDHE without signing serverKeyExchange useful for anonymous ECDH
     """
-    def __init__(self, cipherSuite, clientHello, serverHello, acceptedCurves):
+    def __init__(self, cipherSuite, clientHello, serverHello, acceptedCurves,
+                 defaultCurve=GroupName.secp256r1):
         super(AECDHKeyExchange, self).__init__(cipherSuite, clientHello,
                                                serverHello)
         self.ecdhXs = None
         self.acceptedCurves = acceptedCurves
         self.group_id = None
         self.ecdhYc = None
+        self.defaultCurve = defaultCurve
 
     def makeServerKeyExchange(self, sigHash=None):
         """Create AECDHE version of Server Key Exchange"""
         #Get client supported groups
-        client_curves = self.clientHello.getExtension(\
+        client_curves = self.clientHello.getExtension(
                 ExtensionType.supported_groups)
         if client_curves is None:
-            # in case there is no extension, we can pick any curve, assume
-            # the most common
-            client_curves = [GroupName.secp256r1]
+            # in case there is no extension, we can pick any curve,
+            # use the configured one
+            client_curves = [self.defaultCurve]
         elif not client_curves.groups:
+            # extension should have been validated before
             raise TLSInternalError("Can't do ECDHE with no client curves")
         else:
             client_curves = client_curves.groups
@@ -554,10 +557,11 @@ class ECDHE_RSAKeyExchange(AuthenticatedKeyExchange, AECDHKeyExchange):
     """Helper class for conducting ECDHE key exchange"""
 
     def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
-                 acceptedCurves):
+                 acceptedCurves, defaultCurve=GroupName.secp256r1):
         super(ECDHE_RSAKeyExchange, self).__init__(cipherSuite, clientHello,
                                                    serverHello,
-                                                   acceptedCurves)
+                                                   acceptedCurves,
+                                                   defaultCurve)
 #pylint: enable = invalid-name
         self.privateKey = privateKey
 

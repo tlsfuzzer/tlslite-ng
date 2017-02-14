@@ -141,6 +141,11 @@ class HandshakeSettings(object):
     @ivar requireExtendedMasterSecret: whether to require negotiation of
     extended master secret calculation for successful connection. Requires
     useExtendedMasterSecret to be set to true. False by default.
+
+    @type defaultCurve: str
+    @ivar defaultCurve: curve that will be used by server in case the client
+    did not advertise support for any curves. It does not have to be the
+    first curve for eccCurves and may be distinct from curves from that list.
     """
     def __init__(self):
         self.minKeySize = 1023
@@ -163,6 +168,7 @@ class HandshakeSettings(object):
         self.requireExtendedMasterSecret = False
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
+        self.defaultCurve = "secp256r1"
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -211,6 +217,10 @@ class HandshakeSettings(object):
                         if val not in ALL_CURVE_NAMES]
         if unknownCurve:
             raise ValueError("Unknown ECC Curve name: {0}".format(unknownCurve))
+
+        if other.defaultCurve not in ALL_CURVE_NAMES:
+            raise ValueError("Unknown default ECC Curve name: {0}"
+                             .format(other.defaultCurve))
 
         unknownSigHash = [val for val in other.rsaSigHashes \
                           if val not in ALL_RSA_SIGNATURE_HASHES]
@@ -288,6 +298,7 @@ class HandshakeSettings(object):
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
         other.dhParams = self.dhParams
         other.dhGroups = self.dhGroups
+        other.defaultCurve = self.defaultCurve
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]

@@ -278,5 +278,11 @@ class TestHandshakeSettings(unittest.TestCase):
         with self.assertRaises(ValueError):
             hs.validate()
 
+    def test_invalid_defaultCurve_name(self):
+        hs = HandshakeSettings()
+        hs.defaultCurve = "ffdhe2048"
+        with self.assertRaises(ValueError):
+            hs.validate()
+
 if __name__ == '__main__':
     unittest.main()

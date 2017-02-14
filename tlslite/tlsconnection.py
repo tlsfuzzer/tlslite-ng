@@ -1395,11 +1395,13 @@ class TLSConnection(TLSRecordLayer):
                                                  dhGroups)
             elif cipherSuite in CipherSuite.ecdheCertSuites:
                 acceptedCurves = self._curveNamesToList(settings)
+                defaultCurve = getattr(GroupName, settings.defaultCurve)
                 keyExchange = ECDHE_RSAKeyExchange(cipherSuite,
                                                    clientHello,
                                                    serverHello,
                                                    privateKey,
-                                                   acceptedCurves)
+                                                   acceptedCurves,
+                                                   defaultCurve)
             else:
                 assert(False)
             for result in self._serverCertKeyExchange(clientHello, serverHello, 
@@ -1420,8 +1422,10 @@ class TLSConnection(TLSRecordLayer):
                                              dhGroups)
             else:
                 acceptedCurves = self._curveNamesToList(settings)
+                defaultCurve = getattr(GroupName, settings.defaultCurve)
                 keyExchange = AECDHKeyExchange(cipherSuite, clientHello,
-                                               serverHello, acceptedCurves)
+                                               serverHello, acceptedCurves,
+                                               defaultCurve)
             for result in self._serverAnonKeyExchange(serverHello, keyExchange,
                                                       cipherSuite):
                 if result in (0,1): yield result
@@ -1592,6 +1596,11 @@ class TLSConnection(TLSRecordLayer):
         ffGroupIntersect = True
         if clientGroups is not None:
             clientGroups = clientGroups.groups
+            if not clientGroups:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Received malformed supported_groups extension"):
+                    yield result
             serverGroups = self._curveNamesToList(settings)
             ecGroupIntersect = getFirstMatching(clientGroups, serverGroups)
             # RFC 7919 groups
