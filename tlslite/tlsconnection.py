@@ -648,6 +648,9 @@ class TLSConnection(TLSRecordLayer):
         # if we know any protocols for ALPN, advertise them
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
+        if settings.useHeartbeatExtension:
+            extensions.append(HeartbeatExtension().create(
+                HeartbeatExtensionTypes.peer_allowed_to_send_mode))
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
             extensions = None
@@ -1334,6 +1337,10 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(ECPointFormatsExtension().create(
                 [ECPointFormat.uncompressed]))
 
+        if clientHello.getExtension(ExtensionType.heartbeat):
+            extensions.append(HeartbeatExtension().create(
+                HeartbeatExtensionTypes.peer_allowed_to_send_mode))
+
         # don't send empty list of extensions
         if not extensions:
             extensions = None
@@ -1945,7 +1952,7 @@ class TLSConnection(TLSRecordLayer):
             yield result
 
         # Get and check ClientKeyExchange
-        for result in self._getMsg(ContentType.handshake,
+        for result in self.a_getMsg(ContentType.handshake,
                                    HandshakeType.client_key_exchange,
                                    cipherSuite):
             if result in (0,1):
