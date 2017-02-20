@@ -1357,6 +1357,44 @@ class StatusRequestExtension(TLSExtension):
         return self
 
 
+class HeartbeatExtension(TLSExtension):
+    """
+    Heartbeat extension from RFC 6520
+
+    @type mode: int
+    @ivar mode: mode if peer is allowed or nor allowed to send responses
+    """
+    def __init__(self):
+        super(HeartbeatExtension, self).__init__(
+                                        extType=ExtensionType.heartbeat)
+        self.mode = None
+
+    @property
+    def extData(self):
+        """
+        Return encoded heartbeat mode
+
+        @rtype: bytearray
+        """
+        if self.mode is None:
+            return bytearray(0)
+
+        writer = Writer()
+        writer.add(self.mode, 1)
+
+        return writer.bytes
+
+    def create(self, mode):
+        self.mode = mode
+        return self
+
+    def parse(self, p):
+        self.mode = p.get(1)
+        if p.getRemainingLength() > 0:
+            raise SyntaxError()
+
+        return self
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1369,7 +1407,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.alpn: ALPNExtension,
         ExtensionType.supports_npn: NPNExtension,
         ExtensionType.client_hello_padding: PaddingExtension,
-        ExtensionType.renegotiation_info: RenegotiationInfoExtension}
+        ExtensionType.renegotiation_info: RenegotiationInfoExtension,
+        ExtensionType.heartbeat: HeartbeatExtension}
 
 TLSExtension._serverExtensions = \
     {

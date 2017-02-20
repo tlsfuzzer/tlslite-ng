@@ -10,12 +10,13 @@ except ImportError:
 from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         RecordHeader2, Message, ClientKeyExchange, ServerKeyExchange, \
         CertificateRequest, CertificateVerify, ServerHelloDone, ServerHello2, \
-        ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus
+        ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus, \
+        Heartbeat
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
-        SSL2HandshakeType, CertificateStatusType
+        SSL2HandshakeType, CertificateStatusType, HeartbeatMessageType
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension
 from tlslite.errors import TLSInternalError
@@ -2453,6 +2454,73 @@ class TestCertificateStatus(unittest.TestCase):
             b'\x00\x00\x02'
             b'\xbc\xaa'))
 
+
+class TestHeartbeat(unittest.TestCase):
+    def test___init____(self):
+        heartbeat = Heartbeat()
+
+        self.assertEqual(heartbeat.message_type, 0)
+        self.assertEqual(heartbeat.payload, bytearray(0))
+
+    def test_messageType(self):
+        heartbeat = Heartbeat().create(HeartbeatMessageType.heartbeat_request,
+                                       bytearray(1), 20)
+
+        self.assertEqual("heartbeat_request", heartbeat.messageType)
+
+    def test_wrong_messageType(self):
+        heartbeat = Heartbeat().create(5, bytearray(1), 20)
+
+        self.assertEqual("unknown(5)", heartbeat.messageType)
+
+    def test___str___(self):
+        heartbeat = Heartbeat().create(HeartbeatMessageType.heartbeat_response,
+                                       bytearray(1), 20)
+
+        self.assertEqual("Heartbeat heartbeat_response", str(heartbeat))
+
+    def test_parse(self):
+        heartbeat = Heartbeat()
+
+        parser = Parser(bytearray(
+            b'\x01' +       # request
+            b'\x00\x01' +   # payload length
+            b'\x00' +       # payload
+            b'\x00'         # padding
+            ))
+
+        heartbeat = heartbeat.parse(parser)
+
+        self.assertEqual(heartbeat.message_type, 1)
+        self.assertEqual(heartbeat.payload, b'\x00')
+
+    def test_parse_with_missing_data(self):
+        heartbeat = Heartbeat()
+
+        parser = Parser(bytearray(
+            b'\x01' +
+            b'\x00\x01'
+            ))
+
+        with self.assertRaises(SyntaxError):
+            heartbeat.parse(parser)
+
+    def test_write(self):
+        heartbeat = Heartbeat().create(HeartbeatMessageType.heartbeat_request,
+                                       b'\xAA', 20)
+
+        self.assertEqual(heartbeat.write()[:4], b'\x01' +       # request
+                                                b'\x00\x01' +   # payload len
+                                                b'\xAA')        # payload
+
+    def test_createResponse(self):
+        heartbeat_request = Heartbeat().create(
+            HeartbeatMessageType.heartbeat_request, b'\x01', 20)
+        heartbeat_response = heartbeat_request.createResponse()
+
+        self.assertEqual(heartbeat_response.message_type,
+                         HeartbeatMessageType.heartbeat_response)
+        self.assertEqual(heartbeat_request.payload, heartbeat_response.payload)
 
 if __name__ == '__main__':
     unittest.main()

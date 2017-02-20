@@ -12,7 +12,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SRPExtension, ClientCertTypeExtension, ServerCertTypeExtension,\
         TACKExtension, SupportedGroupsExtension, ECPointFormatsExtension,\
         SignatureAlgorithmsExtension, PaddingExtension, VarListExtension, \
-        RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension
+        RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
+        HeartbeatExtension
 from tlslite.utils.codec import Parser
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -1678,6 +1679,54 @@ class TestStatusRequestExtension(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             self.ext.parse(parser)
+
+class TestHeartbeatExtension(unittest.TestCase):
+    def test___init___(self):
+        ext = HeartbeatExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.extType, 15)
+        self.assertIsNone(ext.mode)
+
+    def test_create(self):
+        ext = HeartbeatExtension().create(0)
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.extType, 15)
+        self.assertEqual(ext.mode, 0)
+
+    def test_extData_none_mode(self):
+        ext = HeartbeatExtension()
+
+        self.assertEqual(ext.extData, bytearray(0))
+
+    def test_extData_mode(self):
+        ext = HeartbeatExtension().create(0)
+
+        self.assertEqual(ext.extData, b'\x00')
+
+    def test_parse_with_no_data(self):
+        parser = Parser(bytearray(0))
+
+        ext = HeartbeatExtension()
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+    def test_parse(self):
+        parser = Parser(bytearray(b'\x00'))
+
+        ext = HeartbeatExtension().parse(parser)
+
+        self.assertEqual(0, ext.mode)
+
+    def test_parse_with_too_much_data(self):
+        parser = Parser(bytearray(b'\x00\x00'))
+
+        ext = HeartbeatExtension()
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
 
 if __name__ == '__main__':
     unittest.main()
