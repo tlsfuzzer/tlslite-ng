@@ -22,11 +22,11 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
         SupportedVersionsExtension, VarSeqListExtension, ListExtension, \
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
-        CertificateStatusExtension, HRRKeyShareExtension
+        CertificateStatusExtension, HRRKeyShareExtension, HeartbeatExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
-        CertificateStatusType
+        CertificateStatusType, HeartbeatMode
 from tlslite.errors import TLSInternalError
 
 class TestTLSExtension(unittest.TestCase):
@@ -2167,6 +2167,55 @@ class TestHRRKeyShareExtension(unittest.TestCase):
                                   b'\x00\x03'
                                   b'\x00\x1d\x00'))
         ext = TLSExtension(hrr=True)
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+
+class TestHeartbeatExtension(unittest.TestCase):
+    def test___init___(self):
+        ext = HeartbeatExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.extType, ExtensionType.heartbeat)
+        self.assertIsNone(ext.mode)
+
+    def test_create(self):
+        ext = HeartbeatExtension().create(HeartbeatMode.peer_allowed_to_send)
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.extType, ExtensionType.heartbeat)
+        self.assertEqual(ext.mode, HeartbeatMode.peer_allowed_to_send)
+
+    def test_extData_none_mode(self):
+        ext = HeartbeatExtension()
+
+        self.assertEqual(ext.extData, bytearray(0))
+
+    def test_extData_mode(self):
+        ext = HeartbeatExtension().create(HeartbeatMode.peer_allowed_to_send)
+
+        self.assertEqual(ext.extData, b'\x01')
+
+    def test_parse_with_no_data(self):
+        parser = Parser(bytearray(0))
+
+        ext = HeartbeatExtension()
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+    def test_parse(self):
+        parser = Parser(bytearray(b'\x01'))
+
+        ext = HeartbeatExtension().parse(parser)
+
+        self.assertEqual(ext.mode, HeartbeatMode.peer_allowed_to_send)
+
+    def test_parse_with_too_much_data(self):
+        parser = Parser(bytearray(b'\x01\x00'))
+
+        ext = HeartbeatExtension()
+
         with self.assertRaises(SyntaxError):
             ext.parse(parser)
 
