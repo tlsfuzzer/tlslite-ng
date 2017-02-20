@@ -118,6 +118,7 @@ class TLSRecordLayer(object):
         self._defragmenter.addStaticSize(ContentType.change_cipher_spec, 1)
         self._defragmenter.addStaticSize(ContentType.alert, 2)
         self._defragmenter.addDynamicSize(ContentType.handshake, 1, 3)
+        self._defragmenter.addDynamicSize(ContentType.heartbeat, 1, 3) # are these values ok?
         self.clearReadBuffer()
         self.clearWriteBuffer()
 
@@ -578,6 +579,12 @@ class TLSRecordLayer(object):
             if len(msg.write()) == 0:
                 return
 
+        if msg.contentType == ContentType.heartbeat:
+            for result in self._sendMsgThroughSocket(msg):
+                yield result
+            if len(msg.write()) == 0:
+                return
+
         buf = msg.write()
         contentType = msg.contentType
         #Update handshake hashes
@@ -722,6 +729,17 @@ class TLSRecordLayer(object):
                                 yield result
                             continue
 
+                    # If we received a hearbeat request ...
+                    if recordHeader.type == ContentType.heartbeat:
+                        try:
+                            heartbeat_request = Heartbeat().parse(p)
+                            # we answer with heartbeat response based on request
+                            heartbeat_response = heartbeat_request.createResponse()
+                            for result in self._sendMsg(heartbeat_response):
+                                yield result
+                        except socket.error:
+                            pass
+
                     #Otherwise: this is an unexpected record, but neither an
                     #alert nor renegotiation
                     for result in self._sendError(\
@@ -738,6 +756,8 @@ class TLSRecordLayer(object):
                 yield Alert().parse(p)
             elif recordHeader.type == ContentType.application_data:
                 yield ApplicationData().parse(p)
+            elif recordHeader.type == ContentType.heartbeat:
+                yield Heartbeat().parse(p)
             elif recordHeader.type == ContentType.handshake:
                 #Convert secondaryType to tuple, if it isn't already
                 if not isinstance(secondaryType, tuple):
@@ -912,3 +932,49 @@ class TLSRecordLayer(object):
 
     def _changeReadState(self):
         self._recordLayer.changeReadState()
+
+
+    def writeHeartbeat(self, type, payload_length, payload):
+        """Start a write operation of heartbeat_request.
+
+        @type payload_length: int
+        @param payload_length: Length of payload.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        try:
+            if self.closed:
+                raise TLSClosedConnectionError("attempt to write to closed connection")
+            heartbeat_request = Heartbeat().create(type, payload_length,
+                                                   payload)
+
+            for result in self._sendMsg(heartbeat_request, \
+                                        randomizeFirstBlock=True):
+                yield result
+        except GeneratorExit:
+            raise
+        except Exception:
+            # Don't invalidate the session on write failure if abrupt closes are
+            # okay.
+            self._shutdown(self.ignoreAbruptClose)
+            raise
+
+    def sendHeartbeatRequest(self, payload_length, payload):
+        """Sends heartbeat_request.
+
+        @type payload_length: int
+        @param payload_length: Length of payload.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        for _ in self.writeHeartbeat(HeartbeatExtensionMessages.request,
+                                     payload_length, payload):
+            pass

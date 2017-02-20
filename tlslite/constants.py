@@ -107,7 +107,8 @@ class ContentType(TLSEnum):
     alert = 21
     handshake = 22
     application_data = 23
-    all = (20, 21, 22, 23)
+    heartbeat = 24
+    all = (20, 21, 22, 23, 24)
 
     @classmethod
     def toRepr(cls, value, blacklist=None):
@@ -135,6 +136,7 @@ class ExtensionType(TLSEnum):
     supports_npn = 13172
     tack = 0xF300
     renegotiation_info = 0xff01  # RFC 5746
+    heartbeat = 15  # RFC 6520
 
 
 class HashAlgorithm(TLSEnum):
@@ -250,6 +252,19 @@ class CertificateStatusType(TLSEnum):
     """Type of responses in the status_request and CertificateStatus msgs."""
 
     ocsp = 1
+
+
+class HeartbeatExtensionModes(TLSEnum):
+    """Types of heartbeat modes"""
+
+    peer_allowed_to_send_mode = 1
+    peer_not_allowed_to_send_mode = 2
+
+
+class HeartbeatExtensionMessages(TLSEnum):
+    """Types of heartbeat messages"""
+    request = 1
+    response = 2
 
 
 class AlertLevel(TLSEnum):
