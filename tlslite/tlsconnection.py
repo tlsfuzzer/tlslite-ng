@@ -1952,7 +1952,7 @@ class TLSConnection(TLSRecordLayer):
             yield result
 
         # Get and check ClientKeyExchange
-        for result in self.a_getMsg(ContentType.handshake,
+        for result in self._getMsg(ContentType.handshake,
                                    HandshakeType.client_key_exchange,
                                    cipherSuite):
             if result in (0,1):
