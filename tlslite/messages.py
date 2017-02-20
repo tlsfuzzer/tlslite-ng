@@ -1765,3 +1765,58 @@ class ApplicationData(object):
 
     def write(self):
         return self.bytes
+
+
+class Heartbeat(object):
+    """
+    Handling Heartbeat extension from RFC 6520
+
+    @type message_type: int
+    @ivar message_type: type of message (response or request)
+
+    @type payload_length: int
+    @ivar payload_length: length of sending payload
+
+    @type payload: bytes
+    @ivar payload: payload
+    """
+    def __init__(self):
+        self.contentType = ContentType.heartbeat
+        self.message_type = 0
+        self.payload_length = 0
+        self.payload = bytearray(0)
+        self.padding = bytearray(0)
+        self.padding_length = 0 #
+
+    def create(self, message_type, payload_length, payload):
+        self.message_type = message_type
+        self.payload_length = payload_length
+        # dont check size, because of reproducing Heartbleed
+        self.payload = payload
+        self.padding_length = 2**14 - payload_length - 3
+        self.padding = bytearray(self.padding_length)
+        return self
+
+    def createResponse(self):
+        """Creates heartbeat response based on request."""
+        heartbeat_response = Heartbeat().create(self.message_type,
+                                                self.payload_length,
+                                                self.payload)
+        return heartbeat_response
+
+    def parse(self, p):
+        p.setLengthCheck(2**14)
+        self.message_type = p.get(1)
+        self.payload_length = p.get(2)
+        self.payload = p.get(payload_length)
+        self.padding_length = 2**14 - self.payload_length - 3
+        self.padding = p.get(self.padding_length)
+        return self
+
+    def write(self):
+        w = Writer()
+        w.add(self.message_type, 1)
+        w.add(self.payload_length, 2)
+        w.bytes += self.payload
+        w.bytes = self.padding
+        return w.bytes
