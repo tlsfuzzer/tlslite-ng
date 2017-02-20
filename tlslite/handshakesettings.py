@@ -161,6 +161,7 @@ class HandshakeSettings(object):
         self.requireExtendedMasterSecret = False
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
+        self.useHeartbeatExtension = True
 
     @staticmethod
     def _sanityCheckKeySizes(other):

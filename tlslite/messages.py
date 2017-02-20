@@ -19,6 +19,7 @@ from .x509 import X509
 from .x509certchain import X509CertChain
 from .utils.tackwrapper import *
 from .extensions import *
+from .utils.format_input import noneAsUnknown
 
 
 class RecordHeader(object):
@@ -192,22 +193,15 @@ class Alert(object):
         w.add(self.description, 1)
         return w.bytes
 
-    @staticmethod
-    def _noneAsUnknown(text, number):
-        """if text is None or empty, format number as 'unknown(number)'"""
-        if not text:
-            text = "unknown({0})".format(number)
-        return text
-
     @property
     def levelName(self):
-        return self._noneAsUnknown(AlertLevel.toRepr(self.level),
-                                   self.level)
+        return noneAsUnknown(AlertLevel.toRepr(self.level),
+                             self.level)
 
     @property
     def descriptionName(self):
-        return self._noneAsUnknown(AlertDescription.toRepr(self.description),
-                                   self.description)
+        return noneAsUnknown(AlertDescription.toRepr(self.description),
+                             self.description)
 
     def __str__(self):
         return "Alert, level:{0}, description:{1}".format(self.levelName,
@@ -1765,3 +1759,61 @@ class ApplicationData(object):
 
     def write(self):
         return self.bytes
+
+
+class Heartbeat(object):
+    """
+    Handling Heartbeat extension from RFC 6520
+
+    @type message_type: int
+    @ivar message_type: type of message (response or request)
+
+    @type payload_length: int
+    @ivar payload_length: length of sending payload
+
+    @type payload: bytes
+    @ivar payload: payload
+    """
+    def __init__(self):
+        self.contentType = ContentType.heartbeat
+        self.message_type = 0
+        self.payload = bytearray(0)
+        self.padding = bytearray(0)
+
+    def create(self, message_type, payload, padding_length):
+        """Create heartbeat request or response with selected parameters"""
+        self.message_type = message_type
+        self.payload = payload
+        if not(15 < padding_length < 2**14 - len(self.payload) - 3):
+            raise ValueError("too short/long padding")
+        self.padding = getRandomBytes(padding_length)
+        return self
+
+    def createResponse(self):
+        """Creates heartbeat response based on request."""
+        heartbeat_response = Heartbeat().create(
+                                        HeartbeatExtensionMessages.response,
+                                        self.payload,
+                                        16)
+        return heartbeat_response
+
+    def parse(self, p):
+        self.message_type = p.get(1)
+        self.payload = p.getVarBytes(2)
+        return self
+
+    def write(self):
+        w = Writer()
+        w.add(self.message_type, 1)
+        w.add(len(self.payload), 2)
+        w.bytes += self.payload
+        w.bytes += self.padding
+        return w.bytes
+
+    @property
+    def messageType(self):
+        return noneAsUnknown(HeartbeatExtensionMessages.toRepr(
+                             self.message_type), self.message_type)
+
+    def __str__(self):
+        return "Heartbeat {0}".format(self.messageType)
