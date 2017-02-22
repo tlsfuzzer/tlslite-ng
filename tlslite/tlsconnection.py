@@ -650,7 +650,7 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(ALPNExtension().create(alpn))
         if settings.useHeartbeatExtension:
             extensions.append(HeartbeatExtension().create(
-                HeartbeatExtensionTypes.peer_allowed_to_send_mode))
+                HeartbeatExtensionModes.peer_allowed_to_send_mode))
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
             extensions = None
@@ -1339,7 +1339,7 @@ class TLSConnection(TLSRecordLayer):
 
         if clientHello.getExtension(ExtensionType.heartbeat):
             extensions.append(HeartbeatExtension().create(
-                HeartbeatExtensionTypes.peer_allowed_to_send_mode))
+                HeartbeatExtensionModes.peer_allowed_to_send_mode))
 
         # don't send empty list of extensions
         if not extensions:

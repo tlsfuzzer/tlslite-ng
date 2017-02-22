@@ -253,13 +253,18 @@ class CertificateStatusType(TLSEnum):
 
     ocsp = 1
 
-class HeartbeatExtensionTypes(TLSEnum):
-    """Types of heartbeat modes and heartbeat messages from Heartbeat extension"""
+
+class HeartbeatExtensionModes(TLSEnum):
+    """Types of heartbeat modes"""
 
     peer_allowed_to_send_mode = 1
     peer_not_allowed_to_send_mode = 2
-    response = 1
-    request = 2
+
+
+class HeartbeatExtensionMessages(TLSEnum):
+    """Types of heartbeat messages"""
+    request = 1
+    response = 2
 
 
 class AlertLevel(TLSEnum):

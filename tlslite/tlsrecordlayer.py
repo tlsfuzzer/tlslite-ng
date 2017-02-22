@@ -975,6 +975,6 @@ class TLSRecordLayer(object):
 
         @raise socket.error: If a socket error occurs.
         """
-        for result in self.writeHeartbeat(HeartbeatExtensionTypes.request,
+        for result in self.writeHeartbeat(HeartbeatExtensionMessages.request,
                                           payload_length, payload):
             pass

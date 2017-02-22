@@ -1786,7 +1786,7 @@ class Heartbeat(object):
         self.payload_length = 0
         self.payload = bytearray(0)
         self.padding = bytearray(0)
-        self.padding_length = 0 #
+        self.padding_length = 0
 
     def create(self, message_type, payload_length, payload):
         self.message_type = message_type
@@ -1799,18 +1799,19 @@ class Heartbeat(object):
 
     def createResponse(self):
         """Creates heartbeat response based on request."""
-        heartbeat_response = Heartbeat().create(self.message_type,
-                                                self.payload_length,
-                                                self.payload)
+        heartbeat_response = Heartbeat().create(
+                                        HeartbeatExtensionMessages.response,
+                                        self.payload_length,
+                                        self.payload)
         return heartbeat_response
 
     def parse(self, p):
-        p.setLengthCheck(2**14)
+        #p.setLengthCheck(2**14)
         self.message_type = p.get(1)
         self.payload_length = p.get(2)
-        self.payload = p.get(payload_length)
-        self.padding_length = 2**14 - self.payload_length - 3
-        self.padding = p.get(self.padding_length)
+        self.payload = p.get(self.payload_length)
+        #self.padding_length = 2**14 - self.payload_length - 3
+        #self.padding = p.get(self.padding_length)
         return self
 
     def write(self):
@@ -1818,5 +1819,20 @@ class Heartbeat(object):
         w.add(self.message_type, 1)
         w.add(self.payload_length, 2)
         w.bytes += self.payload
-        w.bytes = self.padding
+        w.bytes += self.padding
         return w.bytes
+
+    @staticmethod
+    def _noneAsUnknown(text, number):
+        """if text is None or empty, format number as 'unknown(number)'"""
+        if not text:
+            text = "unknown({0})".format(number)
+        return text
+
+    @property
+    def messageType(self):
+        return self._noneAsUnknown(HeartbeatExtensionMessages.toRepr(
+                                    self.message_type),self.message_type)
+
+    def __str__(self):
+        return "Heartbeat {0}".format(self.messageType)
