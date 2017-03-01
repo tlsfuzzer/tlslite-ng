@@ -15,6 +15,7 @@ from .utils.ecc import decodeX962Point, encodeX962Point, getCurveByName, \
 from .utils.rsakey import RSAKey
 from .utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
         numBits, numberToByteArray
+from .utils import tlshashlib as hashlib
 import ecdsa
 
 class KeyExchange(object):
@@ -87,17 +88,22 @@ class KeyExchange(object):
         else:
             serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
                 getattr(RSASignatureScheme, sigHash)
+            schemeNumber = (serverKeyExchange.hashAlg, serverKeyExchange.signAlg)
             hashBytes = self.clientHello.random + self.serverHello.random + \
                         ServerKeyExchange.writeParams(serverKeyExchange)
 
             serverKeyExchange.signature = \
-                self.privateKey.hashAndSign(hashBytes)
+                self.privateKey.hashAndSign(hashBytes, RSASignatureScheme.schemeName[schemeNumber], RSASignatureScheme.hashName[schemeNumber],
+                                            getattr(hashlib, RSASignatureScheme.hashName[schemeNumber])().digest_size)
 
             if not serverKeyExchange.signature:
                 raise TLSInternalError("Empty signature")
 
             if not self.privateKey.hashAndVerify(serverKeyExchange.signature,
-                                                 hashBytes):
+                                                 hashBytes, RSASignatureScheme.schemeName[schemeNumber], RSASignatureScheme.hashName[schemeNumber],
+                                            getattr(hashlib,
+                                                    RSASignatureScheme.hashName[
+                                                        schemeNumber])().digest_size):
                 raise TLSInternalError("Server Key Exchange signature invalid")
 
     @staticmethod
@@ -123,6 +129,7 @@ class KeyExchange(object):
                 raise TLSIllegalParameterException("Server selected "
                                                    "invalid signature "
                                                    "algorithm")
+            schemeNumber = (serverKeyExchange.hashAlg, serverKeyExchange.signAlg)
 
             hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
             if hashName is None:
@@ -135,7 +142,10 @@ class KeyExchange(object):
             if not sigBytes:
                 raise TLSIllegalParameterException("Empty signature")
 
-            if not publicKey.hashAndVerify(sigBytes, hashBytes):
+            if not publicKey.hashAndVerify(sigBytes, hashBytes, RSASignatureScheme.schemeName[schemeNumber],
+                                           hashName,
+                                           getattr(hashlib,
+                                                   hashName)().digest_size):
                 raise TLSDecryptionFailed("Server Key Exchange signature "
                                           "invalid")
 

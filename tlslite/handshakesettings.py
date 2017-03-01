@@ -25,6 +25,7 @@ KEY_EXCHANGE_NAMES = ["rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha", "srp_sha_rsa",
 CIPHER_IMPLEMENTATIONS = ["openssl", "pycrypto", "python"]
 CERTIFICATE_TYPES = ["x509"]
 RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
+RSA_SCHEMES = ["pss", "pkcs1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
 # while secp521r1 is the most secure, it's also much slower than the others
 # so place it as the last one
@@ -153,6 +154,7 @@ class HandshakeSettings(object):
         self.sendFallbackSCSV = False
         self.useEncryptThenMAC = True
         self.rsaSigHashes = list(RSA_SIGNATURE_HASHES)
+        self.rsaSchemes = list(RSA_SCHEMES)
         self.eccCurves = list(CURVE_NAMES)
         self.usePaddingExtension = True
         self.useExtendedMasterSecret = True
@@ -264,6 +266,7 @@ class HandshakeSettings(object):
         other.useEncryptThenMAC = self.useEncryptThenMAC
         other.usePaddingExtension = self.usePaddingExtension
         other.rsaSigHashes = self.rsaSigHashes
+        other.rsaSchemes = self.rsaSchemes
         other.eccCurves = self.eccCurves
         other.useExtendedMasterSecret = self.useExtendedMasterSecret
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret

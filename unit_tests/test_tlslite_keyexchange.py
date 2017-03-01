@@ -19,7 +19,7 @@ from tlslite.handshakesettings import HandshakeSettings
 from tlslite.messages import ServerHello, ClientHello, ServerKeyExchange,\
         CertificateRequest, ClientKeyExchange
 from tlslite.constants import CipherSuite, CertificateType, AlertDescription, \
-        HashAlgorithm, SignatureAlgorithm, GroupName
+        HashAlgorithm, SignatureAlgorithm, GroupName, RSASignatureScheme
 from tlslite.errors import TLSLocalAlert, TLSIllegalParameterException, \
         TLSDecryptionFailed, TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
         TLSInternalError
@@ -29,6 +29,7 @@ from tlslite.utils.keyfactory import parsePEMKey
 from tlslite.utils.codec import Parser
 from tlslite.utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
         numberToByteArray
+from tlslite.utils.rsakey import RSAKey
 from tlslite.mathtls import makeX, makeU, makeK
 from tlslite.handshakehashes import HandshakeHashes
 from tlslite import VerifierDB
@@ -161,6 +162,27 @@ class TestKeyExchange(unittest.TestCase):
         keyExchange.signServerKeyExchange(server_key_exchange)
 
         self.assertEqual(server_key_exchange.write(), self.expected_tls1_1_SKE)
+
+
+    def test_signServerKeyExchange_in_TLS1_1_signature_invalid(self):
+        srv_private_key = parsePEMKey(srv_raw_key, private=True)
+        client_hello = ClientHello()
+        cipher_suite = CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA
+        server_hello = ServerHello().create((3, 2),
+                                            bytearray(32),
+                                            bytearray(0),
+                                            cipher_suite)
+        keyExchange = KeyExchange(cipher_suite,
+                                  client_hello,
+                                  server_hello,
+                                  srv_private_key)
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 2)) \
+            .createDH(5, 2, 3)
+
+        with self.assertRaises(TLSInternalError):
+            keyExchange.privateKey.sign = mock.Mock(
+                return_value=bytearray(b'wrong'))
+            keyExchange.signServerKeyExchange(server_key_exchange)
 
 class TestKeyExchangeVerifyServerKeyExchange(TestKeyExchange):
     def setUp(self):
@@ -928,3 +950,54 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
                                                   [GroupName.secp256r1])
         with self.assertRaises(TLSIllegalParameterException):
             client_keyExchange.processServerKeyExchange(None, srv_key_ex)
+
+class TestRSAKeyExchange_with_PSS_scheme(unittest.TestCase):
+    def setUp(self):
+        self.srv_private_key = parsePEMKey(srv_raw_key, private=True)
+        srv_chain = X509CertChain([X509().parse(srv_raw_certificate)])
+        self.srv_pub_key = srv_chain.getEndEntityPublicKey()
+        self.cipher_suite = CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA
+        self.client_hello = ClientHello().create((3, 3),
+                                                 bytearray(32),
+                                                 bytearray(0),
+                                                 [])
+        self.server_hello = ServerHello().create((3, 2),
+                                                 bytearray(32),
+                                                 bytearray(0),
+                                                 self.cipher_suite)
+
+        self.keyExchange = RSAKeyExchange(self.cipher_suite,
+                                          self.client_hello,
+                                          self.server_hello,
+                                          self.srv_private_key)
+
+
+    def test_signServerKeyExchange_with_sha1_in_TLS1_2(self):
+        def m(leght):
+            return bytearray(leght)
+
+        with mock.patch('tlslite.utils.rsakey.getRandomBytes', m):
+            srv_private_key = parsePEMKey(srv_raw_key, private=True)
+            client_hello = ClientHello()
+            cipher_suite = CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA
+            server_hello = ServerHello().create((3, 3),
+                                                bytearray(32),
+                                                bytearray(0),
+                                                cipher_suite)
+            keyExchange = KeyExchange(cipher_suite,
+                                      client_hello,
+                                      server_hello,
+                                      srv_private_key)
+
+            server_key_exchange = ServerKeyExchange(cipher_suite, (3, 3)) \
+                .createDH(5, 2, 3)
+
+            keyExchange.clientHello.random = bytearray(len(keyExchange.clientHello.random))
+            keyExchange.serverHello.random = bytearray(len(keyExchange.clientHello.random))
+            getRandomBytes = mock.Mock(
+                return_value=bytearray(b'0'))
+
+            keyExchange.signServerKeyExchange(server_key_exchange, 'rsa_pss_sha256')
+            print(repr(server_key_exchange.signature))
+
+            self.assertEqual(server_key_exchange.signature,bytearray(b'E\xae\x8e\xbe~RU\n\xab4\x8e\x10y\x94\x01\xdfVr\x8b\x03\xa4\xb7\x9dI\xf1\xb7\x16\xfa\xa0-\x9a\x16^pZ\x979\xc2&\xa5\xfcU\x9a"\xc7~u\x1e_y\xc1w\x91\x98L\x10\xb4\xed\x103\xdf\xac\xba\x19Q\x0e\x8an\x13\x99\x8d1\x17XK\x9a\x00\xcdno\xc7\xae\x92:pU\xf8\xfbl\xeeg\xe0s\x03\xc8\xcb\xe5\xc4\xb9z\xcf\nv\xca\x80`\xbe\xc9\x85\xcfM\x89\xaeE\xf0\xa1\xd8`\x99\x93\xa0Bp\x1cwW\xce\x8e'))

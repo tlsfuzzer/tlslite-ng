@@ -1248,7 +1248,7 @@ class TestRSAPKCS1(unittest.TestCase):
 
     def test_hashAndSign_RSAPKCS1_sha1(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1", "sha1")
+            "pkcs1", "sha1")
         self.assertEqual(sigBytes, bytearray(
             b'\x17\x50\x15\xbd\xa5\x0a\xbe\x0f\xa7\xd3\x9a\x83\x53\x88' +
             b'\x5c\xa0\x1b\xe3\xa7\xe7\xfc\xc5\x50\x45\x74\x41\x11\x36' +
@@ -1264,11 +1264,11 @@ class TestRSAPKCS1(unittest.TestCase):
     def test_hashAndSign_wrongRSaAlgorithm(self):
         with self.assertRaises(UnknownRSAType):
             self.rsa.hashAndSign(self.message,
-                                            "PKC1", "sha1")
+                                            "pkcs1asdf", "sha1")
 
     def test_hashAndSign_RSAPKCS1_sha1_notSet(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1")
+            "pkcs1")
         self.assertEqual(sigBytes, bytearray(
             b'\x17\x50\x15\xbd\xa5\x0a\xbe\x0f\xa7\xd3\x9a\x83\x53\x88' +
             b'\x5c\xa0\x1b\xe3\xa7\xe7\xfc\xc5\x50\x45\x74\x41\x11\x36' +
@@ -1283,7 +1283,7 @@ class TestRSAPKCS1(unittest.TestCase):
 
     def test_hashAndSign_RSAPKCS1_sha224(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1", "sha224")
+            "pkcs1", "sha224")
         self.assertEqual(sigBytes, bytearray(
             b'\x57\x67\x7b\x08\x9e\x20\x54\x86\xdf\x4f\x56\x75\x59\x72' +
             b'\xe3\xaf\x88\xca\xbb\xc2\x3e\xfe\x29\x43\x9b\x8d\x1e\x60' +
@@ -1298,7 +1298,7 @@ class TestRSAPKCS1(unittest.TestCase):
 
     def test_hashAndSign_RSAPKCS1_sha256(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1", "sha256")
+            "pkcs1", "sha256")
         self.assertEqual(sigBytes, bytearray(
             b'\x0b\x20\xe5\x09\x3c\x2a\x92\x62\x33\x10\x8a\xfb\xdd\x85' +
             b'\x1b\x88\xee\xb5\x54\xf4\xbe\xaa\x7b\x18\xe5\x15\x19\xf7' +
@@ -1313,7 +1313,7 @@ class TestRSAPKCS1(unittest.TestCase):
 
     def test_hashAndSign_RSAPKCS1_sha384(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1", "sha384")
+            "pkcs1", "sha384")
         self.assertEqual(sigBytes, bytearray(
             b'\x7e\x3c\xcb\x6a\xb0\x3b\x41\x9a\x3e\x54\xf8\x13\x37\xa3' +
             b'\xc3\xf7\x2e\x8c\x65\xbb\xd1\x9d\xdd\x50\x24\x6a\x36\xf5' +
@@ -1328,7 +1328,7 @@ class TestRSAPKCS1(unittest.TestCase):
 
     def test_hashAndSign_RSAPKCS1_sha512(self):
         sigBytes = self.rsa.hashAndSign(self.message,
-            "PKCS1", "sha512")
+            "pkcs1", "sha512")
         self.assertEqual(sigBytes, bytearray(
             b'\x8b\x57\xa6\xf9\x16\x06\xba\x48\x13\xb8\x35\x36\x58\x1e' +
             b'\xb1\x5d\x72\x87\x5d\xcb\xb0\xa5\x14\xb4\xc0\x3b\x6d\xf8' +
@@ -1355,7 +1355,7 @@ class TestRSAPKCS1(unittest.TestCase):
             b'\x97\x50')
 
         self.assertTrue(self.rsa.hashAndVerify(sigBytes,
-                                               self.message, "PKCS1"))
+                                               self.message, "pkcs1"))
 
     def test_hashAndVerify_PKCS1_sha224(self):
         sigBytes = bytearray(
@@ -1371,7 +1371,7 @@ class TestRSAPKCS1(unittest.TestCase):
             b'\xd0\xd5')
 
         self.assertTrue(self.rsa.hashAndVerify(sigBytes,
-                                               self.message, "PKCS1",
+                                               self.message, "pkcs1",
                                                'sha224'))
 
     def test_hashAndVerify_PKCS1_sha256(self):
@@ -1388,7 +1388,7 @@ class TestRSAPKCS1(unittest.TestCase):
             b'\xbd\xbb')
 
         self.assertTrue(self.rsa.hashAndVerify(sigBytes,
-                                               self.message, "PKCS1",
+                                               self.message, "pkcs1",
                                                'sha256'))
 
     def test_hashAndVerify_PKCS1_sha384(self):
@@ -1405,7 +1405,7 @@ class TestRSAPKCS1(unittest.TestCase):
             b'\x29\xc0')
 
         self.assertTrue(self.rsa.hashAndVerify(sigBytes,
-                                               self.message, "PKCS1",
+                                               self.message, "pkcs1",
                                                'sha384'))
 
     def test_hashAndVerify_PKCS1_sha512(self):
@@ -1422,7 +1422,7 @@ class TestRSAPKCS1(unittest.TestCase):
             b'\xc1\x71')
 
         self.assertTrue(self.rsa.hashAndVerify(sigBytes,
-                                               self.message, "PKCS1",
+                                               self.message, "pkcs1",
                                                'sha512'))
 
 # because RSAKey is an abstract class...
@@ -1474,7 +1474,7 @@ class TestRSAKey(unittest.TestCase):
         rsa = Python_RSAKey(self.N, self.e, self.d, self.p, self.q, self.dP,
                             self.dQ, self.qInv)
 
-        sigBytes = rsa.hashAndSign(bytearray(b'text to sign'), "PSS", "sha1")
+        sigBytes = rsa.hashAndSign(bytearray(b'text to sign'), "pss", "sha1")
         self.assertEqual(bytearray(b'op\xfa\x1d\xfa\xe8i\xf2zV\x9a\xf4\x8d' +
                                    b'\xf1\xaf:\x1a\xb6\xce\xae3\xd1\xc2E[EG' +
                                    b'\x8ba\xfe.\x8e\x9dJ\xc9<Q\x05\xeaO\x8c' +
@@ -1504,7 +1504,7 @@ class TestRSAKey(unittest.TestCase):
             b'\xa5{\x13\xa2ms')
 
         self.assertTrue(rsa.hashAndVerify(sigBytes, bytearray(b'text to sign'),
-                                          "PSS", 'sha1'))
+                                          "pss", 'sha1'))
 
     def test_hashAndVerify_without_NULL_encoding_of_SHA1(self):
         rsa = Python_RSAKey(self.N, self.e)

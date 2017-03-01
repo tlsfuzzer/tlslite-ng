@@ -148,6 +148,7 @@ class HashAlgorithm(TLSEnum):
     sha384 = 5
     sha512 = 6
 
+
 class SignatureAlgorithm(TLSEnum):
     """Signing algorithms used in TLSv1.2"""
 
@@ -156,23 +157,58 @@ class SignatureAlgorithm(TLSEnum):
     dsa = 2
     ecdsa = 3
 
+
 class RSASignatureScheme(TLSEnum):
     """Signature scheme used for RSA message signing"""
+    schemeName = {}
+    hashName = {}
 
     none = (0, 1)
+    schemeName[(0, 1)] = "pkcs1"
+    hashName[(0, 1)] = "none"
     md5 = (1, 1)
+    schemeName[(1, 1)] = "pkcs1"
+    hashName[(1, 1)] = "md5"
     sha1 = (2, 1)
+    schemeName[(2, 1)] = "pkcs1"
+    hashName[(2, 1)] = "sha1"
     sha224 = (3, 1)
+    schemeName[(3, 1)] = "pkcs1"
+    hashName[(3, 1)] = "sha224"
     sha256 = (4, 1)
+    schemeName[(4, 1)] = "pkcs1"
+    hashName[(4, 1)] = "sha256"
     sha384 = (5, 1)
+    schemeName[(5, 1)] = "pkcs1"
+    hashName[(5, 1)] = "sha384"
     sha512 = (6, 1)
+    schemeName[(6, 1)] = "pkcs1"
+    hashName[(6, 1)] = "sha512"
     rsa_pkcs1_sha1 = (2, 1)
+    schemeName[(2, 1)] = "pkcs1"
+    hashName[(2, 1)] = "sha1"
+    rsa_pkcs1_sha224 = (3, 1)
+    schemeName[(3, 1)] = "pkcs1"
+    hashName[(3, 1)] = "sha224"
     rsa_pkcs1_sha256 = (4, 1)
+    schemeName[(4, 1)] = "pkcs1"
+    hashName[(4, 1)] = "sha256"
     rsa_pkcs1_sha384 = (5, 1)
+    schemeName[(5, 1)] = "pkcs1"
+    hashName[(5, 1)] = "sha384"
     rsa_pkcs1_sha512 = (6, 1)
+    schemeName[(6, 1)] = "pkcs1"
+    hashName[(6, 1)] = "sha512"
     rsa_pss_sha256 = (8, 4)
+    schemeName[(8, 4)] = "pss"
+    hashName[(8, 4)] = "sha256"
     rsa_pss_sha384 = (8, 5)
+    schemeName[(8, 5)] = "pss"
+    hashName[(8, 5)] = "sha384"
     rsa_pss_sha512 = (8, 6)
+    schemeName[(8, 6)] = "pss"
+    hashName[(8, 6)] = "sha512"
+
 
 class GroupName(TLSEnum):
     """Name of groups supported for (EC)DH key exchange"""

@@ -2049,9 +2049,12 @@ class TLSConnection(TLSRecordLayer):
     def _sigHashesToList(settings):
         """Convert list of valid signature hashes to array of tuples"""
         sigAlgs = []
-        for hashName in settings.rsaSigHashes:
-            sigAlgs.append((getattr(HashAlgorithm, hashName),
-                            SignatureAlgorithm.rsa))
+        for schemeName in settings.rsaSchemes:
+            for hashName in settings.rsaSigHashes:
+                try:
+                    sigAlgs.append(getattr(RSASignatureScheme, "rsa_" + schemeName + "_" + hashName))
+                except AttributeError:
+                    continue
         return sigAlgs
 
     @staticmethod
