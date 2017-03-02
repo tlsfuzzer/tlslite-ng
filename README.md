@@ -4,6 +4,8 @@ Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
 
+Test for Code Climate integration
+
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
 [![Code Health](https://landscape.io/github/tomato42/tlslite-ng/master/landscape.svg?style=flat)](https://landscape.io/github/tomato42/tlslite-ng/master)
