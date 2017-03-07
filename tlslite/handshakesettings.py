@@ -140,6 +140,10 @@ class HandshakeSettings(object):
     @ivar requireExtendedMasterSecret: whether to require negotiation of
     extended master secret calculation for successful connection. Requires
     useExtendedMasterSecret to be set to true. False by default.
+
+    @type useHeartbeatExtension: bool
+    @ivar useHeartbeatExtension: whether to support heartbeat extension from
+    RFC 6520. True by default.
     """
     def __init__(self):
         self.minKeySize = 1023
@@ -161,6 +165,8 @@ class HandshakeSettings(object):
         self.requireExtendedMasterSecret = False
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
+        self.useHeartbeatExtension = True
+        self.heartbeatResponseCallback = None
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -251,6 +257,12 @@ class HandshakeSettings(object):
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+        if other.useHeartbeatExtension not in (True, False):
+            raise ValueError("useHeartbeatExtension must be True or False")
+        if other.heartbeatResponseCallback and not other.useHeartbeatExtension:
+            raise ValueError("heartbeatResponseCallback requires "
+                             "useHeartbeatExtension")
+
     def validate(self):
         """
         Validate the settings, filter out unsupported ciphersuites and return
@@ -279,6 +291,8 @@ class HandshakeSettings(object):
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
         other.dhParams = self.dhParams
         other.dhGroups = self.dhGroups
+        other.useHeartbeatExtension = self.useHeartbeatExtension
+        other.heartbeatResponseCallback = self.heartbeatResponseCallback
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]

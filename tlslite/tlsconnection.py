@@ -648,6 +648,10 @@ class TLSConnection(TLSRecordLayer):
         # if we know any protocols for ALPN, advertise them
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
+        if settings.useHeartbeatExtension:
+            extensions.append(HeartbeatExtension().create(
+                HeartbeatMode.peer_allowed_to_send))
+            self.heartbeatCanReceive = True
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
             extensions = None
@@ -773,6 +777,29 @@ class TLSConnection(TLSRecordLayer):
                         AlertDescription.illegal_parameter,
                         "Server selected ALPN protocol we did not advertise"):
                     yield result
+        heartbeatExt = serverHello.getExtension(ExtensionType.heartbeat)
+        if heartbeatExt:
+            if not settings.useHeartbeatExtension:
+                for result in self._sendError(
+                        AlertDescription.unsupported_extension,
+                        "Server sent Heartbeat extension without one in " +
+                        "client hello"):
+                    yield result
+            if heartbeatExt.mode == HeartbeatMode.peer_allowed_to_send and \
+                    settings.heartbeatResponseCallback:
+                self.heartbeatCanSend = True
+                self.heartbeatResponseCallback = settings.\
+                    heartbeatResponseCallback
+            elif heartbeatExt.mode == HeartbeatMode.\
+                    peer_not_allowed_to_send or not settings.\
+                    heartbeatResponseCallback:
+                self.heartbeatCanSend = False
+            else:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Server responded with invalid Heartbeat extension"):
+                    yield result
+            self.heartbeatSupported = True
         yield serverHello
 
     def _clientSelectNextProto(self, nextProtos, serverHello):
@@ -1334,6 +1361,15 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(ECPointFormatsExtension().create(
                 [ECPointFormat.uncompressed]))
 
+        # if client sent Heartbeat extension
+        if clientHello.getExtension(ExtensionType.heartbeat):
+            # and we want to accept it
+            if settings.useHeartbeatExtension:
+                extensions.append(HeartbeatExtension().create(
+                    HeartbeatMode.peer_allowed_to_send))
+                self.heartbeatCanReceive = True
+                self.heartbeatSupported = True
+
         # don't send empty list of extensions
         if not extensions:
             extensions = None
@@ -1437,7 +1473,7 @@ class TLSConnection(TLSRecordLayer):
                             serverName,
                             encryptThenMAC=self._recordLayer.encryptThenMAC,
                             appProto=selectedALPN)
-            
+
         #Add the session object to the session cache
         if sessionCache and sessionID:
             sessionCache[sessionID] = self.session
@@ -1445,7 +1481,6 @@ class TLSConnection(TLSRecordLayer):
         self._handshakeDone(resumed=False)
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
-
 
     def _serverGetClientHello(self, settings, certChain, verifierDB,
                               sessionCache, anon, alpn):
@@ -1542,6 +1577,23 @@ class TLSConnection(TLSRecordLayer):
                 else:
                     ffgroup_intersect = [GroupName.ffdhe2048]
 
+        # Check and save clients heartbeat extension mode
+        heartbeatExt = clientHello.getExtension(ExtensionType.heartbeat)
+        if heartbeatExt:
+            if heartbeatExt.mode == HeartbeatMode.peer_allowed_to_send and \
+                    settings.heartbeatResponseCallback:
+                self.heartbeatCanSend = True
+                self.heartbeatResponseCallback = settings.\
+                    heartbeatResponseCallback
+            elif heartbeatExt.mode == HeartbeatMode.\
+                    peer_not_allowed_to_send or not settings.\
+                    heartbeatResponseCallback:
+                self.heartbeatCanSend = False
+            else:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Client sent invalid Heartbeat extension"):
+                    yield result
 
         #Now that the version is known, limit to only the ciphers available to
         #that version and client capabilities.
@@ -1659,6 +1711,25 @@ class TLSConnection(TLSRecordLayer):
                                     "No commonly supported application layer"
                                     "protocol supported"):
                                 yield result
+
+                heartbeatExt = clientHello.getExtension(
+                    ExtensionType.heartbeat)
+                if heartbeatExt:
+                    if heartbeatExt.mode == HeartbeatMode.peer_allowed_to_send:
+                        self.heartbeatCanSend = True
+                    elif heartbeatExt.mode == \
+                            HeartbeatMode.peer_not_allowed_to_send:
+                        self.heartbeatCanSend = False
+                    else:
+                        for result in self._sendError(
+                                AlertDescription.illegal_parameter,
+                                "Client sent invalid Heartbeat extension"):
+                            yield result
+                    heartbeat = HeartbeatExtension().create(
+                        HeartbeatMode.peer_allowed_to_send)
+                    self.heartbeatCanReceive = True
+                    self.heartbeatSupported = True
+                    extensions.append(heartbeat)
 
                 # don't send empty extensions
                 if not extensions:
