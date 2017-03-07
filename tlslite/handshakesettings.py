@@ -169,6 +169,14 @@ class HandshakeSettings(object):
     :vartype padding_cb: func
     :ivar padding_cb: Callback to function computing number of padding bytes
         for TLS 1.3. Signature is cb_func(msg_size, content_type, max_size).
+
+    :vartype useHeartbeatExtension: bool
+    :ivar useHeartbeatExtension: whether to support heartbeat extension from
+        RFC 6520. True by default.
+
+    :vartype heartbeatResponseCallback: func
+    :ivar heartbeatResponseCallback: Callback to function when Heartbeat
+        response is received
     """
     def __init__(self):
         self.minKeySize = 1023
@@ -195,6 +203,8 @@ class HandshakeSettings(object):
         self.defaultCurve = "secp256r1"
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
+        self.useHeartbeatExtension = True
+        self.heartbeatResponseCallback = None
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -312,6 +322,12 @@ class HandshakeSettings(object):
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+        if other.useHeartbeatExtension not in (True, False):
+            raise ValueError("useHeartbeatExtension must be True or False")
+        if other.heartbeatResponseCallback and not other.useHeartbeatExtension:
+            raise ValueError("heartbeatResponseCallback requires "
+                             "useHeartbeatExtension")
+
     def validate(self):
         """
         Validate the settings, filter out unsupported ciphersuites and return
@@ -345,6 +361,8 @@ class HandshakeSettings(object):
         other.padding_cb = self.padding_cb
         other.versions = self.versions
         other.keyShares = self.keyShares
+        other.useHeartbeatExtension = self.useHeartbeatExtension
+        other.heartbeatResponseCallback = self.heartbeatResponseCallback
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]
