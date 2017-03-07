@@ -147,6 +147,9 @@ class TLSRecordLayer(object):
         #Limit the size of outgoing records to following size
         self.recordSize = 16384 # 2**14
 
+        # Indicator for heartbeat extension
+        self.heartbeat = False
+
     @property
     def _client(self):
         """Boolean stating if the endpoint acts as a client"""
@@ -722,6 +725,31 @@ class TLSRecordLayer(object):
                                 yield result
                             continue
 
+                    # If we received a heartbeat request ...
+                    if recordHeader.type == ContentType.heartbeat:
+                        # If heartbeat extension was not negotiated, then
+                        # we send unexpected_message fatal alert
+                        if not self.heartbeat:
+                            for result in self._sendError( \
+                                    AlertDescription.unexpected_message,
+                                            "Heartbeat was not negotiated"):
+                                yield result
+
+                        try:
+                            heartbeat_message = Heartbeat().parse(p)
+                            # If we received heartbeat request, then we
+                            # response with response create from request
+                            if heartbeat_message.message_type == \
+                                    HeartbeatMessageType.heartbeat_request:
+                                heartbeat_response = heartbeat_message.\
+                                    createResponse()
+                                for result in self._sendMsg(
+                                        heartbeat_response):
+                                    yield result
+                        except socket.error:
+                            pass
+                        continue
+
                     #Otherwise: this is an unexpected record, but neither an
                     #alert nor renegotiation
                     for result in self._sendError(\
@@ -833,6 +861,9 @@ class TLSRecordLayer(object):
             # application data isn't made out of messages, pass it through
             if header.type == ContentType.application_data:
                 yield (header, parser)
+            # heartbeat message isn't made out of messages, too
+            elif header.type == ContentType.heartbeat:
+                yield (header, parser)
             # If it's an SSLv2 ClientHello, we can return it as well, since
             # it's the only ssl2 type we support
             elif header.ssl2:
@@ -912,3 +943,40 @@ class TLSRecordLayer(object):
 
     def _changeReadState(self):
         self._recordLayer.changeReadState()
+
+    def writeHeartbeat(self, payload, padding_length):
+        """Start a write operation of heartbeat_request.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @type padding_length: int
+        @param padding_length: Length of padding.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        if self.closed:
+            raise TLSClosedConnectionError(
+                "attempt to write to closed connection")
+        heartbeat_request = Heartbeat().create(
+            HeartbeatExtensionMessages.request, payload, padding_length)
+
+        for result in self._sendMsg(heartbeat_request,
+                                    randomizeFirstBlock=False):
+            yield result
+
+    def sendHeartbeatRequest(self, payload, padding_length):
+        """Sends heartbeat_request.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @type padding_length: int
+        @param padding_length: Length of padding.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        for _ in self.writeHeartbeat(payload, padding_length):
+            pass

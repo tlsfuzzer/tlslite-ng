@@ -161,6 +161,7 @@ class HandshakeSettings(object):
         self.requireExtendedMasterSecret = False
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
+        self.useHeartbeatExtension = True
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -279,6 +280,7 @@ class HandshakeSettings(object):
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
         other.dhParams = self.dhParams
         other.dhGroups = self.dhGroups
+        other.useHeartbeatExtension = self.useHeartbeatExtension
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]
