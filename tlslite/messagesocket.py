@@ -52,7 +52,8 @@ class MessageSocket(RecordLayer):
         super(MessageSocket, self).__init__(sock)
 
         self.defragmenter = defragmenter
-        self.unfragmentedDataTypes = tuple((ContentType.application_data, ))
+        self.unfragmentedDataTypes = tuple((ContentType.application_data,
+                                            ContentType.heartbeat))
         self._lastRecordVersion = (0, 0)
 
         self._sendBuffer = bytearray(0)
