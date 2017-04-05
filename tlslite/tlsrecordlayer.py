@@ -123,6 +123,10 @@ class TLSRecordLayer(object):
 
         #Handshake digests
         self._handshake_hash = HandshakeHashes()
+        # Handshake digest used for Certificate Verify signature and
+        # also for EMS calculation, in practice, it excludes
+        # CertificateVerify and all following messages (Finished)
+        self._certificate_verify_handshake_hash = None
 
         #Is the connection open?
         self.closed = True #read-only
@@ -893,6 +897,7 @@ class TLSRecordLayer(object):
             raise ValueError("Renegotiation disallowed for security reasons")
         self._client = client
         self._handshake_hash = HandshakeHashes()
+        self._certificate_verify_handshake_hash = None
         self._defragmenter.clearBuffers()
         self.allegedSrpUsername = None
         self._refCount = 1
