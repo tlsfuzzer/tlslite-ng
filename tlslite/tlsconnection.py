@@ -1882,6 +1882,10 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendError(AlertDescription.illegal_parameter,
                                           "Suspicious A value"):
                 yield result
+        except TLSDecodeError as alert:
+            for result in self._sendError(AlertDescription.decode_error,
+                                          str(alert)):
+                yield result
 
         yield premasterSecret
 
@@ -1976,6 +1980,10 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendError(AlertDescription.illegal_parameter,
                                           str(alert)):
                 yield result
+        except TLSDecodeError as alert:
+            for result in self._sendError(AlertDescription.decode_error,
+                                          str(alert)):
+                yield result
 
         #Get and check CertificateVerify, if relevant
         self._certificate_verify_handshake_hash = self._handshake_hash.copy()
@@ -2064,7 +2072,16 @@ class TLSConnection(TLSRecordLayer):
             else:
                 break
         cke = result
-        premasterSecret = keyExchange.processClientKeyExchange(cke)
+        try:
+            premasterSecret = keyExchange.processClientKeyExchange(cke)
+        except TLSIllegalParameterException as alert:
+            for result in self._sendError(AlertDescription.illegal_parameter,
+                                          str(alert)):
+                yield result
+        except TLSDecodeError as alert:
+            for result in self._sendError(AlertDescription.decode_error,
+                                          str(alert)):
+                yield result
 
         yield premasterSecret
 

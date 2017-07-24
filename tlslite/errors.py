@@ -236,6 +236,12 @@ class TLSIllegalParameterException(TLSProtocolException):
     pass
 
 
+class TLSDecodeError(TLSProtocolException):
+    """The received message encoding does not match specification."""
+
+    pass
+
+
 class TLSRecordOverflow(TLSProtocolException):
     """The received record size was too big"""
 

@@ -7,7 +7,8 @@
 from .mathtls import goodGroupParameters, makeK, makeU, makeX, \
         calcMasterSecret, paramStrength, RFC7919_GROUPS
 from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
-        TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError
+        TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError, \
+        TLSDecodeError
 from .messages import ServerKeyExchange, ClientKeyExchange, CertificateVerify
 from .constants import SignatureAlgorithm, HashAlgorithm, CipherSuite, \
         ExtensionType, GroupName, ECCurveType, SignatureScheme
@@ -542,9 +543,11 @@ class AECDHKeyExchange(KeyExchange):
 
     def processClientKeyExchange(self, clientKeyExchange):
         """Calculate premaster secret from previously generated SKE and CKE"""
-        if self.group_id in [GroupName.x25519, GroupName.x448]:
-            ecdhYc = clientKeyExchange.ecdh_Yc
+        ecdhYc = clientKeyExchange.ecdh_Yc
 
+        if not ecdhYc:
+            raise TLSDecodeError("No key share")
+        if self.group_id in [GroupName.x25519, GroupName.x448]:
             if self.group_id == GroupName.x25519:
                 if len(ecdhYc) != X25519_ORDER_SIZE:
                     raise TLSIllegalParameterException("Invalid key share")
@@ -558,7 +561,7 @@ class AECDHKeyExchange(KeyExchange):
         else:
             curveName = GroupName.toRepr(self.group_id)
             try:
-                ecdhYc = decodeX962Point(clientKeyExchange.ecdh_Yc,
+                ecdhYc = decodeX962Point(ecdhYc,
                                          getCurveByName(curveName))
             # TODO update python-ecdsa library to raise something more on point
             except AssertionError:
