@@ -242,6 +242,15 @@ class TLSDecodeError(TLSProtocolException):
     pass
 
 
+class TLSUnexpectedMessage(TLSProtocolException):
+    """
+    The received message was unexpected or parsing of Inner Plaintext
+    failed
+    """
+
+    pass
+
+
 class TLSRecordOverflow(TLSProtocolException):
     """The received record size was too big"""
 
