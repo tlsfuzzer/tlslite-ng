@@ -16,6 +16,7 @@ import binascii
 import sys
 
 from .compat import compat26Str, compatHMAC, compatLong, b2a_hex
+from .codec import Writer
 
 
 # **************************************************************************
@@ -115,6 +116,23 @@ def HKDF_expand(PRK, info, L, algorithm):
         T += Titer
         Titer = secureHMAC(PRK, Titer + info + bytearray([x]), algorithm)
     return T[:L]
+
+def HKDF_expand_label(secret, label, hashValue, length, algorithm):
+    hkdfLabel = Writer()
+    hkdfLabel.addTwo(length)
+    hkdfLabel.addVarSeq(bytearray(b"tls13 ") + label, 1, 1)
+    hkdfLabel.addVarSeq(hashValue, 1, 1)
+
+    return HKDF_expand(secret, hkdfLabel.bytes, length, algorithm)
+
+def derive_secret(secret, label, handshake_hashes, algorithm):
+    if handshake_hashes is None:
+        hs_hash = secureHash(bytearray(b''), algorithm)
+    else:
+        hs_hash = handshake_hashes.digest(algorithm)
+    return HKDF_expand_label(secret, label, hs_hash,
+                             getattr(hashlib, algorithm)().digest_size,
+                             algorithm)
 
 # **************************************************************************
 # Converter Functions

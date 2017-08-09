@@ -15,7 +15,9 @@ import struct
 
 from tlslite.utils.cryptomath import isPrime, numBits, numBytes, \
         numberToByteArray, MD5, SHA1, secureHash, HMAC_MD5, HMAC_SHA1, \
-        HMAC_SHA256, HMAC_SHA384, HKDF_expand, bytesToNumber
+        HMAC_SHA256, HMAC_SHA384, HKDF_expand, bytesToNumber, \
+        HKDF_expand_label, derive_secret
+from tlslite.handshakehashes import HandshakeHashes
 
 class TestIsPrime(unittest.TestCase):
     def test_with_small_primes(self):
@@ -449,3 +451,56 @@ class TestBytesToNumber(unittest.TestCase):
 
     def test_with_empty_string_little_endian(self):
         self.assertEqual(0, bytesToNumber(b'', "little"))
+
+
+class TestHKDF_expand_label(unittest.TestCase):
+    def test_with_sha256(self):
+        secret = bytearray(32)
+        label = bytearray(b'test')
+        hash_value = bytearray(b'01' * 32)
+        length = 32
+
+        self.assertEqual(HKDF_expand_label(secret, label, hash_value, length,
+                                           "sha256"),
+                         bytearray(b"r\x91M\x13~\xd1\xa7\xf0\xa3\xa3\x0f\xce#"
+                                   b" \xa9\xe4\xdd\xeb\x05\x07\x80\xee\x10\x93"
+                                   b"\x7f\xc4\x18\x02\xb9\x00\'6"))
+
+    def test_with_sha384(self):
+        secret = bytearray(48)
+        label = bytearray(b'test')
+        hash_value = bytearray(b'01' * 48)
+        length = 48
+
+        self.assertEqual(HKDF_expand_label(secret, label, hash_value, length,
+                                           "sha384"),
+                         bytearray(b'\xb3\rFt\x10\xd96b\xb3\x80pm3g\xc06\xc3'
+                                   b'\xa1/8\t\r\x86\xa4\xd4pFaJ\xce\xb9\xf6Nb'
+                                   b'\xf76\x12p\x1dQ\xe5\xd9\xfc\n\x16\xc8\x07'
+                                   b'\xb8'))
+
+class TestDerive_secret(unittest.TestCase):
+    def test_with_no_hashes(self):
+        secret = bytearray(32)
+        label = bytearray(b'exporter')
+        handshake_hashes = None
+        algorithm = "sha256"
+
+        self.assertEqual(derive_secret(secret, label, handshake_hashes,
+                                       algorithm),
+                         bytearray(b'(\xef{\xee\xad\xde\x0b)9\xec\xb6\x89\xf5'
+                                   b'\x83\xa2\xc5\xf2_\xf4R\x9e\xe8\xf4N\xef'
+                                   b'\xbf\x06g\x95\xd0\x892'))
+
+    def test_with_handshake_hashes(self):
+        secret = bytearray(32)
+        label = bytearray(b'exporter')
+        handshake_hashes = HandshakeHashes()
+        handshake_hashes.update(bytearray(8))
+        algorithm = "sha256"
+
+        self.assertEqual(derive_secret(secret, label, handshake_hashes,
+                                       algorithm),
+                         bytearray(b'\t\xec\x01W[Y\xdcP\xac\xebu\x13\xe6\x98'
+                                   b'\x19\xccu;\xfa\x90\xc9\xe3\xc1\xe7\xb7'
+                                   b'\xcf\x0c\x97;x\xf0F'))
