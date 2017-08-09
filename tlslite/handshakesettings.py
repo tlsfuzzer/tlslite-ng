@@ -172,6 +172,7 @@ class HandshakeSettings(object):
         self.certificateTypes = list(CERTIFICATE_TYPES)
         self.minVersion = (3, 1)
         self.maxVersion = (3, 3)
+        self.versions = [(0x7f, 21), (3, 3), (3, 2), (3, 1)]
         self.useExperimentalTackExtension = False
         self.sendFallbackSCSV = False
         self.useEncryptThenMAC = True
@@ -262,7 +263,7 @@ class HandshakeSettings(object):
             raise ValueError("Versions set incorrectly")
         if other.minVersion not in ((3, 0), (3, 1), (3, 2), (3, 3)):
             raise ValueError("minVersion set incorrectly")
-        if other.maxVersion not in ((3, 0), (3, 1), (3, 2), (3, 3)):
+        if other.maxVersion not in ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4)):
             raise ValueError("maxVersion set incorrectly")
 
     @staticmethod
@@ -314,6 +315,7 @@ class HandshakeSettings(object):
         other.dhParams = self.dhParams
         other.dhGroups = self.dhGroups
         other.defaultCurve = self.defaultCurve
+        other.versions = self.versions
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]

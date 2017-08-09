@@ -126,7 +126,7 @@ class TestHandshakeSettings(unittest.TestCase):
 
     def test_maxVersion_with_unknown_version(self):
         hs = HandshakeSettings()
-        hs.maxVersion = (3, 4)
+        hs.maxVersion = (3, 5)
 
         with self.assertRaises(ValueError):
             hs.validate()
