@@ -1909,6 +1909,51 @@ class NewSessionTicket(HandshakeMsg):
         return self
 
 
+class HelloRetryRequest(HandshakeMsg):
+    """Handling of TLS 1.3 Hello Retry Request handshake message."""
+
+    def __init__(self):
+        """Create Hello Retry Request object."""
+        super(HelloRetryRequest, self).__init__(HandshakeType
+                                                .hello_retry_request)
+        self.server_version = (0, 0)
+        self.cipher_suite = 0
+        self.extensions = []
+
+    def create(self, server_version, cipher_suite, extensions):
+        """Initialise a Hello Retry Request message."""
+        self.server_version = server_version
+        self.cipher_suite = cipher_suite
+        self.extensions = extensions
+        return self
+
+    def write(self):
+        """Serialise the object."""
+        writer = Writer()
+        writer.addFixSeq(self.server_version, 1)
+        writer.add(self.cipher_suite, 2)
+        w2 = Writer()
+        for ext in self.extensions:
+            w2.bytes += ext.write()
+        writer.add(len(w2.bytes), 2)
+        writer.bytes += w2.bytes
+
+        return self.postWrite(writer)
+
+    def parse(self, parser):
+        """Deserialise the object from on the wire data."""
+        parser.startLengthCheck(3)
+
+        self.server_version = (parser.get(1), parser.get(1))
+        self.cipher_suite = parser.get(2)
+        self.extensions = []
+        ext_parser = Parser(parser.getVarBytes(2))
+        while ext_parser.getRemainingLength():
+            self.extensions.append(TLSExtension(hrr=True).parse(ext_parser))
+        parser.stopLengthCheck()
+        return self
+
+
 class SSL2Finished(HandshakeMsg):
     """Handling of the SSL2 FINISHED messages."""
 
