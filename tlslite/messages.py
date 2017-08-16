@@ -1806,13 +1806,12 @@ class Finished(HandshakeMsg):
         return self.postWrite(w)
 
 
-class EncryptedExtensions(HandshakeMsg):
+class EncryptedExtensions(HelloMessage):
     """Handling of the TLS1.3 Encrypted Extensions message."""
 
     def __init__(self):
         super(EncryptedExtensions, self).__init__(
                 HandshakeType.encrypted_extensions)
-        self.extensions = None
 
     def create(self, extensions):
         """Set the extensions in the message."""
@@ -1850,7 +1849,7 @@ class EncryptedExtensions(HandshakeMsg):
         return self.postWrite(w)
 
 
-class NewSessionTicket(HandshakeMsg):
+class NewSessionTicket(HelloMessage):
     """Handling of the TLS1.3 New Session Ticket message."""
 
     def __init__(self):
@@ -1909,7 +1908,7 @@ class NewSessionTicket(HandshakeMsg):
         return self
 
 
-class HelloRetryRequest(HandshakeMsg):
+class HelloRetryRequest(HelloMessage):
     """Handling of TLS 1.3 Hello Retry Request handshake message."""
 
     def __init__(self):
