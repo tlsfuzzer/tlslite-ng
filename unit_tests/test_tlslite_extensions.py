@@ -22,7 +22,7 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
         SupportedVersionsExtension, VarSeqListExtension, ListExtension, \
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
-        CertificateStatusExtension
+        CertificateStatusExtension, HRRKeyShareExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -2124,6 +2124,51 @@ class TestCertificateStatusExtension(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             cs.parse(parser)
+
+
+class TestHRRKeyShareExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = HRRKeyShareExtension()
+
+        self.assertIsNone(ext.selected_group)
+
+    def test_create(self):
+        val = mock.Mock()
+
+        ext = HRRKeyShareExtension().create(val)
+
+        self.assertIs(ext.selected_group, val)
+
+    def test_extData(self):
+        ext = HRRKeyShareExtension().create(GroupName.x25519)
+
+        self.assertEqual(bytearray(b'\x00\x28'
+                                   b'\x00\x02'
+                                   b'\x00\x1d'),
+                         ext.write())
+
+    def test_extData_with_no_value(self):
+        ext = HRRKeyShareExtension()
+
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_parse(self):
+        parser = Parser(bytearray(b'\x00\x28'
+                                  b'\x00\x02'
+                                  b'\x00\x1d'))
+        ext = TLSExtension(hrr=True)
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, HRRKeyShareExtension)
+        self.assertEqual(ext.selected_group, GroupName.x25519)
+
+    def test_parse_with_trailing_data(self):
+        parser = Parser(bytearray(b'\x00\x28'
+                                  b'\x00\x03'
+                                  b'\x00\x1d\x00'))
+        ext = TLSExtension(hrr=True)
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
 
 
 if __name__ == '__main__':

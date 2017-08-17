@@ -74,20 +74,27 @@ class TLSExtension(object):
         ServerHello versions.
 
     :vartype _certificateExtensions: dict
-    :cvat _certificateExtensions: dictionary with concrete implementations of
+    :cvar _certificateExtensions: dictionary with concrete implementations of
         specific TLS extensions where the key is the numeric value of the
         type of the extension and the value is the class. Includes only
         those extensions that require special handlers for Certificate
         message.
+
+    :vartype _hrrExtensions: dict
+    :cvar _hrrExtensions: dictionary with concrete implementation of specific
+        TLS extensions where the key is the numeric type of the extension
+        and the value is the class. Includes only those extensions that require
+        special handlers for the Hello Retry Request message.
     """
     # actual definition at the end of file, after definitions of all classes
     _universalExtensions = {}
     _serverExtensions = {}
     #_encryptedExtensions = {}
     _certificateExtensions = {}
+    _hrrExtensions = {}
 
     def __init__(self, server=False, extType=None, encExt=False,
-                 cert=False):
+                 cert=False, hrr=False):
         """
         Creates a generic TLS extension.
 
@@ -104,12 +111,15 @@ class TLSExtension(object):
             for parsing
         :param bool cert: whether to select the Certificate type
             of extension for parsing
+        :param bool hrr: whether to select the Hello Retry Requst type
+            of extension for parsing
         """
         self.extType = extType
         self._extData = bytearray(0)
         self.serverType = server
         self.encExtType = encExt
         self.cert = cert
+        self.hrr = hrr
 
     @property
     def extData(self):
@@ -227,6 +237,10 @@ class TLSExtension(object):
         if self.serverType and extType in self._serverExtensions:
             return self._parseExt(p, extType, extLength,
                                   self._serverExtensions)
+
+        if self.hrr and extType in self._hrrExtensions:
+            return self._parseExt(p, extType, extLength,
+                                  self._hrrExtensions)
 
         # fallback to universal/ClientHello-specific parsers
         if extType in self._universalExtensions:
@@ -1685,6 +1699,50 @@ class ServerKeyShareExtension(TLSExtension):
         return self
 
 
+class HRRKeyShareExtension(TLSExtension):
+    """
+    Class for handling the Hello Retry Request varian of the Key Share ext.
+
+    Extension for notifying the client of the server selected group for
+    key exchange.
+    """
+    def __init__(self):
+        """Create instance of the object."""
+        super(HRRKeyShareExtension, self).__init__(extType=ExtensionType.
+                                                   key_share,
+                                                   hrr=True)
+        self.selected_group = None
+
+    def create(self, selected_group):
+        """Set the selected group in the extension."""
+        self.selected_group = selected_group
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the payload of the extension."""
+        if self.selected_group is None:
+            return bytearray(0)
+
+        w = Writer()
+        w.add(self.selected_group, 2)
+        return w.bytes
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format.
+
+        :param Parser parser: data to be parsed
+
+        :rtype: HRRKeyShareExtension
+        """
+        self.selected_group = parser.get(2)
+
+        if parser.getRemainingLength():
+            raise SyntaxError("Trailing data in HRR Key Share extension")
+
+        return self
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1710,3 +1768,7 @@ TLSExtension._serverExtensions = \
 TLSExtension._certificateExtensions = \
     {
         ExtensionType.status_request: CertificateStatusExtension}
+
+TLSExtension._hrrExtensions = \
+    {
+        ExtensionType.key_share: HRRKeyShareExtension}
