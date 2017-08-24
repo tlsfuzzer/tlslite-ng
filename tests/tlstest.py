@@ -8,6 +8,7 @@
 #   Martin von Loewis - python 3 port
 #   Hubert Kario - several improvements
 #   Google - FALLBACK_SCSV test
+#   Efthimis Iosifidis - Replaced the time.clock() with time.time() method. dynamic datasize on throughput calculation
 #
 # See the LICENSE file for legal information regarding use of this file.
 from __future__ import print_function
@@ -476,12 +477,14 @@ def clientTestCmd(argv):
             connection.handshakeClientCert(settings=settings)
             print("%s %s:" % (connection.getCipherName(), connection.getCipherImplementation()), end=' ')
 
-            startTime = time.clock()
+            startTime = time.time()
             connection.write(b"hello"*10000)
             h = connection.read(min=50000, max=50000)
-            stopTime = time.clock()
+            stopTime = time.time()
+            sizeofdata = sys.getsizeof(h)*2
+            
             if stopTime-startTime:
-                print("100K exchanged at rate of %d bytes/sec" % int(100000/(stopTime-startTime)))
+                print("100K exchanged at rate of %d bytes/sec" % int(sizeofdata/(stopTime-startTime)))
             else:
                 print("100K exchanged very fast")
 
