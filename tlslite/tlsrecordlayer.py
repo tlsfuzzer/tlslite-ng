@@ -730,7 +730,7 @@ class TLSRecordLayer(object):
                     #alert nor renegotiation
                     for result in self._sendError(\
                             AlertDescription.unexpected_message,
-                            "received type=%d" % recordHeader.type):
+                            "received type={0:d}".format(recordHeader.type)):
                         yield result
 
                 break
@@ -765,7 +765,7 @@ class TLSRecordLayer(object):
                     if subType not in secondaryType:
                         for result in self._sendError(\
                                 AlertDescription.unexpected_message,
-                                "Expecting %s, got %s" % (str(secondaryType), subType)):
+                                "Expecting {0!s}, got {1!s}".format(str(secondaryType), subType)):
                             yield result
 
                 #Update handshake hashes

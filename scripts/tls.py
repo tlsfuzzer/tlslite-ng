@@ -44,12 +44,12 @@ except ImportError:
 
 def printUsage(s=None):
     if s:
-        print("ERROR: %s" % s)
+        print("ERROR: {0!s}".format(s))
 
     print("")
-    print("Version: %s" % __version__)
+    print("Version: {0!s}".format(__version__))
     print("")
-    print("RNG: %s" % prngName)
+    print("RNG: {0!s}".format(prngName))
     print("")
     print("Modules:")
     if tackpyLoaded:
@@ -91,7 +91,7 @@ def printUsage(s=None):
 
 def printError(s):
     """Print error message and exit"""
-    sys.stderr.write("ERROR: %s\n" % s)
+    sys.stderr.write("ERROR: {0!s}\n".format(s))
     sys.exit(-1)
 
 
@@ -205,22 +205,22 @@ def handleArgs(argv, argString, flagsList=[]):
 
 
 def printGoodConnection(connection, seconds):
-    print("  Handshake time: %.3f seconds" % seconds)
-    print("  Version: %s" % connection.getVersionName())
-    print("  Cipher: %s %s" % (connection.getCipherName(), 
+    print("  Handshake time: {0:.3f} seconds".format(seconds))
+    print("  Version: {0!s}".format(connection.getVersionName()))
+    print("  Cipher: {0!s} {1!s}".format(connection.getCipherName(), 
         connection.getCipherImplementation()))
     print("  Ciphersuite: {0}".\
             format(CipherSuite.ietfNames[connection.session.cipherSuite]))
     if connection.session.srpUsername:
-        print("  Client SRP username: %s" % connection.session.srpUsername)
+        print("  Client SRP username: {0!s}".format(connection.session.srpUsername))
     if connection.session.clientCertChain:
-        print("  Client X.509 SHA1 fingerprint: %s" % 
-            connection.session.clientCertChain.getFingerprint())
+        print("  Client X.509 SHA1 fingerprint: {0!s}".format( 
+            connection.session.clientCertChain.getFingerprint()))
     else:
         print("  No client certificate provided by peer")
     if connection.session.serverCertChain:
-        print("  Server X.509 SHA1 fingerprint: %s" % 
-            connection.session.serverCertChain.getFingerprint())
+        print("  Server X.509 SHA1 fingerprint: {0!s}".format( 
+            connection.session.serverCertChain.getFingerprint()))
     if connection.version >= (3, 3) and connection.serverSigAlg is not None:
         scheme = SignatureScheme.toRepr(connection.serverSigAlg)
         if scheme is None:
@@ -234,18 +234,18 @@ def printGoodConnection(connection, seconds):
     if connection.dhGroupSize is not None:
         print("  DH group size: {0} bits".format(connection.dhGroupSize))
     if connection.session.serverName:
-        print("  SNI: %s" % connection.session.serverName)
+        print("  SNI: {0!s}".format(connection.session.serverName))
     if connection.session.tackExt:   
         if connection.session.tackInHelloExt:
             emptyStr = "\n  (via TLS Extension)"
         else:
             emptyStr = "\n  (via TACK Certificate)" 
-        print("  TACK: %s" % emptyStr)
+        print("  TACK: {0!s}".format(emptyStr))
         print(str(connection.session.tackExt))
     if connection.session.appProto:
         print("  Application Layer Protocol negotiated: {0}".format(
             connection.session.appProto.decode('utf-8')))
-    print("  Next-Protocol Negotiated: %s" % connection.next_proto) 
+    print("  Next-Protocol Negotiated: {0!s}".format(connection.next_proto)) 
     print("  Encrypt-then-MAC: {0}".format(connection.encryptThenMAC))
     print("  Extended Master Secret: {0}".format(
                                                connection.extendedMasterSecret))
@@ -331,11 +331,10 @@ def serverCmd(argv):
     if tacks and not certChain:
         raise SyntaxError("Must specify CERT with Tacks")
     
-    print("I am an HTTPS test server, I will listen on %s:%d" % 
-            (address[0], address[1]))    
+    print("I am an HTTPS test server, I will listen on {0!s}:{1:d}".format(address[0], address[1]))    
     if directory:
         os.chdir(directory)
-    print("Serving files from %s" % os.getcwd())
+    print("Serving files from {0!s}".format(os.getcwd()))
     
     if certChain and privateKey:
         print("Using certificate and private key...")
@@ -424,5 +423,5 @@ if __name__ == '__main__':
     elif sys.argv[1] == "server"[:len(sys.argv[1])]:
         serverCmd(sys.argv[2:])
     else:
-        printUsage("Unknown command: %s" % sys.argv[1])
+        printUsage("Unknown command: {0!s}".format(sys.argv[1]))
 

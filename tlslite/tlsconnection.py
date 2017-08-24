@@ -711,12 +711,12 @@ class TLSConnection(TLSRecordLayer):
         if serverHello.server_version < settings.minVersion:
             for result in self._sendError(\
                 AlertDescription.protocol_version,
-                "Too old version: %s" % str(serverHello.server_version)):
+                "Too old version: {0!s}".format(str(serverHello.server_version))):
                 yield result
         if serverHello.server_version > settings.maxVersion:
             for result in self._sendError(\
                 AlertDescription.protocol_version,
-                "Too new version: %s" % str(serverHello.server_version)):
+                "Too new version: {0!s}".format(str(serverHello.server_version))):
                 yield result
         serverVer = serverHello.server_version
         cipherSuites = CipherSuite.filterForVersion(clientHello.cipher_suites,
@@ -1065,11 +1065,11 @@ class TLSConnection(TLSRecordLayer):
         publicKey = certChain.getEndEntityPublicKey()
         if len(publicKey) < settings.minKeySize:
             for result in self._sendError(AlertDescription.handshake_failure,
-                    "Other party's public key too small: %d" % len(publicKey)):
+                    "Other party's public key too small: {0:d}".format(len(publicKey))):
                 yield result
         if len(publicKey) > settings.maxKeySize:
             for result in self._sendError(AlertDescription.handshake_failure,
-                    "Other party's public key too large: %d" % len(publicKey)):
+                    "Other party's public key too large: {0:d}".format(len(publicKey))):
                 yield result
         
         # If there's no TLS Extension, look for a TACK cert
@@ -1492,7 +1492,7 @@ class TLSConnection(TLSRecordLayer):
             self.version = settings.minVersion
             for result in self._sendError(\
                   AlertDescription.protocol_version,
-                  "Too old version: %s" % str(clientHello.client_version)):
+                  "Too old version: {0!s}".format(str(clientHello.client_version))):
                 yield result
 
         # there MUST be at least one value in both of those
@@ -2015,13 +2015,13 @@ class TLSConnection(TLSRecordLayer):
             if len(publicKey) < settings.minKeySize:
                 for result in self._sendError(\
                         AlertDescription.handshake_failure,
-                        "Client's public key too small: %d" % len(publicKey)):
+                        "Client's public key too small: {0:d}".format(len(publicKey))):
                     yield result
 
             if len(publicKey) > settings.maxKeySize:
                 for result in self._sendError(\
                         AlertDescription.handshake_failure,
-                        "Client's public key too large: %d" % len(publicKey)):
+                        "Client's public key too large: {0:d}".format(len(publicKey))):
                     yield result
 
             scheme = SignatureScheme.toRepr(signatureAlgorithm)

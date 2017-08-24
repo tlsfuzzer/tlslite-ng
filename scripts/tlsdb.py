@@ -21,9 +21,9 @@ from tlslite import __version__
 
 if len(sys.argv) == 1 or (len(sys.argv)==2 and sys.argv[1].lower().endswith("help")):
     print("")
-    print("Version: %s" % __version__)
+    print("Version: {0!s}".format(__version__))
     print("")
-    print("RNG: %s" % prngName)
+    print("RNG: {0!s}".format(prngName))
     print("")
     print("Modules:")
     if m2cryptoLoaded:
@@ -78,7 +78,7 @@ try:
         if command == "valid":
             print("")
         else:
-            print("Bad command: '%s'" % command)
+            print("Bad command: '{0!s}'".format(command))
 
     elif cmd == "createsrp":
         dbName = args.get(2)
@@ -145,6 +145,6 @@ try:
             N, g, s, v = db[username]
             print(numBits(N), username)
     else:
-        print("Bad command: '%s'" % cmd)
+        print("Bad command: '{0!s}'".format(cmd))
 except:
     raise
