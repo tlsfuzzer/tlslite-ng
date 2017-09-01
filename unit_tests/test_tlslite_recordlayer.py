@@ -26,7 +26,8 @@ from tlslite.recordlayer import RecordSocket, ConnectionState, RecordLayer
 from tlslite.constants import ContentType, CipherSuite
 from unit_tests.mocksock import MockSocket
 from tlslite.errors import TLSRecordOverflow, TLSIllegalParameterException,\
-        TLSAbruptCloseError, TLSDecryptionFailed, TLSBadRecordMAC
+        TLSAbruptCloseError, TLSDecryptionFailed, TLSBadRecordMAC, \
+        TLSUnexpectedMessage
 
 class TestRecordSocket(unittest.TestCase):
     def test___init__(self):
@@ -513,6 +514,209 @@ class TestRecordLayer(unittest.TestCase):
             b'\xc5\xec\x44\x21\xca\xe3\xd1\x34\x64\xad\xff\xb1\xea\xfa\xd5\xe3'+
             b'\x9f\x73\xec\xa9\xa6\x82\x55\x8e\x3a\x8c\x94\x96\xda\x06\x09\x8d'
             ), sock.sent[0][5:])
+
+    def test_sendRecord_with_encryption_tls1_3_aes_128_gcm(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +  # application_data
+            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b'\xe1\x90\x2d\xd1\xfd\x24\xc8\x47\x70\xd4'
+            b'\x8c\x36\xf3\x2c\x93\x04\x39\x1f\x6f\x42\xeb'
+            ))
+
+    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            b'\x17'  # application_data
+            b'\x03\x01'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b'\xe1\x90\x2d\xd1\xfd\x24\xc8\x47\x70\xd4'
+            b'\x8c\x36\xf3\x2c\x93\x04\x39\x1f\x6f\x42\xeb'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.recvRecord():
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+        head, parser = result
+
+        self.assertEqual((3, 4), head.version)
+        self.assertEqual(head.type, ContentType.application_data)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+    def test_sendRecord_with_encryption_tls1_3_aes_256_gcm(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_256_GCM_SHA384,
+                                           bytearray(48),  # cl_traffic_sec
+                                           bytearray(48),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +  # application_data
+            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b'}\x17w_#\xf0\xf2R\xaa*s\xe2\xca\xab\x9d\xea\x9d\xf3\xc1-\xd2'
+            ))
+
+    def test_sendRecord_with_encryption_tls1_3_chacha20(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+
+        ciph = CipherSuite.TLS_CHACHA20_POLY1305_SHA256
+        recordLayer.calcTLS1_3PendingState(ciph,
+                                           bytearray(48),  # cl_traffic_sec
+                                           bytearray(48),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +  # application_data
+            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b'o\x9fO\x16\x07\x878]GV\xa5l\x12\xb6\x85\xb5@\x83\x94\x06\xd6'
+            ))
+
+    def test_sendRecord_with_malformed_inner_plaintext(self):
+        # setup
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+        self.assertEqual((3, 4), recordLayer.version)
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(b'\x00\x00\x00\x00')
+        app_data.contentType = 0
+
+        for result in recordLayer.sendRecord(app_data):
+            if result in (0, 1):
+                self.assertTrue(False, "blocking socket")
+            else:
+                break
+        self.assertEqual(len(sock.sent), 1)
+
+        # verification of data
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +  # application_data
+            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b'\x95\xf5^\xa5\xea\x8cCf\xbb\xbb\xe2\xdb!\x13\xf1\x1b\x93s\x81>M'
+            ))
+
+        # test proper
+        sock = MockSocket(sock.sent[0])
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+        recordLayer.client = False
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+        with self.assertRaises(TLSUnexpectedMessage):
+            for result in recordLayer.recvRecord():
+                if result in (0, 1):
+                    self.assertTrue(False, "blocking socket")
+                else:
+                    break
 
     def test_sendRecord_with_SHA256_tls1_2(self):
         patcher = mock.patch.object(os,
