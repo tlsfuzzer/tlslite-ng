@@ -168,6 +168,18 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good X.509, mismatched key_share".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.keyShares = ["x25519"]
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good X509, RC4-MD5".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -912,6 +924,18 @@ def serverTestCmd(argv):
     settings.maxVersion = (3,0)
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
     assert(not connection.extendedMasterSecret)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509, mismatched key_share".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.eccCurves = ["secp256r1", "secp384r1", "secp521r1"]
+    settings.keyShares = ["secp256r1"]
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
     testConnServer(connection)
     connection.close()
 
