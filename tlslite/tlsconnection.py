@@ -2482,7 +2482,11 @@ class TLSConnection(TLSRecordLayer):
                 hrr_ks = HRRKeyShareExtension().create(selected_group)
                 hrr_ext.append(hrr_ks)
 
-            # TODO decide if we want to send cookie extension
+            if hrr_ext:
+                cookie = TLSExtension(extType=ExtensionType.cookie)
+                cookie = cookie.create(bytearray(b'\x00\x20') +
+                                       getRandomBytes(32))
+                hrr_ext.append(cookie)
 
             if hrr_ext:
                 clientHello1 = clientHello
@@ -2546,7 +2550,26 @@ class TLSConnection(TLSRecordLayer):
 
                 # TODO when 0-RTT supported, remove early_data from old hello
 
-                # TODO cookie - add it to the old Client Hello
+                if cookie:
+                    # insert the extension at the same place in the old hello
+                    # as it is in the new hello so that later binary compare
+                    # works
+                    for i, ext in enumerate(clientHello.extensions):
+                        if ext.extType == ExtensionType.cookie:
+                            if ext.extData != cookie.extData:
+                                eType = AlertDescription.illegal_parameter
+                                eText = "Malformed cookie extension"
+                                for result in self._sendError(eType, eText):
+                                    yield result
+                            clientHello1.extensions.insert(i, ext)
+                            break
+                    else:
+                        for result in self._sendError(AlertDescription
+                                                      .missing_extension,
+                                                      "Second client hello "
+                                                      "does not contain "
+                                                      "cookie extension"):
+                            yield result
 
                 # TODO with PSK - PSKs non compatible with cipher suite MAY
                 # be removed, but must have updated obfuscated ticket age
