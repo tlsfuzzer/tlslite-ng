@@ -1908,8 +1908,20 @@ class TLSConnection(TLSRecordLayer):
 
         ee_extensions = []
 
-        # TODO add key_share if the key shares advertised by the client
-        # don't match our preferred ones
+        # a bit of a hack to detect if the HRR was sent
+        # as that means that original key share didn't match what we wanted
+        # send the client updated list of shares we support,
+        # preferred ones first
+        if clientHello.getExtension(ExtensionType.cookie):
+            ext = SupportedGroupsExtension()
+            groups = [getattr(GroupName, i) for i in settings.keyShares]
+            groups += [getattr(GroupName, i) for i in settings.eccCurves
+                       if i not in groups]
+            groups += [getattr(GroupName, i) for i in settings.dhGroups
+                       if i not in groups]
+            if groups:
+                ext.create(groups)
+                ee_extensions.append(ext)
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
         for result in self._sendMsg(encryptedExtensions):
