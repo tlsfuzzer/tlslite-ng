@@ -7,6 +7,34 @@
 
 from .codec import Parser
 
+class TLVType(object):
+    """
+    Class that represents the Type part of a TLV based encoding.
+    Consists of a class (universal(0), application(1), context-specific(2) or private(3)), 
+    boolean value that indicates if a type is constructed or primitive and the
+    ASN1 type itself
+    
+    :vartype octet: bytearray
+    :ivar field: bit octet
+
+    :vartype tagClass: int
+    :ivar tagClass: type's class
+    
+    :vartype isConstructed: boolean
+    :ivar isConstructed: is the type constructed or primitive
+
+    :vartype tag: int
+    :ivar tag: ANS1 tag number
+    """
+
+    def __init__(self, bytes):
+        self.bytes = bytes
+        self.parse(self.bytes)
+
+    def parse(self, header):
+        self.tagClass = (header & 0xc0) >> 6
+        self.isPrimitive = (header & 0x20) >> 5
+        self.tagId = header & 0x1f
 
 class ASN1Parser(object):
     """
@@ -25,7 +53,9 @@ class ASN1Parser(object):
         :param bytes: DER encoded ANS.1 object
         """
         p = Parser(bytes)
-        p.get(1) #skip Type
+        
+        #Get Type
+        self.type = self._getASN1Type(p)
 
         #Get Length
         self.length = self._getASN1Length(p)
@@ -90,3 +120,18 @@ class ASN1Parser(object):
         else:
             lengthLength = firstLength & 0x7F
             return p.get(lengthLength)
+    
+    @staticmethod
+    def _getASN1Type(p):
+        """Decode the ASN.1 type field"""
+        asn1Type = TLVType(p.get(1))
+        if asn1Type.tagId >= 31:
+            tag_id = 0
+            while True:
+                value = p.get(1)
+                tag_id += value & 0x7f
+                if not value & 0x80:
+                    break
+                tag_id <<= 7
+            asn1Type.tagId = tag_id
+        return asn1Type

@@ -105,6 +105,21 @@ class TestClientHello(unittest.TestCase):
         self.assertEqual([], client_hello.cipher_suites)
         self.assertEqual([0], client_hello.compression_methods)
 
+    def test___eq__(self):
+        client_hello1 = ClientHello()
+        client_hello1.session_id = bytearray(b'\x02\x03')
+        client_hello2 = ClientHello()
+        client_hello2.session_id = bytearray(b'\x02\x03')
+
+        self.assertEqual(client_hello1, client_hello2)
+
+    def test___ne__(self):
+        client_hello1 = ClientHello()
+        client_hello2 = ClientHello()
+        client_hello2.session_id = bytearray(b'\x02\x03')
+
+        self.assertNotEqual(client_hello1, client_hello2)
+
     def test_create_with_one_ciphersuite(self):
         client_hello = ClientHello()
         client_hello.create((3,0), bytearray(32), bytearray(0), \

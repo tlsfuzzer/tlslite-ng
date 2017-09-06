@@ -223,6 +223,17 @@ class HandshakeMsg(object):
         self.contentType = ContentType.handshake
         self.handshakeType = handshakeType
 
+    def __eq__(self, other):
+        """Check if other object represents the same data as this object."""
+        if hasattr(self, "write") and hasattr(other, "write"):
+            return self.write() == other.write()
+        else:
+            return False
+
+    def __ne__(self, other):
+        """Check if other object represents different data as this object."""
+        return not self.__eq__(other)
+
     def postWrite(self, w):
         headerWriter = Writer()
         headerWriter.add(self.handshakeType, 1)

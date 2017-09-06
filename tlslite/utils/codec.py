@@ -269,7 +269,7 @@ class Parser(object):
         self.index = 0
         self.indexCheck = 0
         self.lengthCheck = 0
-
+ 
     def get(self, length):
         """
         Read a single big-endian integer value encoded in 'length' bytes.
