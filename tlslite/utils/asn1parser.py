@@ -8,6 +8,36 @@
 from .codec import Parser
 
 
+class TLVType(object):
+    """
+    Class that represents the Type part of a TLV based encoding.
+    Consists of a class (universal(0), application(1), context-specific(2) 
+    or private(3)), boolean value that indicates if a type is constructed or
+    primitive and the ASN1 type itself.
+ 
+    :vartype octet: bytearray
+    :ivar field: bit octet
+
+    :vartype tagClass: int
+    :ivar tagClass: type's class
+ 
+    :vartype isConstructed: boolean
+    :ivar isConstructed: is the type constructed or primitive
+
+    :vartype tag: int
+    :ivar tag: ANS1 tag number
+    """
+
+    def __init__(self, bytes):
+        self.bytes = bytes
+        self.parse(self.bytes)
+
+    def parse(self, header):
+        self.tagClass = (header & 0xc0) >> 6
+        self.isPrimitive = (header & 0x20) >> 5
+        self.tagId = header & 0x1f
+
+
 class ASN1Parser(object):
     """
     Parser and storage of ASN.1 DER encoded objects.
