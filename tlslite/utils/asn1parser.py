@@ -7,12 +7,13 @@
 
 from .codec import Parser
 
+
 class TLVType(object):
     """
     Class that represents the Type part of a TLV based encoding.
-    Consists of a class (universal(0), application(1), context-specific(2) or private(3)), 
-    boolean value that indicates if a type is constructed or primitive and the
-    ASN1 type itself
+    Consists of a class (universal(0), application(1), context-specific(2) 
+    or private(3)), boolean value that indicates if a type is constructed or
+    primitive and the ASN1 type itself.
     
     :vartype octet: bytearray
     :ivar field: bit octet
@@ -35,6 +36,7 @@ class TLVType(object):
         self.tagClass = (header & 0xc0) >> 6
         self.isPrimitive = (header & 0x20) >> 5
         self.tagId = header & 0x1f
+
 
 class ASN1Parser(object):
     """
