@@ -1488,7 +1488,8 @@ class ServerKeyExchange(HandshakeMsg):
         else:
             raise AssertionError()
 
-        if self.cipherSuite in CipherSuite.certAllSuites:
+        if self.cipherSuite in CipherSuite.certAllSuites or\
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
             if self.version == (3, 3):
                 self.hashAlg = parser.get(1)
                 self.signAlg = parser.get(1)
