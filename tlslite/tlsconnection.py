@@ -659,6 +659,7 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getSrpAllSuites(settings)
         elif certParams:
             cipherSuites += CipherSuite.getTLS13Suites(settings)
+            cipherSuites += CipherSuite.getEcdsaSuites(settings)
             cipherSuites += CipherSuite.getEcdheCertSuites(settings)
             cipherSuites += CipherSuite.getDheCertSuites(settings)
             cipherSuites += CipherSuite.getCertSuites(settings)
@@ -1533,7 +1534,8 @@ class TLSConnection(TLSRecordLayer):
                            keyExchange):
         """Perform the client side of key exchange"""
         # if server chose cipher suite with authentication, get the certificate
-        if cipherSuite in CipherSuite.certAllSuites:
+        if cipherSuite in CipherSuite.certAllSuites or \
+                cipherSuite in CipherSuite.ecdheEcdsaSuites:
             for result in self._getMsg(ContentType.handshake,
                                        HandshakeType.certificate,
                                        certificateType):
@@ -3988,6 +3990,11 @@ class TLSConnection(TLSRecordLayer):
             certType = certList.x509List[0].certAlg
 
         sigAlgs = []
+
+        for hashName in settings.ecdsaSigHashes:
+            sigAlgs.append((getattr(HashAlgorithm, hashName),
+                            SignatureAlgorithm.ecdsa))
+
         for schemeName in settings.rsaSchemes:
             # pkcs#1 v1.5 signatures are not allowed in TLS 1.3
             if version > (3, 3) and schemeName == "pkcs1":

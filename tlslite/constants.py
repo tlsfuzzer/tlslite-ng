@@ -1059,6 +1059,8 @@ class CipherSuite:
             keyExchangeSuites += CipherSuite.dheCertSuites
         if "ecdhe_rsa" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.ecdheCertSuites
+        if "ecdhe_ecdsa" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.ecdheEcdsaSuites
         if "srp_sha" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.srpSuites
         if "srp_sha_rsa" in keyExchangeNames:
@@ -1176,6 +1178,12 @@ class CipherSuite:
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
+
+    @classmethod
+    def getEcdsaSuites(cls, settings, version=None):
+        """Provide ECDSA authenticated ciphersuites matching settings"""
+        return cls._filterSuites(CipherSuite.ecdheEcdsaSuites,
+                                 settings, version)
 
     #: anon FFDHE key exchange
     anonSuites = []
