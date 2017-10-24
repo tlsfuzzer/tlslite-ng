@@ -11,7 +11,7 @@ from .utils.cryptomath import *
 from .utils.keyfactory import _createPublicRSAKey
 from .utils.pem import *
 from ecdsa.keys import VerifyingKey
-from ecdsa.curves import NIST256p
+from ecdsa.curves import NIST256p, NIST384p
 
 class X509(object):
     """
@@ -113,10 +113,12 @@ class X509(object):
             if alg_identifier_len != 2:
                 raise SyntaxError("Missing parameters in AlgorithmIdentifier")
             curveId = alg_identifier.getChild(1)
-            if list(curveId.value) != [42, 134, 72, 206, 61, 3, 1, 7]:
+            if list(curveId.value) == [42, 134, 72, 206, 61, 3, 1, 7]:
+                self._ecdsa_pubkey_parsing(subject_public_key_info, NIST256p)
+            elif list(curveId.value) == [43, 129, 4, 0, 34]:
+                self._ecdsa_pubkey_parsing(subject_public_key_info, NIST384p)
+            else:
                 raise SyntaxError("Unknown elliptic curve")
-
-            self._ecdsa_pubkey_parsing(subject_public_key_info, NIST256p)
             return
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
