@@ -9,23 +9,23 @@ from tlslite.utils import python_aes
 from tlslite.utils import python_aesgcm
 from tlslite.utils import python_chacha20_poly1305
 from tlslite.utils import python_rc4
+from tlslite.utils import python_tripledes
 
 from tlslite.utils import cryptomath
 
-tripleDESPresent = False
+tripleDESPresent = True
+"""Inform if the 3DES algorithm is supported."""
 
 if cryptomath.m2cryptoLoaded:
     from tlslite.utils import openssl_aes
     from tlslite.utils import openssl_rc4
     from tlslite.utils import openssl_tripledes
-    tripleDESPresent = True
 
 if cryptomath.pycryptoLoaded:
     from tlslite.utils import pycrypto_aes
     from tlslite.utils import pycrypto_aesgcm
     from tlslite.utils import pycrypto_rc4
     from tlslite.utils import pycrypto_tripledes
-    tripleDESPresent = True
 
 # **************************************************************************
 # Factory Functions for AES
@@ -131,11 +131,13 @@ def createTripleDES(key, IV, implList=None):
     :returns: A 3DES object.
     """
     if implList is None:
-        implList = ["openssl", "pycrypto"]
+        implList = ["openssl", "pycrypto", "python"]
 
     for impl in implList:
         if impl == "openssl" and cryptomath.m2cryptoLoaded:
             return openssl_tripledes.new(key, 2, IV)
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
             return pycrypto_tripledes.new(key, 2, IV)
+        elif impl == "python":
+            return python_tripledes.new(key, IV)
     raise NotImplementedError()

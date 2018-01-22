@@ -438,7 +438,6 @@ class TestRecordLayer(unittest.TestCase):
 
         self.assertEqual(16, recordLayer.blockSize)
 
-    @unittest.skipUnless(cryptomath.m2cryptoLoaded, "requires M2Crypto")
     def test_blockSize_with_3DES(self):
         sock = MockSocket(bytearray(0))
 
@@ -1384,10 +1383,6 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(head.type, ContentType.application_data)
         self.assertEqual(bytearray(b'test'), parser.bytes)
 
-
-    # tlslite has no pure python implementation of 3DES
-    @unittest.skipUnless(cryptomath.m2cryptoLoaded or cryptomath.pycryptoLoaded,
-                         "requires native 3DES implementation")
     def test_sendRecord_with_3DES_cipher_and_tls1_0(self):
         sock = MockSocket(bytearray(0))
 
