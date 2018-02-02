@@ -8,34 +8,30 @@
 from .codec import Parser
 
 
-class TLVType(object):
+class ASN1Type(object):
     """
-    Class that represents the Type part of a TLV based encoding.
+    Class that represents the ASN.1 type bit octet.
     Consists of a class (universal(0), application(1), context-specific(2) 
     or private(3)), boolean value that indicates if a type is constructed or
     primitive and the ASN1 type itself.
  
-    :vartype octet: bytearray
+    :vartype bytes: bytearray
     :ivar field: bit octet
 
     :vartype tagClass: int
     :ivar tagClass: type's class
  
-    :vartype isConstructed: boolean
-    :ivar isConstructed: is the type constructed or primitive
+    :vartype isPrimitive: int
+    :ivar isPrimitive: equals to 1 if the type is primitive, 0 if not
 
-    :vartype tag: int
-    :ivar tag: ANS1 tag number
+    :vartype tagId: int
+    :ivar tagId: ANS1 tag number
     """
 
-    def __init__(self, bytes):
-        self.bytes = bytes
-        self.parse(self.bytes)
-
-    def parse(self, header):
-        self.tagClass = (header & 0xc0) >> 6
-        self.isPrimitive = (header & 0x20) >> 5
-        self.tagId = header & 0x1f
+    def __init__(self, tagClass, isPrimitive, tagId):
+        self.tagClass = tagClass
+        self.isPrimitive = isPrimitive
+        self.tagId = tagId
 
 
 class ASN1Parser(object):
@@ -52,10 +48,12 @@ class ASN1Parser(object):
         """Create an object from bytes.
 
         :type bytes: bytearray
-        :param bytes: DER encoded ANS.1 object
+        :param bytes: DER encoded ASN.1 object
         """
         p = Parser(bytes)
-        p.get(1) #skip Type
+
+        #Get Type
+        self.type = self._getASN1Type(p)
 
         #Get Length
         self.length = self._getASN1Length(p)
@@ -120,3 +118,23 @@ class ASN1Parser(object):
         else:
             lengthLength = firstLength & 0x7F
             return p.get(lengthLength)
+
+    @staticmethod
+    def _getASN1Type(p):
+        """Decode the ASN.1 DER type field"""
+        header = p.get(1)
+        tag_class = (header & 0xc0) >> 6
+        tag_isPrimitive = (header & 0x20) >> 5
+        tag_id = header & 0x1f
+       
+        if tag_id == 0x1f:
+            tag_id = 0
+            while True:
+                value = p.get(1)
+                tag_id += value & 0x7f
+                if not value & 0x80:
+                    break
+                tag_id <<= 7
+        
+        asn1type = ASN1Type(tag_class, tag_isPrimitive, tag_id)
+        return asn1type
