@@ -85,7 +85,7 @@ class OCSPResponse(object):
             raise SyntaxError()
         basicResponse = response.getChild(0)
         # parsing tbsResponseData fields
-        self._tbsDataParse(basicResponse.getChild(0)) 
+        self._tbsDataParse(basicResponse.getChild(0))
         self.signatureAlgorithm = basicResponse.getChild(1).getChild(0).value
         self.signature = basicResponse.getChild(2).value
         # test if certs field is present
@@ -116,5 +116,3 @@ class OCSPResponse(object):
             resp = responses.getChild(i)
             parsedResp = SingleResponse(resp)
             self.responses.append(parsedResp)
-
-
