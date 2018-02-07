@@ -2,6 +2,7 @@
 
 from .utils.asn1parser import ASN1Parser
 
+
 class OCSPRespStatus(object):
     """ OCSP response status codes (RFC 2560) """
     successful = 0
@@ -77,34 +78,16 @@ class OCSPResponse(object):
         if self.responseStatus != OCSPRespStatus.successful:
             return self
         responseBytes = p.getChild(1).getChild(0)
-        responseType = responseBytes.getChild(0)
+        self.responseType = responseBytes.getChild(0).value
         response = responseBytes.getChild(1)
-        self.responseType = responseType.value
         # check if response is id-pkix-ocsp-basic
         if list(self.responseType) != [43, 6, 1, 5, 5, 7, 48, 1, 1]:
             raise SyntaxError()
         basicResponse = response.getChild(0)
-        tbsResponseData = basicResponse.getChild(0)
-        # test if version is ommited
-        fld = tbsResponseData.getChild(0)
-        cnt = 0
-        if (fld.type.tagId == 0):
-            # version is not omitted
-            cnt += 1
-            self.version = tbsResponseData.getChild(0).value
-        else:
-            self.version = 1
-        self.responderID = tbsResponseData.getChild(cnt).value
-        self.producedAt = tbsResponseData.getChild(cnt+1).value
-        responses = tbsResponseData.getChild(cnt+2)
-        responsesCnt = responses.getChildCount()
-        for i in range(responsesCnt):
-            resp = responses.getChild(i)
-            parsedResp = SingleResponse(resp)
-            self.responses.append(parsedResp)
+        # parsing tbsResponseData fields
+        self._tbsDataParse(basicResponse.getChild(0)) 
         self.signatureAlgorithm = basicResponse.getChild(1).getChild(0).value
         self.signature = basicResponse.getChild(2).value
-        print(list(self.signature))
         # test if certs field is present
         if (basicResponse.getChildCount() > 3):
             certs = basicResponse.getChild(3)
@@ -114,3 +97,24 @@ class OCSPResponse(object):
                 self.certs.append(certificate)
         else:
             self.certs = None
+
+    def _tbsDataParse(self, value):
+        # test if version is ommited
+        field = value.getChild(0)
+        cnt = 0
+        if (field.type.tagId == 0):
+            # version is not omitted
+            cnt += 1
+            self.version = field.value
+        else:
+            self.version = 1
+        self.responderID = value.getChild(cnt).value
+        self.producedAt = value.getChild(cnt+1).value
+        responses = value.getChild(cnt+2)
+        responsesCnt = responses.getChildCount()
+        for i in range(responsesCnt):
+            resp = responses.getChild(i)
+            parsedResp = SingleResponse(resp)
+            self.responses.append(parsedResp)
+
+
