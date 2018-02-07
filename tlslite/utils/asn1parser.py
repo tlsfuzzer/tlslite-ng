@@ -126,7 +126,7 @@ class ASN1Parser(object):
         tag_class = (header & 0xc0) >> 6
         tag_isPrimitive = (header & 0x20) >> 5
         tag_id = header & 0x1f
- 
+
         if tag_id == 0x1f:
             tag_id = 0
             while True:
@@ -135,6 +135,6 @@ class ASN1Parser(object):
                 if not value & 0x80:
                     break
                 tag_id <<= 7
- 
+
         asn1type = ASN1Type(tag_class, tag_isPrimitive, tag_id)
         return asn1type
