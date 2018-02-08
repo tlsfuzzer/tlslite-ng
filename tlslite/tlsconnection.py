@@ -690,8 +690,10 @@ class TLSConnection(TLSRecordLayer):
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
 
-        # when TLS 1.3 advertised, add key shares
+        session_id = bytearray()
+        # when TLS 1.3 advertised, add key shares, set fake session_id
         if next((i for i in settings.versions if i > (3, 3)), None):
+            session_id = getRandomBytes(32)
             extensions.append(SupportedVersionsExtension().
                               create(settings.versions))
 
@@ -732,7 +734,7 @@ class TLSConnection(TLSRecordLayer):
         else:
             clientHello = ClientHello()
             clientHello.create(sent_version, getRandomBytes(32),
-                               bytearray(0), wireCipherSuites,
+                               session_id, wireCipherSuites,
                                certificateTypes, 
                                srpUsername,
                                reqTack, nextProtos is not None, 
@@ -751,13 +753,12 @@ class TLSConnection(TLSRecordLayer):
     def _clientGetServerHello(self, settings, clientHello):
         client_hello_hash = self._handshake_hash.copy()
         for result in self._getMsg(ContentType.handshake,
-                                   (HandshakeType.server_hello,
-                                    HandshakeType.hello_retry_request)):
+                                   HandshakeType.server_hello):
             if result in (0,1): yield result
             else: break
 
         hello_retry = None
-        if isinstance(result, HelloRetryRequest):
+        if result.random == TLS_1_3_HRR:
             hello_retry = result
 
             # create synthetic handshake hash
@@ -1870,7 +1871,7 @@ class TLSConnection(TLSRecordLayer):
 
         serverHello = ServerHello()
         serverHello.create(version, getRandomBytes(32),
-                           None, # session ID
+                           clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
         for result in self._sendMsg(serverHello):
@@ -2514,8 +2515,9 @@ class TLSConnection(TLSRecordLayer):
                 self._handshake_hash.update(writer.bytes)
 
                 # send the HRR
-                hrr = HelloRetryRequest()
-                hrr.create(version, cipherSuite, hrr_ext)
+                hrr = ServerHello()
+                hrr.create(version, TLS_1_3_HRR, clientHello.session_id,
+                           cipherSuite, extensions=hrr_ext)
 
                 for result in self._sendMsg(hrr):
                     yield result

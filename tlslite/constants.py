@@ -8,12 +8,19 @@
 #
 # See the LICENSE file for legal information regarding use of this file.
 
+from .utils.compat import a2b_hex
+
 """Constants used in various places."""
 
 
 # protocol version number used for negotiating TLS 1.3 between implementations
 # of the draft specification
 TLS_1_3_DRAFT = (127, 21)
+
+
+# ServerHello.random value meaning that the message is a HelloRetryRequest
+TLS_1_3_HRR = a2b_hex("CF21AD74E59A6111BE1D8C021E65B891"
+                      "C2A211167ABB8C5E079E09E2C8A8339C")
 
 
 class TLSEnum(object):
@@ -96,7 +103,6 @@ class HandshakeType(TLSEnum):
     client_hello = 1
     server_hello = 2
     new_session_ticket = 4
-    hello_retry_request = 6
     encrypted_extensions = 8
     certificate = 11
     server_key_exchange = 12

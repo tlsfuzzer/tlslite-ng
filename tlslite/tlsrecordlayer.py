@@ -820,8 +820,6 @@ class TLSRecordLayer(object):
                     yield EncryptedExtensions().parse(p)
                 elif subType == HandshakeType.new_session_ticket:
                     yield NewSessionTicket().parse(p)
-                elif subType == HandshakeType.hello_retry_request:
-                    yield HelloRetryRequest().parse(p)
                 else:
                     raise AssertionError()
 
