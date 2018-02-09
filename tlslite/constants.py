@@ -148,10 +148,11 @@ class ExtensionType(TLSEnum):
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
-    key_share = 40  # TLS 1.3
+    extended_random = 40  # draft-rescorla-tls-extended-random-02
     early_data = 42  # TLS 1.3
     supported_versions = 43  # TLS 1.3
     cookie = 44  # TLS 1.3
+    key_share = 51  # TLS 1.3
     supports_npn = 13172
     tack = 0xF300
     renegotiation_info = 0xff01  # RFC 5746

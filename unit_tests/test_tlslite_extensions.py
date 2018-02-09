@@ -2075,7 +2075,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share extension
+            b'\x00\x33'  # ID of key_share extension
             b'\x00\x07'  # length of the extension
             b'\x00\x0a'  # group ID of first entry
             b'\x00\x03'  # length of share of first entry
@@ -2093,7 +2093,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse_with_no_data(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share
+            b'\x00\x33'  # ID of key_share
             b'\x00\x00'  # empty payload
             ))
         ext = TLSExtension(server=True)
@@ -2104,7 +2104,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse_with_trailing_data(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share extension
+            b'\x00\x33'  # ID of key_share extension
             b'\x00\x08'  # length of the extension
             b'\x00\x0a'  # group ID of first entry
             b'\x00\x03'  # length of share of first entry
@@ -2206,7 +2206,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
     def test_extData(self):
         ext = HRRKeyShareExtension().create(GroupName.x25519)
 
-        self.assertEqual(bytearray(b'\x00\x28'
+        self.assertEqual(bytearray(b'\x00\x33'
                                    b'\x00\x02'
                                    b'\x00\x1d'),
                          ext.write())
@@ -2217,7 +2217,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
         self.assertEqual(ext.extData, bytearray())
 
     def test_parse(self):
-        parser = Parser(bytearray(b'\x00\x28'
+        parser = Parser(bytearray(b'\x00\x33'
                                   b'\x00\x02'
                                   b'\x00\x1d'))
         ext = TLSExtension(hrr=True)
@@ -2227,7 +2227,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
         self.assertEqual(ext.selected_group, GroupName.x25519)
 
     def test_parse_with_trailing_data(self):
-        parser = Parser(bytearray(b'\x00\x28'
+        parser = Parser(bytearray(b'\x00\x33'
                                   b'\x00\x03'
                                   b'\x00\x1d\x00'))
         ext = TLSExtension(hrr=True)
