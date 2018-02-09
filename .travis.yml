@@ -4,6 +4,9 @@ language: python
 branches:
   only:
     - master
+    - tlslite-ng-0.5
+    - tlslite-ng-0.6
+    - tlslite-ng-0.7
 
 addons:
   apt_packages:
@@ -35,7 +38,12 @@ matrix:
       env: TACKPY=true
     - python: 2.7
       env: M2CRYPTO=true
-# no M2crypto on Python 3
+    - python: 3.4
+      env: M2CRYPTO=true
+    - python: 3.5
+      env: M2CRYPTO=true
+    - python: 3.6
+      env: M2CRYPTO=true
     - python: 2.7
       env: PYCRYPTO=true
     - python: 3.4
@@ -55,11 +63,11 @@ matrix:
     - python: 2.7
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.4
-      env: PYCRYPTO=true GMPY=true
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.5
-      env: PYCRYPTO=true GMPY=true
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.6
-      env: PYCRYPTO=true GMPY=true
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
 
 before_install:
   - |
@@ -82,12 +90,12 @@ before_install:
   - git fetch origin master:refs/remotes/origin/master
 
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2 'isort<4.3'; fi
   - if [[ $TACKPY == 'true' ]]; then travis_retry pip install tackpy; fi
   - if [[ $M2CRYPTO == 'true' ]]; then travis_retry pip install --pre m2crypto; fi
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install 'coverage<4' 'hypothesis<1.10'; elif [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install coverage 'hypothesis<3'; else travis_retry pip install coverage hypothesis; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install 'coverage<4' 'hypothesis<1.10'; elif [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install 'coverage' 'hypothesis<3.44' ; elif [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install coverage 'hypothesis<3'; else travis_retry pip install coverage hypothesis; fi
   - travis_retry pip install -r requirements.txt
   - travis_retry pip install -r build-requirements.txt
 
