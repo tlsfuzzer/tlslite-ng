@@ -2585,6 +2585,27 @@ class TLSConnection(TLSRecordLayer):
                                                       "cookie extension"):
                             yield result
 
+                # also padding extension may change
+                old_ext = clientHello1.getExtension(
+                    ExtensionType.client_hello_padding)
+                new_ext = clientHello.getExtension(
+                    ExtensionType.client_hello_padding)
+                if old_ext != new_ext:
+                    if old_ext is None and new_ext:
+                        for i, ext in enumerate(clientHello.extensions):
+                            if ext.extType == \
+                                    ExtensionType.client_hello_padding:
+                                clientHello1.extensions.insert(i, ext)
+                                break
+                    elif old_ext and new_ext is None:
+                        # extension was removed, so remove it here too
+                        clientHello1.extensions[:] = \
+                            (i for i in clientHello1.extensions
+                             if i.extType !=
+                             ExtensionType.client_hello_padding)
+                    else:
+                        old_ext.paddingData = new_ext.paddingData
+
                 # TODO with PSK - PSKs non compatible with cipher suite MAY
                 # be removed, but must have updated obfuscated ticket age
 
