@@ -95,8 +95,6 @@ class OCSPResponse(object):
             for i in range(certsCnt):
                 certificate = certs.getChild(i).value
                 self.certs.append(certificate)
-        else:
-            self.certs = None
 
     def _tbsDataParse(self, value):
         # test if version is ommited
