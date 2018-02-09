@@ -543,7 +543,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(len(sock.sent), 1)
         self.assertEqual(sock.sent[0][:5], bytearray(
             b'\x17' +  # application_data
-            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x03\x03' +  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
@@ -617,7 +617,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(len(sock.sent), 1)
         self.assertEqual(sock.sent[0][:5], bytearray(
             b'\x17' +  # application_data
-            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x03\x03' +  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
@@ -653,7 +653,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(len(sock.sent), 1)
         self.assertEqual(sock.sent[0][:5], bytearray(
             b'\x17' +  # application_data
-            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x03\x03' +  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
@@ -698,7 +698,7 @@ class TestRecordLayer(unittest.TestCase):
         self.assertEqual(len(sock.sent), 1)
         self.assertEqual(sock.sent[0][:5], bytearray(
             b'\x17' +  # application_data
-            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x03\x03' +  # hidden protocol version - TLS 1.x
             b'\x00\x79'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
@@ -744,7 +744,7 @@ class TestRecordLayer(unittest.TestCase):
         # verification of data
         self.assertEqual(sock.sent[0][:5], bytearray(
             b'\x17' +  # application_data
-            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x03\x03' +  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(

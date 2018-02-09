@@ -22,7 +22,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
         SupportedVersionsExtension, VarSeqListExtension, ListExtension, \
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
-        CertificateStatusExtension, HRRKeyShareExtension
+        CertificateStatusExtension, HRRKeyShareExtension, \
+        SrvSupportedVersionsExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -1892,6 +1893,69 @@ class TestSupportedVersionsExtension(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             ext.parse(p)
+
+
+class TestSrvSupportedVersionsExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = SrvSupportedVersionsExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.version)
+        self.assertEqual(bytearray(), ext.extData)
+        self.assertEqual(43, ext.extType)
+
+    def test_create(self):
+        ext = SrvSupportedVersionsExtension()
+        ext = ext.create((3, 4))
+
+        self.assertEqual(ext.version, (3, 4))
+
+        self.assertEqual("SrvSupportedVersionsExtension(version=(3, 4))",
+                         str(ext))
+
+    def test_extData(self):
+        ext = SrvSupportedVersionsExtension().create((3, 4))
+
+        self.assertEqual(bytearray(b'\x03\x04'), ext.extData)
+
+    def test_parse_in_HRR(self):
+        ext = TLSExtension(hrr=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type of extension
+            b'\x00\x02'  # length of extension
+            b'\x03\x05'  # version
+            ))
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, SrvSupportedVersionsExtension)
+        self.assertEqual((3, 5), ext.version)
+
+    def test_parse_in_SH(self):
+        ext = TLSExtension(server=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type of extension
+            b'\x00\x02'  # length of extension
+            b'\x03\x05'  # version
+            ))
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, SrvSupportedVersionsExtension)
+        self.assertEqual((3, 5), ext.version)
+
+    def test_parse_malformed(self):
+        ext = TLSExtension(server=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type
+            b'\x00\x03'  # length
+            b'\x03\x05\x01'))  # payload
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
 
 
 class TestKeyShareEntry(unittest.TestCase):

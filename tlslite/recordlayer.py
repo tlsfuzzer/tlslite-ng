@@ -313,8 +313,8 @@ class RecordLayer(object):
         """Make sure that the version and tls13record setting is consistent."""
         if self._is_tls13_plus():
             # in TLS 1.3 all records need to be sent with the generic version
-            # which is the same as TLS 1.0
-            self._recordSocket.version = (3, 1)
+            # which is the same as TLS 1.2
+            self._recordSocket.version = (3, 3)
         else:
             self._recordSocket.version = self._version
 

@@ -709,6 +709,78 @@ class SupportedVersionsExtension(VarSeqListExtension):
                                                          supported_versions)
 
 
+class SrvSupportedVersionsExtension(TLSExtension):
+    """
+    Handling of SupportedVersion extension in SH and HRR in TLS 1.3.
+
+    See draft-ietf-tls-tls13.
+
+    :vartype extType: int
+    :ivar extType: numeric type of the Supported Versions extension, i.e. 43
+
+    :vartype extData: bytearray
+    :ivar extData: raw representation of the extension payload
+
+    :vartype version: tuple
+    :ivar version: version selected by the server
+    """
+
+    def __init__(self):
+        super(SrvSupportedVersionsExtension, self).__init__(
+            extType=ExtensionType.supported_versions)
+        self.version = None
+
+    def __repr__(self):
+        """
+        Return programmer-readable representation of the extension.
+
+        :rtype: str
+        """
+        return "SrvSupportedVersionsExtension(version={0})".format(
+            self.version)
+
+    def create(self, version):
+        """
+        Set the version supported by the server.
+
+        :param tuple version: Version selected by server.
+        :rtype: SrvSupportedVersionsExtension
+        """
+        self.version = version
+        return self
+
+    @property
+    def extData(self):
+        """
+        Raw encoding of extension data, without type and length header.
+
+        :rtype: bytearray
+        """
+        if self.version is None:
+            return bytearray()
+
+        writer = Writer()
+        writer.addFixSeq(self.version, 1)
+        return writer.bytes
+
+    def parse(self, parser):
+        """
+        Deserialise the extension from on-the-wire data.
+
+        The parser should not include the type or length of extension.
+
+        :param tlslite.util.codec.Parser parser: data to be parsed
+
+        :rtype: SrvSupportedVersionsExtension
+        """
+        self.version = tuple(parser.getFixList(1, 2))
+
+        if parser.getRemainingLength():
+            raise SyntaxError()
+
+        return self
+
+
 class ClientCertTypeExtension(VarListExtension):
     """
     This class handles the (client variant of) Certificate Type extension
@@ -1763,7 +1835,8 @@ TLSExtension._serverExtensions = \
     {
         ExtensionType.cert_type: ServerCertTypeExtension,
         ExtensionType.tack: TACKExtension,
-        ExtensionType.key_share: ServerKeyShareExtension}
+        ExtensionType.key_share: ServerKeyShareExtension,
+        ExtensionType.supported_versions: SrvSupportedVersionsExtension}
 
 TLSExtension._certificateExtensions = \
     {
@@ -1771,4 +1844,5 @@ TLSExtension._certificateExtensions = \
 
 TLSExtension._hrrExtensions = \
     {
-        ExtensionType.key_share: HRRKeyShareExtension}
+        ExtensionType.key_share: HRRKeyShareExtension,
+        ExtensionType.supported_versions: SrvSupportedVersionsExtension}
