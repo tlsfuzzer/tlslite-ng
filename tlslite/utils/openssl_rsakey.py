@@ -7,6 +7,7 @@ from .cryptomath import *
 
 from .rsakey import *
 from .python_rsakey import Python_RSAKey
+from .compat import compatAscii2Bytes
 
 #copied from M2Crypto.util.py, so when we load the local copy of m2
 #we can still use it
@@ -112,7 +113,7 @@ if m2cryptoLoaded:
                     callback = f
                 bio = m2.bio_new(m2.bio_s_mem())
                 try:
-                    m2.bio_write(bio, s)
+                    m2.bio_write(bio, compatAscii2Bytes(s))
                     key = OpenSSL_RSAKey()
                     # parse SSLay format PEM file
                     if s.startswith("-----BEGIN RSA PRIVATE KEY-----"):

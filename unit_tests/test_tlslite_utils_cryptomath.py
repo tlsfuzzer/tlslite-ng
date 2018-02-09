@@ -15,7 +15,8 @@ import struct
 
 from tlslite.utils.cryptomath import isPrime, numBits, numBytes, \
         numberToByteArray, MD5, SHA1, secureHash, HMAC_MD5, HMAC_SHA1, \
-        HMAC_SHA256, HMAC_SHA384, HKDF_expand, bytesToNumber
+        HMAC_SHA256, HMAC_SHA384, HKDF_expand, bytesToNumber, \
+        numberToMPI, mpiToNumber
 
 class TestIsPrime(unittest.TestCase):
     def test_with_small_primes(self):
@@ -449,3 +450,17 @@ class TestBytesToNumber(unittest.TestCase):
 
     def test_with_empty_string_little_endian(self):
         self.assertEqual(0, bytesToNumber(b'', "little"))
+
+
+class TestMPI(unittest.TestCase):
+    def test_toMPI(self):
+        r = numberToMPI(200)
+        self.assertEqual(bytearray(b'\x00\x00\x00\x02\x00\xc8'), r)
+
+    def test_fromMPI(self):
+        r = mpiToNumber(bytearray(b'\x00\x00\x00\x02\x00\xc8'))
+        self.assertEqual(r, 200)
+
+    def test_fromMPI_with_negative_number(self):
+        with self.assertRaises(ValueError):
+            mpiToNumber(bytearray(b'\x00\x00\x00\x01\xc8'))

@@ -158,11 +158,14 @@ def numberToByteArray(n, howManyBytes=None, endian="big"):
     else:
         raise ValueError("Only 'big' and 'little' endian supported")
 
-def mpiToNumber(mpi): #mpi is an openssl-format bignum string
-    if (ord(mpi[4]) & 0x80) !=0: #Make sure this is a positive number
-        raise AssertionError()
-    b = bytearray(mpi[4:])
-    return bytesToNumber(b)
+
+def mpiToNumber(mpi):
+    """Convert a MPI (OpenSSL bignum string) to an integer."""
+    byte = bytearray(mpi)
+    if byte[4] & 0x80:
+        raise ValueError("Input must be a positive integer")
+    return bytesToNumber(byte[4:])
+
 
 def numberToMPI(n):
     b = numberToByteArray(n)

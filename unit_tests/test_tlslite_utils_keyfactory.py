@@ -2,6 +2,7 @@
 #
 # See the LICENSE file for legal information regarding use of this file.
 
+import sys
 # compatibility with Python 2.6, for that we need unittest2 package,
 # which is not available on 3.3 or 3.4
 try:
@@ -12,6 +13,9 @@ except ImportError:
 from tlslite.utils.keyfactory import parsePEMKey
 from tlslite.utils.rsakey import RSAKey
 from tlslite.utils import cryptomath
+
+if cryptomath.m2cryptoLoaded:
+    import M2Crypto
 
 class TestParsePEMKey(unittest.TestCase):
 
@@ -168,7 +172,12 @@ class TestParsePEMKey(unittest.TestCase):
     def test_key_parse_using_openssl(self):
 
         # XXX doesn't handle files without newlines
-        with self.assertRaises(SyntaxError):
+        # old version of M2Crypto return a Null, in Python3 it raises exception
+        if M2Crypto.version_info > (0, 27):
+            exp = M2Crypto.EVP.EVPError
+        else:
+            exp = SyntaxError
+        with self.assertRaises(exp):
             key = parsePEMKey(self.privKey_str,
                     private=True,
                     implementations=["openssl"])

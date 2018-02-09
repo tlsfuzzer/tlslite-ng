@@ -19,7 +19,13 @@ if sys.version_info >= (3,0):
     # So, python 2.6 requires strings, python 3 requires 'bytes',
     # and python 2.7 can handle bytearrays...     
     def compatHMAC(x): return bytes(x)
-    
+
+    def compatAscii2Bytes(val):
+        """Convert ASCII string to bytes."""
+        if isinstance(val, str):
+            return bytes(val, 'ascii')
+        return val
+
     def raw_input(s):
         return input(s)
     
@@ -69,6 +75,10 @@ else:
         def compat26Str(x): return str(x)
     else:
         def compat26Str(x): return x
+
+    def compatAscii2Bytes(val):
+        """Convert ASCII string to bytes."""
+        return val
 
     # So, python 2.6 requires strings, python 3 requires 'bytes',
     # and python 2.7 can handle bytearrays...     

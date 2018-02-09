@@ -37,7 +37,7 @@ if m2cryptoLoaded:
             context = self._createContext(0)
             #I think M2Crypto has a bug - it fails to decrypt and return the last block passed in.
             #To work around this, we append sixteen zeros to the string, below:
-            plaintext = m2.cipher_update(context, ciphertext+('\0'*16))
+            plaintext = m2.cipher_update(context, ciphertext+(b'\0'*16))
 
             #If this bug is ever fixed, then plaintext will end up having a garbage
             #plaintext block on the end.  That's okay - the below code will ignore it.
