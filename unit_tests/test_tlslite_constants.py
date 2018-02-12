@@ -197,6 +197,11 @@ class TestSignatureScheme(unittest.TestCase):
 
         self.assertEqual(ret, 'pss')
 
+    def test_getPadding_with_new_valid_name(self):
+        ret = SignatureScheme.getPadding('rsa_pss_rsae_sha256')
+
+        self.assertEqual(ret, 'pss')
+
     def test_getPadding_with_invalid_name(self):
         with self.assertRaises(ValueError):
             SignatureScheme.getPadding('rsa_oead_sha256')
@@ -209,3 +214,8 @@ class TestSignatureScheme(unittest.TestCase):
     def test_getHash_with_invalid_name(self):
         with self.assertRaises(ValueError):
             SignatureScheme.getHash('rsa_oead_sha256')
+
+    def test_getHash_with_valid_new_name(self):
+        ret = SignatureScheme.getHash('rsa_pss_pss_sha384')
+
+        self.assertEqual(ret, 'sha384')

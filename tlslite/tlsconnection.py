@@ -3118,9 +3118,14 @@ class TLSConnection(TLSRecordLayer):
                     if schemeName == 'pss' and hashName == 'sha512'\
                             and privateKey and privateKey.n < 2**2047:
                         continue
+                    # advertise support for both rsaEncryption and RSA-PSS OID
+                    # key type
                     sigAlgs.append(getattr(SignatureScheme,
-                                           "rsa_{0}_{1}".format(schemeName,
-                                                                hashName)))
+                                           "rsa_{0}_rsae_{1}"
+                                           .format(schemeName, hashName)))
+                    sigAlgs.append(getattr(SignatureScheme,
+                                           "rsa_{0}_pss_{1}"
+                                           .format(schemeName, hashName)))
                 except AttributeError:
                     if schemeName == 'pkcs1':
                         sigAlgs.append((getattr(HashAlgorithm, hashName),

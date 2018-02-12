@@ -1243,7 +1243,30 @@ class ECPointFormatsExtension(VarListExtension):
         super(ECPointFormatsExtension, self).__init__(1, 1, 'formats', \
                 ExtensionType.ec_point_formats)
 
-class SignatureAlgorithmsExtension(VarSeqListExtension):
+
+class _SigListExt(VarSeqListExtension):
+    """
+    Common methods to SignatureAlgorithmsExtension and
+    SignatureAlgorithmsCertExtension.
+    """
+
+    def _repr_sigalgs(self):
+        """Return a text representation of sigalgs field."""
+        if self.sigalgs is None:
+            return "None"
+
+        values = []
+        for alg in self.sigalgs:
+            name = SignatureScheme.toRepr(alg)
+            if name is None:
+                name = "({0}, {1})".format(HashAlgorithm.toStr(alg[0]),
+                                           SignatureAlgorithm.toStr(alg[1]))
+            values.append(name)
+
+        return "[{0}]".format(", ".join(values))
+
+
+class SignatureAlgorithmsExtension(_SigListExt):
     """
     Client side list of supported signature algorithms.
 
@@ -1261,25 +1284,32 @@ class SignatureAlgorithmsExtension(VarSeqListExtension):
                                                            ExtensionType.
                                                            signature_algorithms)
 
-    def _repr_sigalgs(self):
-        """Return a text representation of sigalgs field."""
-        if self.sigalgs is None:
-            return "None"
-        else:
-            values = []
-            for alg in self.sigalgs:
-                name = SignatureScheme.toRepr(alg)
-                if name is None:
-                    name = "({0}, {1})".format(HashAlgorithm.toStr(alg[0]),
-                                               SignatureAlgorithm.
-                                               toStr(alg[1]))
-                values.append(name)
-
-            return "[{0}]".format(", ".join(values))
-
     def __repr__(self):
         """Return a text representation of the extension."""
         return "SignatureAlgorithmsExtension(sigalgs={0})".format(
+                self._repr_sigalgs())
+
+
+class SignatureAlgorithmsCertExtension(_SigListExt):
+    """
+    Client side list of supported signatures in certificates.
+
+    Should be used when the signatures supported in certificates and in TLS
+    messages differ.
+
+    See TLS1.3 RFC
+    """
+
+    def __init__(self):
+        """Create instance of class."""
+        super(SignatureAlgorithmsCertExtension, self).__init__(
+            1, 2, 2,
+            'sigalgs',
+            extType=ExtensionType.signature_algorithms_cert)
+
+    def __repr__(self):
+        """Return a text representation of the extension."""
+        return "SignatureAlgorithmsCertExtension(sigalgs={0})".format(
                 self._repr_sigalgs())
 
 
@@ -1829,7 +1859,9 @@ TLSExtension._universalExtensions = \
         ExtensionType.client_hello_padding: PaddingExtension,
         ExtensionType.renegotiation_info: RenegotiationInfoExtension,
         ExtensionType.supported_versions: SupportedVersionsExtension,
-        ExtensionType.key_share: ClientKeyShareExtension}
+        ExtensionType.key_share: ClientKeyShareExtension,
+        ExtensionType.signature_algorithms_cert:
+            SignatureAlgorithmsCertExtension}
 
 TLSExtension._serverExtensions = \
     {

@@ -23,11 +23,11 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SupportedVersionsExtension, VarSeqListExtension, ListExtension, \
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
         CertificateStatusExtension, HRRKeyShareExtension, \
-        SrvSupportedVersionsExtension
+        SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
-        CertificateStatusType
+        CertificateStatusType, SignatureScheme
 from tlslite.errors import TLSInternalError
 
 class TestTLSExtension(unittest.TestCase):
@@ -1537,6 +1537,57 @@ class TestSignatureAlgorithmsExtension(unittest.TestCase):
 
         self.assertEqual(repr(ext), "SignatureAlgorithmsExtension("
                 "sigalgs=None)")
+
+
+class TestSignatureAlgorithmsCertExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = SignatureAlgorithmsCertExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.sigalgs)
+        self.assertEqual(ext.extType, 50)
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_write(self):
+        ext = SignatureAlgorithmsCertExtension()
+        ext.create([SignatureScheme.rsa_pss_pss_sha384,
+                    SignatureScheme.rsa_pkcs1_sha1])
+
+        self.assertEqual(bytearray(
+            b'\x00\x32' +  # type
+            b'\x00\x06' +  # overall length
+            b'\x00\x04' +  # lenth of array
+            b'\x08\x0a' +  # pss+sha384
+            b'\x02\x01'),  # pkcs1+sha1
+            ext.write())
+
+    def test___repr__(self):
+        algs = [SignatureScheme.rsa_pkcs1_sha1,
+                SignatureScheme.rsa_pss_rsae_sha512,
+                SignatureScheme.rsa_pss_pss_sha256,
+                (HashAlgorithm.sha384,
+                 SignatureAlgorithm.dsa)]
+        ext = SignatureAlgorithmsCertExtension().create(algs)
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=["
+                "rsa_pkcs1_sha1, rsa_pss_rsae_sha512, rsa_pss_pss_sha256, "
+                "(sha384, dsa)])")
+
+    def test___repr___with_legacy_name(self):
+        algs = [SignatureScheme.rsa_pss_sha256]
+        ext = SignatureAlgorithmsCertExtension().create(algs)
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=["
+                "rsa_pss_rsae_sha256])")
+
+    def test___repr___with_none(self):
+        ext = SignatureAlgorithmsCertExtension()
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=None)")
+
 
 class TestPaddingExtension(unittest.TestCase):
     def test__init__(self):
