@@ -77,6 +77,8 @@ class TLSConnection(TLSRecordLayer):
         self._clientRandom = bytearray(0)
         self._serverRandom = bytearray(0)
         self.next_proto = None
+        # whether the CCS was already sent in the connection (for hello retry)
+        self._ccs_sent = False
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -761,7 +763,7 @@ class TLSConnection(TLSRecordLayer):
         hello_retry = None
         ext = result.getExtension(ExtensionType.supported_versions)
         if result.random == TLS_1_3_HRR and ext and ext.version > (3, 3):
-            self.version = (3, 3)
+            self.version = ext.version
             hello_retry = result
 
             # create synthetic handshake hash
@@ -834,8 +836,10 @@ class TLSConnection(TLSRecordLayer):
                     yield result
 
             # resend the client hello with performed changes
-            for result in self._sendMsg(clientHello):
+            ccs = ChangeCipherSpec().create()
+            for result in self._sendMsgs([ccs, clientHello]):
                 yield result
+            self._ccs_sent = True
 
             # retry getting server hello
             for result in self._getMsg(ContentType.handshake,
@@ -1098,7 +1102,13 @@ class TLSConnection(TLSRecordLayer):
         cl_finished = Finished(self.version, prf_size)
         cl_finished.create(cl_verify_data)
 
-        for result in self._sendMsg(cl_finished):
+        if not self._ccs_sent:
+            ccs = ChangeCipherSpec().create()
+            msgs = [ccs, cl_finished]
+        else:
+            msgs = [cl_finished]
+
+        for result in self._sendMsgs(msgs):
             yield result
 
         # Master secret
@@ -1882,7 +1892,9 @@ class TLSConnection(TLSRecordLayer):
                            clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
-        for result in self._sendMsg(serverHello):
+        ccs = ChangeCipherSpec().create()
+
+        for result in self._sendMsgs([serverHello, ccs]):
             yield result
 
         Z = kex.calc_shared_key(key_share.private, cl_key_share.key_exchange)
@@ -2473,6 +2485,7 @@ class TLSConnection(TLSRecordLayer):
         # when we have selected TLS 1.3, check if we don't have to ask for
         # a new client hello
         if version > (3, 3):
+            self.version = version
             hrr_ext = []
 
             # check if we have good key share
@@ -2533,8 +2546,10 @@ class TLSConnection(TLSRecordLayer):
                 hrr.create((3, 3), TLS_1_3_HRR, clientHello.session_id,
                            cipherSuite, extensions=hrr_ext)
 
-                for result in self._sendMsg(hrr):
+                ccs = ChangeCipherSpec().create()
+                for result in self._sendMsgs([hrr, ccs]):
                     yield result
+                self._ccs_sent = True
 
                 for result in self._getMsg(ContentType.handshake,
                                            HandshakeType.client_hello):

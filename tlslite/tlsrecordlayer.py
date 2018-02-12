@@ -684,6 +684,20 @@ class TLSRecordLayer(object):
                     if p.index == len(p.bytes):
                         continue
 
+                # if this is a CCS message in TLS 1.3, sanity check and
+                # continue
+                if self.version > (3, 3) and \
+                        ContentType.handshake in expectedType and \
+                        recordHeader.type == ContentType.change_cipher_spec:
+                    ccs = ChangeCipherSpec().parse(p)
+                    if ccs.type != 1:
+                        for result in self._sendError(
+                                AlertDescription.unexpected_message,
+                                "Invalid CCS message received"):
+                            yield result
+                    # ignore the message
+                    continue
+
                 #If we received an unexpected record type...
                 if recordHeader.type not in expectedType:
 
@@ -860,8 +874,11 @@ class TLSRecordLayer(object):
 
             header, parser = result
 
-            # application data isn't made out of messages, pass it through
-            if header.type == ContentType.application_data:
+            # application data (and CCS in TLS1.3) isn't made out of messages,
+            # pass it through
+            if header.type == ContentType.application_data or \
+                    (self.version > (3, 3) and
+                     header.type == ContentType.change_cipher_spec):
                 yield (header, parser)
             # If it's an SSLv2 ClientHello, we can return it as well, since
             # it's the only ssl2 type we support
