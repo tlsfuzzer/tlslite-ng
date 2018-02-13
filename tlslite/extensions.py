@@ -1845,6 +1845,136 @@ class HRRKeyShareExtension(TLSExtension):
         return self
 
 
+class PskIdentity(object):
+    """Handling of PskIdentity from PreSharedKey Extension."""
+    def __init__(self):
+        """Create instance of class."""
+        super(PskIdentity, self).__init__()
+        self.identity = None
+        self.obfuscated_ticket_age = None
+
+    def create(self, identity, obf_ticket_age):
+        """Initialise instance."""
+        self.identity = identity
+        self.obfuscated_ticket_age = obf_ticket_age
+        return self
+
+    def write(self):
+        """Serialise the object."""
+        writer = Writer()
+        writer.addTwo(len(self.identity))
+        writer.bytes += self.identity
+        writer.addFour(self.obfuscated_ticket_age)
+        return writer.bytes
+
+    def parse(self, parser):
+        """Deserialize the object from bytearray."""
+        self.identity = parser.getVarBytes(2)
+        self.obfuscated_ticket_age = parser.get(4)
+        return self
+
+
+class PreSharedKeyExtension(TLSExtension):
+    """
+    Class for handling Pre Shared Key negotiation.
+    """
+    def __init__(self):
+        """Create instance of class."""
+        super(PreSharedKeyExtension, self).__init__(
+            extType=ExtensionType.pre_shared_key)
+        self.identities = None
+        self.binders = None
+
+    def create(self, identities, binders):
+        """Set list of offered PSKs."""
+        self.identities = identities
+        self.binders = binders
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the payload of the extension."""
+        if self.identities is None:
+            return bytearray()
+
+        writer = Writer()
+
+        iden_writer = Writer()
+        for i in self.identities:
+            iden_writer.bytes += i.write()
+        writer.add(len(iden_writer.bytes), 2)
+        writer.bytes += iden_writer.bytes
+
+        binder_writer = Writer()
+        for i in self.binders:
+            binder_writer.add(len(i), 1)
+            binder_writer.bytes += i
+        writer.add(len(binder_writer.bytes), 2)
+        writer.bytes += binder_writer.bytes
+        return writer.bytes
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format."""
+        if not parser.getRemainingLength():
+            self.identities = None
+            self.binders = None
+            return self
+
+        # PskIdentity identities<7..2^16-1>;
+        parser.startLengthCheck(2)
+        self.identities = []
+        while not parser.atLengthCheck():
+            self.identities.append(PskIdentity().parse(parser))
+        parser.stopLengthCheck()
+
+        # PskBinderEntry binders<33..2^16-1>;
+        parser.startLengthCheck(2)
+        self.binders = []
+        while not parser.atLengthCheck():
+            self.binders.append(parser.getVarBytes(1))
+        parser.stopLengthCheck()
+
+        if parser.getRemainingLength():
+            raise SyntaxError()
+        return self
+
+
+class SrvPreSharedKeyExtension(TLSExtension):
+    """Handling of the Pre Shared Key extension from server."""
+
+    def __init__(self):
+        """Create instance of class."""
+        super(SrvPreSharedKeyExtension, self).__init__(
+            extType=ExtensionType.pre_shared_key)
+        self.selected = None
+
+    def create(self, selected):
+        """Set the selected PSK identity."""
+        self.selected = selected
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the extension payload."""
+        if self.selected is None:
+            return bytearray()
+        writer = Writer()
+        writer.addTwo(self.selected)
+        return writer.bytes
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format."""
+        if not parser.getRemainingLength():
+            self.selected = None
+            return self
+
+        self.selected = parser.get(2)
+        if parser.getRemainingLength():
+            raise SyntaxError()
+
+        return self
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1861,14 +1991,16 @@ TLSExtension._universalExtensions = \
         ExtensionType.supported_versions: SupportedVersionsExtension,
         ExtensionType.key_share: ClientKeyShareExtension,
         ExtensionType.signature_algorithms_cert:
-            SignatureAlgorithmsCertExtension}
+            SignatureAlgorithmsCertExtension,
+        ExtensionType.pre_shared_key: PreSharedKeyExtension}
 
 TLSExtension._serverExtensions = \
     {
         ExtensionType.cert_type: ServerCertTypeExtension,
         ExtensionType.tack: TACKExtension,
         ExtensionType.key_share: ServerKeyShareExtension,
-        ExtensionType.supported_versions: SrvSupportedVersionsExtension}
+        ExtensionType.supported_versions: SrvSupportedVersionsExtension,
+        ExtensionType.pre_shared_key: SrvPreSharedKeyExtension}
 
 TLSExtension._certificateExtensions = \
     {
