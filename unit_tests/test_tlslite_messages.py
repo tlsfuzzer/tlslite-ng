@@ -30,7 +30,7 @@ from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         SignatureScheme, TLS_1_3_HRR
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
-    ServerCertTypeExtension
+    ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity
 from tlslite.errors import TLSInternalError
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
@@ -835,6 +835,26 @@ class TestClientHello(unittest.TestCase):
         client_hello = ClientHello()
         with self.assertRaises(SyntaxError):
             client_hello.parse(p)
+
+    def test_psk_truncate_with_wrong_extensions(self):
+        hello = ClientHello()
+        hello.extensions = [SupportedGroupsExtension()]
+
+        with self.assertRaises(ValueError):
+            hello.psk_truncate()
+
+    def test_psk_truncate(self):
+        hello = ClientHello()
+        iden = PskIdentity().create(bytearray(b'test'), 0)
+        bind = bytearray(32)
+        ext = PreSharedKeyExtension().create([iden], [bind])
+        hello.create((3, 3), bytearray([1] * 32), bytearray(0),
+                     [CipherSuite.TLS_RSA_WITH_RC4_128_MD5],
+                     extensions=[ext])
+
+        wr = hello.write()
+        self.assertEqual(wr[:-35], hello.psk_truncate())
+
 
 class TestServerHello(unittest.TestCase):
     def test___init__(self):

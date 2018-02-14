@@ -673,6 +673,29 @@ class ClientHello(HelloMessage):
             w.bytes += w2.bytes
         return self.postWrite(w)
 
+    def psk_truncate(self):
+        """Return a truncated encoding of message without binders.
+
+        In TLS 1.3, with PSK exchange, the ClientHello message is signed
+        by the binders in it. Return the part that is symmetrically signed
+        by those binders.
+
+        See "PSK Binder" in draft-ietf-tls-tls13-23.
+
+        :rtype: bytearray
+        """
+        ext = self.extensions[-1]
+        if not isinstance(ext, PreSharedKeyExtension):
+            raise ValueError("Last extension must be the pre_shared_key "
+                             "extension")
+        bts = self.write()
+        # every binder has 1 byte long header and the list of them
+        # has a 2 byte header
+        length = sum(len(i) + 1 for i in ext.binders) + 2
+
+        return bts[:-length]
+
+
     def write(self):
         """Serialise object to on the wire data."""
         if self.ssl2:
