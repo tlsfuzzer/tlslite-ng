@@ -398,6 +398,19 @@ class TestListExtension(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.ext.parse(p)
 
+    def test___repr__(self):
+        self.assertEqual(repr(self.ext), "ListExtension(groups=None)")
+
+    def test___repr___with_values(self):
+        self.ext.groups = [0, 1]
+        self.assertEqual(repr(self.ext), "ListExtension(groups=[0, 1])")
+
+    def test___repr___with_enum(self):
+        self.ext = ListExtension('groups', 0, ECPointFormat)
+        self.ext.groups = [0, 4]
+        self.assertEqual(repr(self.ext),
+                         "ListExtension(groups=[uncompressed, 4])")
+
 
 class TestVarListExtension(unittest.TestCase):
     def setUp(self):
