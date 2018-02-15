@@ -24,7 +24,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
         CertificateStatusExtension, HRRKeyShareExtension, \
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
-        PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension
+        PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
+        PskKeyExchangeModesExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -2454,6 +2455,72 @@ class TestSrvPreSharedKeyExtension(unittest.TestCase):
             b'\x00\x03'
             b'\x00\x0a'
             b'\x00'))
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+
+class TestPskKeyExchangeModesExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = PskKeyExchangeModesExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.modes)
+        self.assertEqual(ext.extType, 45)
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_create(self):
+        ext = PskKeyExchangeModesExtension()
+        ext = ext.create([0])
+
+        self.assertIsInstance(ext, PskKeyExchangeModesExtension)
+        self.assertEqual(ext.modes, [0])
+
+    def test_write(self):
+        ext = PskKeyExchangeModesExtension().create([0])
+
+        self.assertEqual(bytearray(
+            b'\x00\x2d' +  # type
+            b'\x00\x02' +  # ext length
+            b'\x01' +  # array length
+            b'\x00'),  # first item - psk_ke
+            ext.write())
+
+    def test_parse(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2d' +  # type
+            b'\x00\x02' +  # ext length
+            b'\x01' +  # array length
+            b'\x00'))  # first item - psk_ke
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, PskKeyExchangeModesExtension)
+        self.assertEqual(ext.modes, [0])
+
+    def test_parse_empty(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2d' +  # type
+            b'\x00\x00'))  # length
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, PskKeyExchangeModesExtension)
+        self.assertIsNone(ext.modes)
+
+    def test_parse_with_extra_data(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2d' +  # type
+            b'\x00\x03' +  # overall length
+            b'\x01' +  # array length
+            b'\x00' +  # array item
+            b'\x00'))  # extra bytes
 
         with self.assertRaises(SyntaxError):
             ext.parse(parser)

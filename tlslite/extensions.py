@@ -1975,6 +1975,15 @@ class SrvPreSharedKeyExtension(TLSExtension):
         return self
 
 
+class PskKeyExchangeModesExtension(VarListExtension):
+    """Handling of the PSK Key Exchange Modes extension."""
+
+    def __init__(self):
+        """Create instance of class."""
+        super(PskKeyExchangeModesExtension, self).__init__(1, 1, 'modes',
+            ExtensionType.psk_key_exchange_modes)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1992,7 +2001,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.key_share: ClientKeyShareExtension,
         ExtensionType.signature_algorithms_cert:
             SignatureAlgorithmsCertExtension,
-        ExtensionType.pre_shared_key: PreSharedKeyExtension}
+        ExtensionType.pre_shared_key: PreSharedKeyExtension,
+        ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension}
 
 TLSExtension._serverExtensions = \
     {

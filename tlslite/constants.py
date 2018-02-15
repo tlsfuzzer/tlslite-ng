@@ -153,6 +153,7 @@ class ExtensionType(TLSEnum):
     early_data = 42  # TLS 1.3
     supported_versions = 43  # TLS 1.3
     cookie = 44  # TLS 1.3
+    psk_key_exchange_modes = 45  # TLS 1.3
     signature_algorithms_cert = 50  # TLS 1.3
     key_share = 51  # TLS 1.3
     supports_npn = 13172
@@ -434,6 +435,13 @@ class AlertDescription(TLSEnum):
     bad_certificate_hash_value = 114  # RFC 6066
     unknown_psk_identity = 115
     no_application_protocol = 120  # RFC 7301
+
+
+class PskKeyExchangeMode(TLSEnum):
+    """Values used in the PSK Key Exchange Modes extension."""
+
+    psk_ke = 0
+    psk_dhe_ke = 1
 
 
 class CipherSuite:
