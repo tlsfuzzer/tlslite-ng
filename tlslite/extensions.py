@@ -10,7 +10,8 @@ from __future__ import generators
 from .utils.codec import Writer, Parser
 from collections import namedtuple
 from .constants import NameType, ExtensionType, CertificateStatusType, \
-        SignatureAlgorithm, HashAlgorithm, SignatureScheme
+        SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
+        PskKeyExchangeMode
 from .errors import TLSInternalError
 
 class TLSExtension(object):
@@ -291,17 +292,20 @@ class ListExtension(TLSExtension):
     of same-sized elementes inside an array
     """
 
-    def __init__(self, fieldName, extType):
+    def __init__(self, fieldName, extType, item_enum=None):
         """
         Create instance of the class.
 
         :param str fieldName: name of the field to store the list that is
             the payload
         :type int extType: numerical ID of the extension
+        :param class item_enum: TLSEnum class that defines the enum of the
+            items in the list
         """
         super(ListExtension, self).__init__(extType=extType)
         self._fieldName = fieldName
         self._internalList = None
+        self._item_enum = item_enum
 
     @property
     def extData(self):
@@ -350,11 +354,19 @@ class ListExtension(TLSExtension):
             return
         super(ListExtension, self).__setattr__(name, value)
 
+    def _list_to_repr(self):
+        """Return human redable representation of the item list"""
+        if not self._internalList or not self._item_enum:
+            return "{0!r}".format(self._internalList)
+
+        return "[{0}]".format(
+            ", ".join(self._item_enum.toStr(i) for i in self._internalList))
+
     def __repr__(self):
         """Return human readable representation of the extension."""
-        return "{0}({1}={2!r})".format(self.__class__.__name__,
-                                       self._fieldName,
-                                       self._internalList)
+        return "{0}({1}={2})".format(self.__class__.__name__,
+                                     self._fieldName,
+                                     self._list_to_repr())
 
 
 class VarListExtension(ListExtension):
@@ -365,8 +377,18 @@ class VarListExtension(ListExtension):
     of same-sized elementes inside an array
     """
 
-    def __init__(self, elemLength, lengthLength, fieldName, extType):
-        super(VarListExtension, self).__init__(fieldName, extType=extType)
+    def __init__(self, elemLength, lengthLength, fieldName, extType,
+                 item_enum=None):
+        """Create handler for extension that has a list of items as payload.
+
+        :param int elemLength: number of bytes needed to encode single element
+        :param int lengthLength: number of bytes needed to encode length field
+        :param str fieldName: name of the field storing the list of elements
+        :param int extType: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the list
+        """
+        super(VarListExtension, self).__init__(fieldName, extType=extType,
+                                               item_enum=item_enum)
         self._elemLength = elemLength
         self._lengthLength = lengthLength
 
@@ -414,7 +436,8 @@ class VarSeqListExtension(ListExtension):
     of same-sized elements in same-sized tuples
     """
 
-    def __init__(self, elemLength, elemNum, lengthLength, fieldName, extType):
+    def __init__(self, elemLength, elemNum, lengthLength, fieldName, extType,
+                 item_enum=None):
         """
         Create a handler for extension that has a list of tuples as payload.
 
@@ -425,8 +448,10 @@ class VarSeqListExtension(ListExtension):
             length of the list
         :param str fieldName: name of the field storing the list of elements
         :param int extType: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the list
         """
-        super(VarSeqListExtension, self).__init__(fieldName, extType=extType)
+        super(VarSeqListExtension, self).__init__(fieldName, extType=extType,
+                                                  item_enum=item_enum)
         self._elemLength = elemLength
         self._elemNum = elemNum
         self._lengthLength = lengthLength
@@ -1980,8 +2005,10 @@ class PskKeyExchangeModesExtension(VarListExtension):
 
     def __init__(self):
         """Create instance of class."""
-        super(PskKeyExchangeModesExtension, self).__init__(1, 1, 'modes',
-            ExtensionType.psk_key_exchange_modes)
+        super(PskKeyExchangeModesExtension, self).__init__(
+            1, 1, 'modes',
+            ExtensionType.psk_key_exchange_modes,
+            PskKeyExchangeMode)
 
 
 TLSExtension._universalExtensions = \
