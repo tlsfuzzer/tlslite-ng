@@ -33,7 +33,7 @@ from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
         GroupName, SignatureScheme
 from tlslite import __version__
-from tlslite.utils.compat import b2a_hex
+from tlslite.utils.compat import b2a_hex, a2b_hex
 from tlslite.utils.dns_utils import is_valid_hostname
 
 try:
@@ -78,6 +78,7 @@ def printUsage(s=None):
 
   client
     [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
+    [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384]
     HOST:PORT
 
   LABEL - TLS exporter label
@@ -86,6 +87,8 @@ def printUsage(s=None):
          in client to specify multiple protocols supported
   DHFILE - file that includes Diffie-Hellman parameters to be used with DHE
            key exchange
+  PSK - hex encoded (without starting 0x) shared key to be used for connection
+  IDENTITY - name associated with the PSK key
 """)
     sys.exit(-1)
 
@@ -116,6 +119,9 @@ def handleArgs(argv, argString, flagsList=[]):
     expLength = 20
     alpn = []
     dhparam = None
+    psk = None
+    psk_ident = None
+    psk_hash = 'sha256'
 
     for opt, arg in opts:
         if opt == "-k":
@@ -158,12 +164,20 @@ def handleArgs(argv, argString, flagsList=[]):
             if sys.version_info[0] >= 3:
                 s = str(s, 'utf-8')
             dhparam = parseDH(s)
+        elif opt == "--psk":
+            psk = a2b_hex(arg)
+        elif opt == "--psk-ident":
+            psk_ident = arg
+        elif opt == "--psk-sha384":
+            psk_hash = 'sha384'
         else:
             assert(False)
 
     # when no names provided, don't return array
     if not alpn:
         alpn = None
+    if (psk and not psk_ident) or (not psk and psk_ident):
+        printError("PSK and IDENTITY must be set together")
     if not argv:
         printError("Missing address")
     if len(argv)>1:
@@ -201,6 +215,12 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(alpn)
     if "param=" in flagsList:
         retList.append(dhparam)
+    if "psk=" in flagsList:
+        retList.append(psk)
+    if "psk-ident=" in flagsList:
+        retList.append(psk_ident)
+    if "psk-sha384" in flagsList:
+        retList.append(psk_hash)
     return retList
 
 
@@ -262,8 +282,8 @@ def printExporter(connection, expLabel, expLength):
 
 def clientCmd(argv):
     (address, privateKey, certChain, username, password, expLabel,
-            expLength, alpn) = \
-        handleArgs(argv, "kcuplLa")
+            expLength, alpn, psk, psk_ident, psk_hash) = \
+        handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384"])
         
     if (certChain and not privateKey) or (not certChain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -282,6 +302,8 @@ def clientCmd(argv):
     connection = TLSConnection(sock)
     
     settings = HandshakeSettings()
+    if psk:
+        settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.useExperimentalTackExtension = True
     
     try:
