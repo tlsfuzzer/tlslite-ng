@@ -915,10 +915,12 @@ class TestClientCertTypeExtension(unittest.TestCase):
 
     def test___repr__(self):
         cert_type = ClientCertTypeExtension()
-        cert_type = cert_type.create([0, 1])
+        cert_type = cert_type.create([0, 1, 99])
 
-        self.assertEqual("ClientCertTypeExtension(certTypes=[0, 1])",
-                repr(cert_type))
+        self.assertEqual(
+            "ClientCertTypeExtension(certTypes=[x509, openpgp, 99])",
+            repr(cert_type))
+
 
 class TestServerCertTypeExtension(unittest.TestCase):
     def test___init__(self):

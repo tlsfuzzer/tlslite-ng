@@ -11,7 +11,7 @@ from .utils.codec import Writer, Parser
 from collections import namedtuple
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode
+        PskKeyExchangeMode, CertificateType
 from .errors import TLSInternalError
 
 class TLSExtension(object):
@@ -828,8 +828,10 @@ class ClientCertTypeExtension(VarListExtension):
 
         See also: :py:meth:`create` and :py:meth:`parse`
         """
-        super(ClientCertTypeExtension, self).__init__(1, 1, 'certTypes', \
-                ExtensionType.cert_type)
+        super(ClientCertTypeExtension, self).__init__(
+            1, 1, 'certTypes',
+            ExtensionType.cert_type,
+            CertificateType)
 
 class ServerCertTypeExtension(TLSExtension):
     """
