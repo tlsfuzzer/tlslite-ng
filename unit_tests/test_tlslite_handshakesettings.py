@@ -316,6 +316,32 @@ class TestHandshakeSettings(unittest.TestCase):
         self.assertNotIn((3, 4), hs.versions)
         self.assertNotIn((0x7f, 21), hs.versions)
 
+    def test_pskConfigs(self):
+        hs = HandshakeSettings()
+        hs.pskConfigs = [(b'test', b'sicritz', 'sha384')]
+
+        hs = hs.validate()
+
+        self.assertEqual(hs.pskConfigs, [(b'test', b'sicritz', 'sha384')])
+
+    def test_pskConfigs_invalid_tuple(self):
+        hs = HandshakeSettings()
+        hs.pskConfigs = [(b'test', b'sicrits'), tuple([b'invalid'])]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("pskConfigs", str(e.exception))
+
+    def test_pskConfig_invalid_hash(self):
+        hs = HandshakeSettings()
+        hs.pskConfigs = [(b'test', b'sicrits', 'wrong-hash')]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("wrong-hash", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

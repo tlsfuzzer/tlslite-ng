@@ -169,6 +169,13 @@ class HandshakeSettings(object):
     :vartype padding_cb: func
     :ivar padding_cb: Callback to function computing number of padding bytes
         for TLS 1.3. Signature is cb_func(msg_size, content_type, max_size).
+
+    :vartype pskConfigs: list of tuples
+    :ivar pskConfigs: list of tuples, first element of the tuple is the
+        human readable, UTF-8 encoded, "identity" of the associated secret
+        (bytearray, can be empty for TLS 1.2 and earlier), second element is
+        the binary secret (bytearray), third is an optional parameter
+        specifying the PRF hash to be used in TLS 1.3 ('sha256' or 'sha384')
     """
     def __init__(self):
         self.minKeySize = 1023
@@ -195,6 +202,7 @@ class HandshakeSettings(object):
         self.defaultCurve = "secp256r1"
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
+        self.pskConfigs = []
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -312,6 +320,18 @@ class HandshakeSettings(object):
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+    @staticmethod
+    def _sanityCheckPsks(other):
+        """Check if the set PSKs are sane."""
+        if any(len(i) not in set([2, 3]) for i in other.pskConfigs):
+            raise ValueError("pskConfigs items must be a 2 or 3-element"
+                             "tuples")
+        badHashes = [i[2] for i in other.pskConfigs if
+                     len(i) == 3 and i[2] not in set(['sha256', 'sha384'])]
+        if badHashes:
+            raise ValueError("pskConfigs include invalid hash specifications: "
+                             "{0}".format(badHashes))
+
     def validate(self):
         """
         Validate the settings, filter out unsupported ciphersuites and return
@@ -345,6 +365,7 @@ class HandshakeSettings(object):
         other.padding_cb = self.padding_cb
         other.versions = self.versions
         other.keyShares = self.keyShares
+        other.pskConfigs = self.pskConfigs
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]
@@ -382,6 +403,8 @@ class HandshakeSettings(object):
                                not isinstance(other.dhParams[0], int_types) or
                                not isinstance(other.dhParams[1], int_types)):
             raise ValueError("DH parameters need to be a tuple of integers")
+
+        self._sanityCheckPsks(other)
 
         return other
 
