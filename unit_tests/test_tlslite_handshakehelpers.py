@@ -10,7 +10,9 @@ except ImportError:
     import unittest
 from tlslite.handshakehelpers import HandshakeHelpers
 from tlslite.messages import ClientHello
-from tlslite.extensions import SNIExtension
+from tlslite.extensions import SNIExtension, PreSharedKeyExtension, \
+        PskIdentity
+from tlslite.handshakehashes import HandshakeHashes
 
 class TestHandshakeHelpers(unittest.TestCase):
     def test_alignClientHelloPadding_length_less_than_256_bytes(self):
@@ -156,6 +158,133 @@ class TestHandshakeHelpers(unittest.TestCase):
         # padding extension should have been added after 2 extra bytes
         # added due to an extension list
         self.assertEqual(bytearray(b'\x00\x15'), data[clientHelloLength+2:clientHelloLength+4])
+
+    def test_update_binders_wrong_last_ext(self):
+        """
+        PSK binders mandate that the PSK extension be the very last extension
+        in client hello (as it's necessary to truncate the body of the hello
+        up to the PSK extension and calculate hash over it)
+        check if the updater will abort if the passed in message has
+        PSK extension that is not last
+        """
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(32)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        sni_ext = SNIExtension().create(b'example.com')
+
+        clientHello.extensions = [psk_ext, sni_ext]
+
+        hh = HandshakeHashes()
+
+        pskConfigs = [(b'test', b'\x00\x12\x13')]
+
+        with self.assertRaises(ValueError) as e:
+            HandshakeHelpers.update_binders(clientHello, hh, pskConfigs)
+
+        self.assertIn('Last extension', str(e.exception))
+
+    def test_update_binders_with_wrong_config(self):
+        """
+        Updater requires all binders to be have associated configurations
+        otherwise it wouldb't be able to calculate a new binder value
+        in this case, the identity in ClientHello is "test" while in
+        configurations it's "example"
+        """
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(32)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        pskConfigs = [(b'example', b'\x00\x12\x13')]
+
+        with self.assertRaises(ValueError) as e:
+            HandshakeHelpers.update_binders(clientHello, hh, pskConfigs)
+
+        self.assertIn('psk_configs', str(e.exception))
+
+    def test_update_binders_default_prf(self):
+        """
+        Verify that configurations that don't specify the associated hash
+        explicitly still work correctly (as the TLS 1.3 standard mandates
+        that SHA-256 is used by default)
+        """
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(32)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        pskConfigs = [(b'test', b'\x00\x12\x13')]
+
+        HandshakeHelpers.update_binders(clientHello, hh, pskConfigs)
+
+        self.assertIsInstance(clientHello.extensions[-1],
+                              PreSharedKeyExtension)
+        ch_ext = clientHello.extensions[-1]
+        self.assertEqual(ch_ext.identities, identities)
+        self.assertEqual(ch_ext.binders,
+                         [bytearray(b'wOl\xbe\x9b\xca\xa4\xf3tS\x08M\ta\xa2t'
+                                    b'\xa5lYF\xb7\x01F{M\xab\x85R\xa3'
+                                    b'\xf3\x11^')])
+
+    def test_update_binders_sha256_prf(self):
+        """Check if we can calculate a binder that uses SHA-256 PRF."""
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(32)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        pskConfigs = [(b'test', b'\x00\x12\x13', 'sha256')]
+
+        HandshakeHelpers.update_binders(clientHello, hh, pskConfigs)
+
+        self.assertIsInstance(clientHello.extensions[-1],
+                              PreSharedKeyExtension)
+        ch_ext = clientHello.extensions[-1]
+        self.assertEqual(ch_ext.identities, identities)
+        self.assertEqual(ch_ext.binders,
+                         [bytearray(b'wOl\xbe\x9b\xca\xa4\xf3tS\x08M\ta\xa2t'
+                                    b'\xa5lYF\xb7\x01F{M\xab\x85R\xa3'
+                                    b'\xf3\x11^')])
+
+    def test_update_binders_sha384_prf(self):
+        """Check if we can calculate a binder that uses SHA-384 PRF."""
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(48)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        pskConfigs = [(b'test', b'\x00\x12\x13', 'sha384')]
+
+        HandshakeHelpers.update_binders(clientHello, hh, pskConfigs)
+
+        self.assertIsInstance(clientHello.extensions[-1],
+                              PreSharedKeyExtension)
+        ch_ext = clientHello.extensions[-1]
+        self.assertEqual(ch_ext.identities, identities)
+        self.assertEqual(ch_ext.binders,
+                         [bytearray(b'\x8d\x92\xd2\xb7+D&\xd7\x0e>x\x1a\xc5i+'
+                                    b'M\x0e\xd2\xfe\xd6\x11\x07\n\x0c\xdc\xcf'
+                                    b'\xee\xf43\x8e\x9b@z\x00\xbcE\xff\x15%'
+                                    b'\xdc\xee\xb4\x1c\x8f\\\x03Z\xc5')])
+
 
 if __name__ == '__main__':
     unittest.main()
