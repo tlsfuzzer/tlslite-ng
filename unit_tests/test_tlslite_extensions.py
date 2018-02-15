@@ -1438,10 +1438,12 @@ class TestSupportedGroups(unittest.TestCase):
         with self.assertRaises(SyntaxError):
             ext.parse(parser)
 
-    def test_repr(self):
-        ext = SupportedGroupsExtension().create([GroupName.secp256r1])
-        self.assertEqual("SupportedGroupsExtension(groups=[23])",
-                repr(ext))
+    def test___repr__(self):
+        ext = SupportedGroupsExtension().create([GroupName.secp256r1, 200])
+        self.assertEqual(
+            "SupportedGroupsExtension(groups=[secp256r1, 200])",
+            repr(ext))
+
 
 class TestECPointFormatsExtension(unittest.TestCase):
     def test___init__(self):

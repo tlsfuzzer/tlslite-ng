@@ -11,7 +11,7 @@ from .utils.codec import Writer, Parser
 from collections import namedtuple
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode, CertificateType
+        PskKeyExchangeMode, CertificateType, GroupName
 from .errors import TLSInternalError
 
 class TLSExtension(object):
@@ -1252,8 +1252,10 @@ class SupportedGroupsExtension(VarListExtension):
 
     def __init__(self):
         """Create instance of class"""
-        super(SupportedGroupsExtension, self).__init__(2, 2, 'groups', \
-            ExtensionType.supported_groups)
+        super(SupportedGroupsExtension, self).__init__(
+            2, 2, 'groups',
+            ExtensionType.supported_groups,
+            GroupName)
 
 class ECPointFormatsExtension(VarListExtension):
     """
