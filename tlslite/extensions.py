@@ -1282,8 +1282,12 @@ class _SigListExt(VarSeqListExtension):
     SignatureAlgorithmsCertExtension.
     """
 
-    def _repr_sigalgs(self):
-        """Return a text representation of sigalgs field."""
+    def _list_to_repr(self):
+        """Return a text representation of sigalgs field.
+
+        Override the one from ListExtension to be able to handle legacy
+        signature algorithms.
+        """
         if self.sigalgs is None:
             return "None"
 
@@ -1310,16 +1314,11 @@ class SignatureAlgorithmsExtension(_SigListExt):
 
     def __init__(self):
         """Create instance of class"""
-        super(SignatureAlgorithmsExtension, self).__init__(1, 2, 2,
-                                                           'sigalgs',
-                                                           extType=
-                                                           ExtensionType.
-                                                           signature_algorithms)
-
-    def __repr__(self):
-        """Return a text representation of the extension."""
-        return "SignatureAlgorithmsExtension(sigalgs={0})".format(
-                self._repr_sigalgs())
+        super(SignatureAlgorithmsExtension, self).__init__(
+            1, 2, 2,
+            'sigalgs',
+            ExtensionType.signature_algorithms,
+            SignatureScheme)
 
 
 class SignatureAlgorithmsCertExtension(_SigListExt):
@@ -1337,12 +1336,8 @@ class SignatureAlgorithmsCertExtension(_SigListExt):
         super(SignatureAlgorithmsCertExtension, self).__init__(
             1, 2, 2,
             'sigalgs',
-            extType=ExtensionType.signature_algorithms_cert)
-
-    def __repr__(self):
-        """Return a text representation of the extension."""
-        return "SignatureAlgorithmsCertExtension(sigalgs={0})".format(
-                self._repr_sigalgs())
+            ExtensionType.signature_algorithms_cert,
+            SignatureScheme)
 
 
 class PaddingExtension(TLSExtension):
