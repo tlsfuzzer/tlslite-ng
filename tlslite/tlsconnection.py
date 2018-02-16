@@ -868,6 +868,10 @@ class TLSConnection(TLSRecordLayer):
 
             ext = clientHello.getExtension(ExtensionType.pre_shared_key)
             if ext:
+                # move the extension to end (in case extension like cookie was
+                # added
+                clientHello.extensions.remove(ext)
+                clientHello.extensions.append(ext)
                 HandshakeHelpers.update_binders(clientHello,
                                                 self._handshake_hash,
                                                 settings.pskConfigs)
