@@ -1173,6 +1173,9 @@ class TLSConnection(TLSRecordLayer):
                                        server_finish_hs, prfName)
         sr_app_traffic = derive_secret(secret, bytearray(b's ap traffic'),
                                        server_finish_hs, prfName)
+        exporter_master_secret = derive_secret(secret,
+                                               bytearray(b'exp master'),
+                                               server_finish_hs, prfName)
 
         self._recordLayer.calcTLS1_3PendingState(
             serverHello.cipher_suite,
@@ -1181,6 +1184,10 @@ class TLSConnection(TLSRecordLayer):
             settings.cipherImplementations)
         self._changeReadState()
         self._changeWriteState()
+
+        resumption_master_secret = derive_secret(secret,
+                                                 bytearray(b'res master'),
+                                                 self._handshake_hash, prfName)
 
         self.session = Session()
         self.extendedMasterSecret = True
@@ -1205,7 +1212,11 @@ class TLSConnection(TLSRecordLayer):
                             serverName,
                             encryptThenMAC=False,  # all ciphers are AEAD
                             extendedMasterSecret=True,  # all TLS1.3 are EMS
-                            appProto=appProto)
+                            appProto=appProto,
+                            cl_app_secret=cl_app_traffic,
+                            sr_app_secret=sr_app_traffic,
+                            exporterMasterSecret=exporter_master_secret,
+                            resumptionMasterSecret=resumption_master_secret)
 
         yield "finished"
 
@@ -2108,6 +2119,13 @@ class TLSConnection(TLSRecordLayer):
                                                  settings
                                                  .cipherImplementations)
 
+        # as both exporter and resumption master secrets include handshake
+        # transcript, we need to derive them early
+        exporter_master_secret = derive_secret(secret,
+                                               bytearray(b'exp master'),
+                                               self._handshake_hash,
+                                               prf_name)
+
         # verify Finished of client
         cl_finished_key = HKDF_expand_label(cl_handshake_traffic_secret,
                                             b"finished", b'',
@@ -2126,6 +2144,11 @@ class TLSConnection(TLSRecordLayer):
         assert isinstance(cl_finished, Finished)
         if cl_finished.verify_data != cl_verify_data:
             raise TLSDecryptionFailed("Finished value is not valid")
+
+        resumption_master_secret = derive_secret(secret,
+                                                 bytearray(b'res master'),
+                                                 self._handshake_hash,
+                                                 prf_name)
 
         self.session = Session()
         self.extendedMasterSecret = True
@@ -2149,7 +2172,11 @@ class TLSConnection(TLSRecordLayer):
                             server_name,
                             encryptThenMAC=False,
                             extendedMasterSecret=True,
-                            appProto=app_proto)
+                            appProto=app_proto,
+                            cl_app_secret=cl_app_traffic,
+                            sr_app_secret=sr_app_traffic,
+                            exporterMasterSecret=exporter_master_secret,
+                            resumptionMasterSecret=resumption_master_secret)
 
         # switch to application_traffic_secret
         self._changeWriteState()
