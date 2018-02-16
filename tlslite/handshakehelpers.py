@@ -7,6 +7,8 @@
 
 from .extensions import PaddingExtension, PreSharedKeyExtension
 from .utils.cryptomath import derive_secret, secureHMAC, HKDF_expand_label
+from .utils.constanttime import ct_compare_digest
+from .errors import TLSIllegalParameterException
 
 
 class HandshakeHelpers(object):
@@ -37,6 +39,23 @@ class HandshakeHelpers(object):
             paddingExtensionInstance = PaddingExtension().create(
                 max(512 - clientHelloLength - 4, 0))
             clientHello.extensions.append(paddingExtensionInstance)
+
+    @staticmethod
+    def _calc_binder(prf, psk, handshake_hash):
+        """
+        Calculate the binder value for a given HandshakeHash (that includes
+        a truncated client hello already)
+        """
+        assert prf in ('sha256', 'sha384')
+        key_len = 32 if prf == 'sha256' else 48
+
+        # HKDF-Extract(0, PSK)
+        early_secret = secureHMAC(bytearray(key_len), psk, prf)
+        binder_key = derive_secret(early_secret, b"ext binder", None, prf)
+        finished_key = HKDF_expand_label(binder_key, b"finished", b"", key_len,
+                                         prf)
+        binder = secureHMAC(finished_key, handshake_hash.digest(prf), prf)
+        return binder
 
     @staticmethod
     def update_binders(client_hello, handshake_hashes, psk_configs):
@@ -71,20 +90,38 @@ class HandshakeHelpers(object):
                                  "PreSharedKeyExtension")
 
             binder_hash = config[2] if len(config) > 2 else 'sha256'
-            key_len = 32 if binder_hash == 'sha256' else 48
 
-            # HKDF-Extract(0, PSK)
-            early_secret = secureHMAC(bytearray(key_len), config[1],
-                                      binder_hash)
-
-            binder_key = derive_secret(early_secret, b"ext binder", None,
-                                       binder_hash)
-
-            finished_key = HKDF_expand_label(binder_key, b"finished", b'',
-                                           key_len, binder_hash)
-
-            binder = secureHMAC(finished_key, hh.digest(binder_hash),
-                                binder_hash)
+            binder = HandshakeHelpers._calc_binder(binder_hash,
+                                                   config[1],
+                                                   hh)
 
             # replace the fake value with calculated one
             ext.binders[i] = binder
+
+    @staticmethod
+    def verify_binder(client_hello, handshake_hashes, position, secret, prf):
+        """Verify the PSK binder value in client hello.
+
+        :param client_hello: ClientHello to verify
+        :param handshake_hashes: hashes of messages exchanged so far
+        :param position: binder at which position should be verified
+        :param secret: the secret PSK
+        :param prf: name of the hash used as PRF
+        """
+        ext = client_hello.extensions[-1]
+        if not isinstance(ext, PreSharedKeyExtension):
+            raise TLSIllegalParameterException(
+                "Last extension in client_hello must be "
+                "PreSharedKeyExtension")
+
+        hh = handshake_hashes.copy()
+        hh.update(client_hello.psk_truncate())
+
+        binder = HandshakeHelpers._calc_binder(prf,
+                                               secret,
+                                               hh)
+
+        if not ct_compare_digest(binder, ext.binders[position]):
+            raise TLSIllegalParameterException("Binder does not verify")
+
+        return True

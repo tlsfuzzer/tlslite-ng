@@ -13,6 +13,7 @@ from tlslite.messages import ClientHello
 from tlslite.extensions import SNIExtension, PreSharedKeyExtension, \
         PskIdentity
 from tlslite.handshakehashes import HandshakeHashes
+from tlslite.errors import TLSIllegalParameterException
 
 class TestHandshakeHelpers(unittest.TestCase):
     def test_alignClientHelloPadding_length_less_than_256_bytes(self):
@@ -284,6 +285,63 @@ class TestHandshakeHelpers(unittest.TestCase):
                                     b'M\x0e\xd2\xfe\xd6\x11\x07\n\x0c\xdc\xcf'
                                     b'\xee\xf43\x8e\x9b@z\x00\xbcE\xff\x15%'
                                     b'\xdc\xee\xb4\x1c\x8f\\\x03Z\xc5')])
+
+    def test_verify_binder_with_wrong_extension(self):
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(32)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        sni_ext = SNIExtension().create(b'example.com')
+
+        clientHello.extensions = [psk_ext, sni_ext]
+
+        hh = HandshakeHashes()
+
+        secret = b'\x00\x12\x13'
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            HandshakeHelpers.verify_binder(clientHello, hh, 0, secret,
+                                           'sha256')
+
+        self.assertIn('Last extension', str(e.exception))
+
+    def test_verify_binder(self):
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(b'\x8d\x92\xd2\xb7+D&\xd7\x0e>x\x1a\xc5i+'
+                             b'M\x0e\xd2\xfe\xd6\x11\x07\n\x0c\xdc\xcf'
+                             b'\xee\xf43\x8e\x9b@z\x00\xbcE\xff\x15%'
+                             b'\xdc\xee\xb4\x1c\x8f\\\x03Z\xc5')]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        secret = b'\x00\x12\x13'
+
+        ret = HandshakeHelpers.verify_binder(clientHello, hh, 0, secret,
+                                             'sha384')
+        self.assertIs(ret, True)
+
+    def test_verify_binder_with_wrong_binder(self):
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'test'), 0)]
+        binders = [bytearray(48)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        hh = HandshakeHashes()
+
+        secret = b'\x00\x12\x13'
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            HandshakeHelpers.verify_binder(clientHello, hh, 0, secret,
+                                           'sha384')
+
+        self.assertIn('not verify', str(e.exception))
 
 
 if __name__ == '__main__':
