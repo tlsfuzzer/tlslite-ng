@@ -239,6 +239,18 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good PSK".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain is None
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good SRP (db)".format(test_no))
     print("client {0} - waiting for synchro".format(time.time()))
     synchro.recv(1)
@@ -994,6 +1006,18 @@ def serverTestCmd(argv):
 
         print("Test {0} - good X.509, TACK unrelated to cert chain"
               "...skipped (no tackpy)".format(test_no))
+
+    test_no += 1
+
+    print("Test {0} - good PSK".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
 
     test_no += 1
 
