@@ -1920,6 +1920,10 @@ class TLSConnection(TLSRecordLayer):
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version):
         """Perform a TLS 1.3 handshake"""
+        prf_name, prf_size = self._getPRFParams(cipherSuite)
+
+        secret = bytearray(prf_size)
+
         share = clientHello.getExtension(ExtensionType.key_share)
         share_ids = [i.group for i in share.client_shares]
         for group_name in chain(settings.keyShares, settings.eccCurves,
@@ -1932,12 +1936,52 @@ class TLSConnection(TLSRecordLayer):
         else:
             raise TLSInternalError("HRR did not work?!")
 
+        psk = None
+        selected_psk = None
+        psks = clientHello.getExtension(ExtensionType.pre_shared_key)
+        psk_types = clientHello.getExtension(
+            ExtensionType.psk_key_exchange_modes)
+        if psks and PskKeyExchangeMode.psk_dhe_ke in psk_types.modes and \
+                settings.pskConfigs:
+            for i, ident in enumerate(psks.identities):
+                match = [j for j in settings.pskConfigs
+                         if j[0] == ident.identity]
+                if not match:
+                    continue
+
+                # check if PSK can be used with selected cipher suite
+                psk_hash = match[0][2] if len(match[0]) > 2 else 'sha256'
+                if psk_hash != prf_name:
+                    continue
+
+                psk = match[0][1]
+                selected_psk = i
+                try:
+                    HandshakeHelpers.verify_binder(
+                        clientHello,
+                        self._pre_client_hello_handshake_hash,
+                        selected_psk,
+                        psk,
+                        psk_hash)
+                except TLSIllegalParameterException as e:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            str(e)):
+                        yield result
+                break
+
+        if psk is None:
+            psk = bytearray(prf_size)
+
         kex = self._getKEX(selected_group, version)
         key_share = self._genKeyShareEntry(selected_group, version)
 
         sh_extensions = []
         sh_extensions.append(ServerKeyShareExtension().create(key_share))
         sh_extensions.append(SrvSupportedVersionsExtension().create(version))
+        if selected_psk is not None:
+            sh_extensions.append(SrvPreSharedKeyExtension()
+                                 .create(selected_psk))
 
         serverHello = ServerHello()
         # in TLS1.3 the version selected is sent in extension, (3, 3) is
@@ -1953,10 +1997,6 @@ class TLSConnection(TLSRecordLayer):
 
         Z = kex.calc_shared_key(key_share.private, cl_key_share.key_exchange)
 
-        prf_name, prf_size = self._getPRFParams(cipherSuite)
-
-        secret = bytearray(prf_size)
-        psk = bytearray(prf_size)
         # Early secret
         secret = secureHMAC(secret, psk, prf_name)
 
@@ -2002,42 +2042,44 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsg(encryptedExtensions):
             yield result
 
-        certificate = Certificate(CertificateType.x509, self.version)
-        certificate.create(serverCertChain, bytearray())
-        for result in self._sendMsg(certificate):
-            yield result
+        if selected_psk is None:
+            certificate = Certificate(CertificateType.x509, self.version)
+            certificate.create(serverCertChain, bytearray())
+            for result in self._sendMsg(certificate):
+                yield result
 
-        certificate_verify = CertificateVerify(self.version)
+            certificate_verify = CertificateVerify(self.version)
 
-        scheme = self._pickServerKeyExchangeSig(settings,
-                                                clientHello,
-                                                serverCertChain,
-                                                self.version)
-        signature_scheme = getattr(SignatureScheme, scheme)
-        keyType = SignatureScheme.getKeyType(scheme)
-        padType = SignatureScheme.getPadding(scheme)
-        hashName = SignatureScheme.getHash(scheme)
-        saltLen = getattr(hashlib, hashName)().digest_size
+            scheme = self._pickServerKeyExchangeSig(settings,
+                                                    clientHello,
+                                                    serverCertChain,
+                                                    self.version)
+            signature_scheme = getattr(SignatureScheme, scheme)
+            keyType = SignatureScheme.getKeyType(scheme)
+            padType = SignatureScheme.getPadding(scheme)
+            hashName = SignatureScheme.getHash(scheme)
+            saltLen = getattr(hashlib, hashName)().digest_size
 
-        signature_context = bytearray(b'\x20' * 64 +
-                                      b'TLS 1.3, server CertificateVerify' +
-                                      b'\x00') + \
-                            self._handshake_hash.digest(prf_name)
-        signature_context = secureHash(signature_context, hashName)
+            signature_context = bytearray(b'\x20' * 64 +
+                                          b'TLS 1.3, server ' +
+                                          b'CertificateVerify' +
+                                          b'\x00') + \
+                                self._handshake_hash.digest(prf_name)
+            signature_context = secureHash(signature_context, hashName)
 
-        signature = privateKey.sign(signature_context,
-                                    padType,
-                                    hashName,
-                                    saltLen)
-        if not privateKey.verify(signature, signature_context,
-                                 padType,
-                                 hashName,
-                                 saltLen):
-            raise TLSInternalError("Certificate Verify signature failed")
-        certificate_verify.create(signature, signature_scheme)
+            signature = privateKey.sign(signature_context,
+                                        padType,
+                                        hashName,
+                                        saltLen)
+            if not privateKey.verify(signature, signature_context,
+                                     padType,
+                                     hashName,
+                                     saltLen):
+                raise TLSInternalError("Certificate Verify signature failed")
+            certificate_verify.create(signature, signature_scheme)
 
-        for result in self._sendMsg(certificate_verify):
-            yield result
+            for result in self._sendMsg(certificate_verify):
+                yield result
 
         finished_key = HKDF_expand_label(sr_handshake_traffic_secret,
                                          b"finished", b'', prf_size, prf_name)
@@ -2077,7 +2119,7 @@ class TLSConnection(TLSRecordLayer):
                                    HandshakeType.finished,
                                    prf_size):
             if result in (0, 1):
-                yield
+                yield result
             else:
                 break
         cl_finished = result
@@ -2124,6 +2166,7 @@ class TLSConnection(TLSRecordLayer):
         self.version = settings.maxVersion if settings.maxVersion < (3, 4) \
                        else (3, 3)
 
+        self._pre_client_hello_handshake_hash = self._handshake_hash.copy()
         #Get ClientHello
         for result in self._getMsg(ContentType.handshake,
                                    HandshakeType.client_hello):
@@ -2271,6 +2314,29 @@ class TLSConnection(TLSRecordLayer):
                                               .format(GroupName
                                                       .toStr(mismatch))):
                     yield result
+
+            psk = clientHello.getExtension(ExtensionType.pre_shared_key)
+            if psk:
+                ext = clientHello.getExtension(
+                    ExtensionType.psk_key_exchange_modes)
+                if not ext:
+                    for result in self._sendError(
+                            AlertDescription.missing_extension,
+                            "PSK key exchange modes must be present if PSK "
+                            "ext is present"):
+                        yield result
+                if not psk.identities or not psk.binders or \
+                        len(psk.identities) != len(psk.binders):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Incorrectly formatted PSK extension"):
+                        yield result
+
+                if psk is not clientHello.extensions[-1]:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "PSK extension not last in client hello"):
+                        yield result
 
         versionsExt = clientHello.getExtension(ExtensionType
                                                .supported_versions)
@@ -2605,6 +2671,10 @@ class TLSConnection(TLSRecordLayer):
                     yield result
                 self._ccs_sent = True
 
+                # copy for calculating PSK binders
+                self._pre_client_hello_handshake_hash = \
+                    self._handshake_hash.copy()
+
                 for result in self._getMsg(ContentType.handshake,
                                            HandshakeType.client_hello):
                     if result in (0, 1):
@@ -2689,8 +2759,20 @@ class TLSConnection(TLSRecordLayer):
                     else:
                         old_ext.paddingData = new_ext.paddingData
 
-                # TODO with PSK - PSKs non compatible with cipher suite MAY
+                # PSKs not compatible with cipher suite MAY
                 # be removed, but must have updated obfuscated ticket age
+                # and binders
+                old_ext = clientHello1.getExtension(
+                    ExtensionType.pre_shared_key)
+                new_ext = clientHello.getExtension(
+                    ExtensionType.pre_shared_key)
+                if new_ext and old_ext:
+                    clientHello1.extensions[-1] = new_ext
+                    if clientHello.extensions[-1] is not new_ext:
+                        for result in self._sendError(
+                                AlertDescription.illegal_parameter,
+                                "PSK extension not last in client hello"):
+                            yield result
 
                 if clientHello1 != clientHello:
                     for result in self._sendError(AlertDescription

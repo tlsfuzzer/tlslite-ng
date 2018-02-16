@@ -131,6 +131,10 @@ class TLSRecordLayer(object):
         # also for EMS calculation, in practice, it excludes
         # CertificateVerify and all following messages (Finished)
         self._certificate_verify_handshake_hash = None
+        # for PSK binders we need to be able to calculate the hash of all
+        # echanged messages and a _truncated_ ClientHello message so we
+        # need a copy of those hashes before CH was received
+        self._pre_client_hello_handshake_hash = None
 
         #Is the connection open?
         self.closed = True #read-only
@@ -941,6 +945,7 @@ class TLSRecordLayer(object):
         self._client = client
         self._handshake_hash = HandshakeHashes()
         self._certificate_verify_handshake_hash = None
+        self._pre_client_hello_handshake_hash = None
         self._defragmenter.clearBuffers()
         self.allegedSrpUsername = None
         self._refCount = 1
