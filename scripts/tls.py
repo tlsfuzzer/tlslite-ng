@@ -74,7 +74,9 @@ def printUsage(s=None):
 
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
-    [--reqcert] [--param DHFILE] HOST:PORT
+    [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
+    [--psk-sha384]
+    HOST:PORT
 
   client
     [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
@@ -345,8 +347,10 @@ def clientCmd(argv):
 
 def serverCmd(argv):
     (address, privateKey, certChain, tacks, verifierDB, directory, reqCert,
-            expLabel, expLength, dhparam) = handleArgs(argv, "kctbvdlL",
-                                                       ["reqcert", "param="])
+            expLabel, expLength, dhparam, psk, psk_ident, psk_hash) = \
+        handleArgs(argv, "kctbvdlL",
+                   ["reqcert", "param=", "psk=",
+                    "psk-ident=", "psk-sha384"])
 
 
     if (certChain and not privateKey) or (not certChain and privateKey):
@@ -391,6 +395,8 @@ def serverCmd(argv):
                 settings = HandshakeSettings()
                 settings.useExperimentalTackExtension=True
                 settings.dhParams = dhparam
+                if psk:
+                    settings.pskConfigs = [(psk_ident, psk, psk_hash)]
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
                 connection.handshakeServer(certChain=certChain,
