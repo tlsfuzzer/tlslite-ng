@@ -1944,6 +1944,74 @@ class NewSessionTicket(HelloMessage):
         return self
 
 
+class SessionTicketPayload(object):
+    """Serialisation and deserialisation of server state for resumption.
+
+    This is the internal (meant to be encrypted) representation of server
+    state that is set to client in the NewSessionTicket message.
+
+    :ivar int version: implementation detail for forward compatibility
+    :ivar bytearray master_secret: master secret for TLS 1.2-, resumption
+        master secret for TLS 1.3
+
+    :ivar tuple protocol_version: version of protocol that was previously
+        negotiated in this session
+
+    :ivar int cipher_suite: numerical ID of ciphersuite that was negotiated
+        previously
+
+    :ivar bytearray nonce: nonce for TLS 1.3 KDF
+
+    :ivar int creation_time: Unix time in seconds when was the ticket created
+    """
+
+    def __init__(self):
+        """Create instance of the object."""
+        self.version = 0
+        self.master_secret = bytearray()
+        self.protocol_version = bytearray()
+        self.cipher_suite = 0
+        self.creation_time = 0
+        self.nonce = bytearray()
+
+    def create(self, master_secret, protocol_version, cipher_suite,
+               creation_time, nonce=bytearray()):
+        """Initialise the object with cryptographic data."""
+        self.master_secret = master_secret
+        self.protocol_version = protocol_version
+        self.cipher_suite = cipher_suite
+        self.creation_time = creation_time
+        self.nonce = nonce
+        # TODO certificates - client and server
+        return self
+
+    def parse(self, parser):
+        self.version = parser.get(2)
+        if self.version != 0:
+            raise ValueError("Unrecognised version number")
+        self.master_secret = parser.getVarBytes(2)
+        self.protocol_version = (parser.get(1), parser.get(1))
+        self.cipher_suite = parser.get(2)
+        self.nonce = parser.getVarBytes(1)
+        self.creation_time = parser.get(8)
+        if parser.getRemainingLength():
+            raise ValueError("Malformed ticket")
+        return self
+
+    def write(self):
+        writer = Writer()
+        writer.addTwo(self.version)
+        writer.addTwo(len(self.master_secret))
+        writer.bytes += self.master_secret
+        writer.addOne(self.protocol_version[0])
+        writer.addOne(self.protocol_version[1])
+        writer.addTwo(self.cipher_suite)
+        writer.addOne(len(self.nonce))
+        writer.bytes += self.nonce
+        writer.add(self.creation_time, 8)
+        return writer.bytes
+
+
 class SSL2Finished(HandshakeMsg):
     """Handling of the SSL2 FINISHED messages."""
 
