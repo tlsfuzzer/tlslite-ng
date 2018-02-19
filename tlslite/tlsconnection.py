@@ -37,6 +37,7 @@ from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, \
         AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
 from .handshakehelpers import HandshakeHelpers
+from .utils.cipherfactory import createAESGCM, createCHACHA20
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -1972,6 +1973,43 @@ class TLSConnection(TLSRecordLayer):
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
 
+    def _serverSendTickets(self, settings):
+        """Send session tickets to client."""
+        if not settings.ticketKeys:
+            return
+
+        # prepare the ticket
+        ticket = SessionTicketPayload()
+        ticket.create(self.session.resumptionMasterSecret,
+                      self.version,
+                      self.session.cipherSuite,
+                      int(time.time()),
+                      getRandomBytes(len(settings.ticketKeys[0])))
+
+        # encrypt the ticket
+        if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
+            cipher = createAESGCM(settings.ticketKeys[0],
+                                  settings.cipherImplementations)
+        else:  # assume chacha, enforced by handshake settings
+            cipher = createCHACHA20(settings.ticketKeys[0],
+                                    settings.cipherImplementations)
+
+        # all AEADs we support require 12 byte nonces/IVs
+        iv = getRandomBytes(12)
+
+        encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
+
+        # send ticket to client
+        new_ticket = NewSessionTicket()
+        new_ticket.create(settings.ticketLifetime,
+                          getRandomNumber(1, 8**4),
+                          ticket.nonce,
+                          iv + encrypted_ticket,
+                          [])
+
+        for result in self._sendMsg(new_ticket):
+            yield result
+
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version):
         """Perform a TLS 1.3 handshake"""
@@ -2225,6 +2263,9 @@ class TLSConnection(TLSRecordLayer):
         # switch to application_traffic_secret
         self._changeWriteState()
         self._changeReadState()
+
+        for result in self._serverSendTickets(settings):
+            yield result
 
         yield "finished"
 
