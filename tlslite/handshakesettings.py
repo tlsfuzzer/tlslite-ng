@@ -37,6 +37,7 @@ if ecdsaAllCurves:
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
                       "ffdhe8192"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
+TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
 
 class HandshakeSettings(object):
     """
@@ -176,6 +177,22 @@ class HandshakeSettings(object):
         (bytearray, can be empty for TLS 1.2 and earlier), second element is
         the binary secret (bytearray), third is an optional parameter
         specifying the PRF hash to be used in TLS 1.3 ('sha256' or 'sha384')
+
+    :vartype ticketKeys: list of bytearray
+    :ivar ticketKeys: keys to be used for encrypting and decrypting session
+        tickets. First entry is the encryption key for new tickets and the
+        default decryption key, subsequent entries are the fallback keys
+        allowing for key rollover. The keys need to be of size appropriate
+        for a selected cipher in ticketCipher, 32 bytes for 'aes256gcm'.
+        Leave empty to disable session ticket support on server side.
+
+    :vartype ticketCipher: str
+    :ivar ticketCipher: name of the cipher used for encrypting the session
+        tickets. 'aes256gcm' by default
+
+    :vartype ticketLifetime: int
+    :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
+        in seconds. 1 day by default
     """
     def __init__(self):
         self.minKeySize = 1023
@@ -203,6 +220,9 @@ class HandshakeSettings(object):
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
         self.pskConfigs = []
+        self.ticketKeys = []
+        self.ticketCipher = "aes256gcm"
+        self.ticketLifetime = 24 * 60 * 60
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -332,6 +352,21 @@ class HandshakeSettings(object):
             raise ValueError("pskConfigs include invalid hash specifications: "
                              "{0}".format(badHashes))
 
+    @staticmethod
+    def _sanityCheckTicketSettings(other):
+        """Check if the session ticket settings are sane."""
+        if other.ticketCipher not in TICKET_CIPHERS:
+            raise ValueError("Invalid cipher for session ticket encryption: "
+                             "{0}".format(other.ticketCipher))
+
+        if any(len(i) not in set([16, 32]) for i in other.ticketKeys):
+            raise ValueError("session ticket encryption keys must be 16 or 32"
+                             "bytes long")
+
+        if not 0 < other.ticketLifetime <= 7 * 24 * 60 * 60:
+            raise ValueError("ticket lifetime must be a positive integer "
+                             "smaller or equal 604800 (7 days)")
+
     def validate(self):
         """
         Validate the settings, filter out unsupported ciphersuites and return
@@ -366,6 +401,9 @@ class HandshakeSettings(object):
         other.versions = self.versions
         other.keyShares = self.keyShares
         other.pskConfigs = self.pskConfigs
+        other.ticketKeys = self.ticketKeys
+        other.ticketCipher = self.ticketCipher
+        other.ticketLifetime = self.ticketLifetime
 
         if not cipherfactory.tripleDESPresent:
             other.cipherNames = [i for i in self.cipherNames if i != "3des"]
@@ -405,6 +443,8 @@ class HandshakeSettings(object):
             raise ValueError("DH parameters need to be a tuple of integers")
 
         self._sanityCheckPsks(other)
+
+        self._sanityCheckTicketSettings(other)
 
         return other
 
