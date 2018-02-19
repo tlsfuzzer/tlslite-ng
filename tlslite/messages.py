@@ -1894,6 +1894,9 @@ class NewSessionTicket(HelloMessage):
         self.ticket_nonce = bytearray(0)
         self.ticket = bytearray(0)
         self.extensions = []
+        # time at which the ticket was received, not sent on the wire
+        # in seconds in Unix Epoch
+        self.time = None
 
     def create(self, ticket_lifetime, ticket_age_add, ticket_nonce, ticket,
                extensions):
