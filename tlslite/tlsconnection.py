@@ -16,6 +16,7 @@ MAIN CLASS FOR TLS LITE (START HERE!).
 """
 
 from __future__ import division
+import time
 import socket
 from itertools import chain
 from .utils.compat import formatExceptionTrace
@@ -498,7 +499,8 @@ class TLSConnection(TLSRecordLayer):
         clientHello = result
         
         #Get the ServerHello.
-        for result in self._clientGetServerHello(settings, clientHello):
+        for result in self._clientGetServerHello(settings, session,
+                                                 clientHello):
             if result in (0,1): yield result
             else: break
         serverHello = result
@@ -508,7 +510,8 @@ class TLSConnection(TLSRecordLayer):
         # different
         ext = serverHello.getExtension(ExtensionType.supported_versions)
         if ext and ext.version > (3, 3):
-            for result in self._clientTLS13Handshake(settings, clientHello,
+            for result in self._clientTLS13Handshake(settings, session,
+                                                     clientHello,
                                                      serverHello):
                 if result in (0, 1):
                     yield result
@@ -756,11 +759,31 @@ class TLSConnection(TLSRecordLayer):
             HandshakeHelpers.alignClientHelloPadding(clientHello)
 
         # because TLS 1.3 PSK is sent in ClientHello and signs the ClientHello
-        # we need to sent it as the last extension
-        if settings.pskConfigs and settings.maxVersion >= (3, 4):
+        # we need to send it as the last extension
+        if (settings.pskConfigs or (session and session.tickets)) \
+                and settings.maxVersion >= (3, 4):
             ext = PreSharedKeyExtension()
             idens = []
             binders = []
+            # if we have a previous session, include it in PSKs too
+            if session and session.tickets:
+                now = time.time()
+                # clean the list from obsolete ones
+                # RFC says that the tickets MUST NOT be cached longer than
+                # 7 days
+                session.tickets[:] = (i for i in session.tickets if
+                                      i.time + i.ticket_lifetime > now and
+                                      i.time + 7 * 24 * 60 * 60 > now)
+                if session.tickets:
+                    ticket = session.tickets[0]
+
+                    ticket_time = int(ticket.time + ticket.ticket_age_add) \
+                        % 2**32
+                    idens.append(PskIdentity().create(ticket.ticket,
+                                                      ticket_time))
+                    binder_len = 48 if session.cipherSuite in \
+                        CipherSuite.sha384PrfSuites else 32
+                    binders.append(bytearray(binder_len))
             for psk in settings.pskConfigs:
                 # skip PSKs with no identities as they're TLS1.3 incompatible
                 if not psk[0]:
@@ -771,20 +794,26 @@ class TLSConnection(TLSRecordLayer):
                 # create fake binder values to create correct length fields
                 binders.append(bytearray(32 if psk_hash == 'sha256' else 48))
 
-            ext.create(idens, binders)
-            clientHello.extensions.append(ext)
+            if idens:
+                ext.create(idens, binders)
+                clientHello.extensions.append(ext)
 
-            # for HRR case we'll need 1st CH and HRR in handshake hashes, so
-            # pass them in, truncated CH will be added by the helpers to
-            # the copy of the hashes
-            HandshakeHelpers.update_binders(clientHello, self._handshake_hash,
-                                            settings.pskConfigs)
+                # for HRR case we'll need 1st CH and HRR in handshake hashes,
+                # so pass them in, truncated CH will be added by the helpers to
+                # the copy of the hashes
+                HandshakeHelpers.update_binders(clientHello,
+                                                self._handshake_hash,
+                                                settings.pskConfigs,
+                                                session.tickets if session
+                                                else None,
+                                                session.resumptionMasterSecret
+                                                if session else None)
 
         for result in self._sendMsg(clientHello):
             yield result
         yield clientHello
 
-    def _clientGetServerHello(self, settings, clientHello):
+    def _clientGetServerHello(self, settings, session, clientHello):
         client_hello_hash = self._handshake_hash.copy()
         for result in self._getMsg(ContentType.handshake,
                                    HandshakeType.server_hello):
@@ -874,7 +903,11 @@ class TLSConnection(TLSRecordLayer):
                 clientHello.extensions.append(ext)
                 HandshakeHelpers.update_binders(clientHello,
                                                 self._handshake_hash,
-                                                settings.pskConfigs)
+                                                settings.pskConfigs,
+                                                session.tickets if session
+                                                else None,
+                                                session.resumptionMasterSecret
+                                                if session else None)
 
             # resend the client hello with performed changes
             ccs = ChangeCipherSpec().create()
@@ -1006,7 +1039,8 @@ class TLSConnection(TLSRecordLayer):
             return 'sha384', 48
         return 'sha256', 32
 
-    def _clientTLS13Handshake(self, settings, clientHello, serverHello):
+    def _clientTLS13Handshake(self, settings, session, clientHello,
+                              serverHello):
         """Perform TLS 1.3 handshake as a client."""
         # we have client and server hello in TLS 1.3 so we have the necessary
         # key shares to derive the handshake receive key
@@ -1027,8 +1061,16 @@ class TLSConnection(TLSRecordLayer):
         srPSK = serverHello.getExtension(ExtensionType.pre_shared_key)
         if srPSK:
             clPSK = clientHello.getExtension(ExtensionType.pre_shared_key)
-            ident = clPSK.identities[srPSK.selected].identity
-            psk = [i[1] for i in settings.pskConfigs if i[0] == ident][0]
+            ident = clPSK.identities[srPSK.selected]
+            psk = [i[1] for i in settings.pskConfigs if i[0] == ident.identity]
+            if psk:
+                psk = psk[0]
+            else:
+                psk = HandshakeHelpers.calc_res_binder_psk(
+                    ident, session.resumptionMasterSecret,
+                    session.tickets,
+                    'sha256' if len(session.resumptionMasterSecret) == 32
+                    else 'sha384')
         else:
             psk = bytearray(prf_size)
 
@@ -1204,7 +1246,7 @@ class TLSConnection(TLSRecordLayer):
         self.session.create(secret,
                             bytearray(b''),  # no session_id in TLS 1.3
                             serverHello.cipher_suite,
-                            bytearray(b''),  # no SRP
+                            None,  # no SRP
                             None,  # no client cert chain
                             certificate.certChain if certificate else None,
                             None,  # no TACK
