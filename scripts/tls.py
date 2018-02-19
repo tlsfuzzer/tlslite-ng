@@ -35,6 +35,7 @@ from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
 from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex
 from tlslite.utils.dns_utils import is_valid_hostname
+from tlslite.utils.cryptomath import getRandomBytes
 
 try:
     from tack.structures.Tack import Tack
@@ -353,6 +354,8 @@ def clientCmd(argv):
     while True:
         try:
             r = connection.recv(10240)
+            if not r:
+                break
         except socket.timeout:
             break
         except TLSAbruptCloseError:
@@ -446,6 +449,12 @@ def serverCmd(argv):
     sni = None
     if is_valid_hostname(address[0]):
         sni = address[0]
+    settings = HandshakeSettings()
+    settings.useExperimentalTackExtension=True
+    settings.dhParams = dhparam
+    if psk:
+        settings.pskConfigs = [(psk_ident, psk, psk_hash)]
+    settings.ticketKeys = [getRandomBytes(32)]
 
     class MyHTTPServer(ThreadingMixIn, TLSSocketServerMixIn, HTTPServer):
         def handshake(self, connection):
@@ -459,11 +468,6 @@ def serverCmd(argv):
 
             try:
                 start = time.clock()
-                settings = HandshakeSettings()
-                settings.useExperimentalTackExtension=True
-                settings.dhParams = dhparam
-                if psk:
-                    settings.pskConfigs = [(psk_ident, psk, psk_hash)]
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
                 connection.handshakeServer(certChain=certChain,
