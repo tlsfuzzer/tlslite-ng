@@ -342,6 +342,33 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("wrong-hash", str(e.exception))
 
+    def test_ticketCipher_invalid(self):
+        hs = HandshakeSettings()
+        hs.ticketCipher = "aes-128-cbc"
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("Invalid cipher", str(e.exception))
+
+    def test_ticketKeys_wrong_size(self):
+        hs = HandshakeSettings()
+        hs.ticketKeys = [bytearray(8)]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("encryption keys", str(e.exception))
+
+    def test_ticketLifetime_wrong(self):
+        hs = HandshakeSettings()
+        hs.ticketLifetime = 2**32
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("ticket lifetime", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
