@@ -1216,7 +1216,9 @@ class TLSConnection(TLSRecordLayer):
                             cl_app_secret=cl_app_traffic,
                             sr_app_secret=sr_app_traffic,
                             exporterMasterSecret=exporter_master_secret,
-                            resumptionMasterSecret=resumption_master_secret)
+                            resumptionMasterSecret=resumption_master_secret,
+                            # NOTE it must be a reference, not a copy!
+                            tickets=self.tickets)
 
         yield "finished"
 
