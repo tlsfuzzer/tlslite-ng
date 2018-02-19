@@ -146,7 +146,7 @@ class Session(object):
         :returns: If this session can be used for session resumption.
         """
         # TODO add checks for tickets received from server (freshness etc.)
-        return self.resumable and self.sessionID
+        return self.resumable and (self.sessionID or self.tickets)
 
     def _setResumable(self, boolean):
         #Only let it be set to True if the sessionID is non-null
