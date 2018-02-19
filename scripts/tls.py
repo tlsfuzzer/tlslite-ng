@@ -75,7 +75,7 @@ def printUsage(s=None):
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384]
+    [--psk-sha384] [--resumption]
     HOST:PORT
 
   client
@@ -124,6 +124,7 @@ def handleArgs(argv, argString, flagsList=[]):
     psk = None
     psk_ident = None
     psk_hash = 'sha256'
+    resumption = False
 
     for opt, arg in opts:
         if opt == "-k":
@@ -172,6 +173,8 @@ def handleArgs(argv, argString, flagsList=[]):
             psk_ident = arg
         elif opt == "--psk-sha384":
             psk_hash = 'sha384'
+        elif opt == "--resumption":
+            resumption = True
         else:
             assert(False)
 
@@ -223,6 +226,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(psk_ident)
     if "psk-sha384" in flagsList:
         retList.append(psk_hash)
+    if "resumption" in flagsList:
+        retList.append(resumption)
     return retList
 
 
@@ -284,8 +289,9 @@ def printExporter(connection, expLabel, expLength):
 
 def clientCmd(argv):
     (address, privateKey, certChain, username, password, expLabel,
-            expLength, alpn, psk, psk_ident, psk_hash) = \
-        handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384"])
+            expLength, alpn, psk, psk_ident, psk_hash, resumption) = \
+        handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
+                                     "resumption"])
         
     if (certChain and not privateKey) or (not certChain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -318,6 +324,67 @@ def clientCmd(argv):
                 settings=settings, serverName=address[0], alpn=alpn)
         stop = time.clock()        
         print("Handshake success")        
+    except TLSLocalAlert as a:
+        if a.description == AlertDescription.user_canceled:
+            print(str(a))
+        else:
+            raise
+        sys.exit(-1)
+    except TLSRemoteAlert as a:
+        if a.description == AlertDescription.unknown_psk_identity:
+            if username:
+                print("Unknown username")
+            else:
+                raise
+        elif a.description == AlertDescription.bad_record_mac:
+            if username:
+                print("Bad username or password")
+            else:
+                raise
+        elif a.description == AlertDescription.handshake_failure:
+            print("Unable to negotiate mutually acceptable parameters")
+        else:
+            raise
+        sys.exit(-1)
+    printGoodConnection(connection, stop-start)
+    printExporter(connection, expLabel, expLength)
+    session = connection.session
+    connection.send("GET / HTTP/1.0\r\n\r\n")
+    while True:
+        try:
+            r = connection.recv(10240)
+        except socket.timeout:
+            break
+        except TLSAbruptCloseError:
+            break
+    connection.close()
+    # we're expecting an abrupt close error which marks the session as
+    # unreasumable, override it
+    session.resumable = True
+
+    print("Received {0} ticket[s]".format(len(connection.tickets)))
+    assert connection.tickets is session.tickets
+
+    if not session.tickets:
+        return
+
+    if not resumption:
+        return
+
+    print("Trying resumption handshake")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(5)
+    sock.connect(address)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    connection = TLSConnection(sock)
+
+    try:
+        start = time.clock()
+        connection.handshakeClientCert(serverName=address[0], alpn=alpn,
+            session=session)
+        stop = time.clock()
+        print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
             print(str(a))
