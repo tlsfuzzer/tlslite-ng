@@ -65,6 +65,9 @@ class Session(object):
     :vartype resumptionMasterSecret: bytearray
     :ivar resumptionMasterSecret: master secret used for session resumption in
         TLS 1.3
+
+    :vartype tickets: list
+    :ivar tickets: list of tickets received from the server
     """
 
     def __init__(self):
@@ -85,6 +88,7 @@ class Session(object):
         self.sr_app_secret = bytearray(0)
         self.exporterMasterSecret = bytearray(0)
         self.resumptionMasterSecret = bytearray(0)
+        self.tickets = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
@@ -92,7 +96,7 @@ class Session(object):
                encryptThenMAC=False, extendedMasterSecret=False,
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
-               resumptionMasterSecret=bytearray(0)):
+               resumptionMasterSecret=bytearray(0), tickets=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -110,6 +114,8 @@ class Session(object):
         self.sr_app_secret = sr_app_secret
         self.exporterMasterSecret = exporterMasterSecret
         self.resumptionMasterSecret = resumptionMasterSecret
+        # NOTE we need a reference copy not a copy of object here!
+        self.tickets = tickets
 
     def _clone(self):
         other = Session()
@@ -130,6 +136,7 @@ class Session(object):
         other.sr_app_secret = self.sr_app_secret
         other.exporterMasterSecret = self.exporterMasterSecret
         other.resumptionMasterSecret = self.resumptionMasterSecret
+        other.tickets = self.tickets
         return other
 
     def valid(self):
