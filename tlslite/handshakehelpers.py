@@ -132,7 +132,8 @@ class HandshakeHelpers(object):
             ext.binders[i] = binder
 
     @staticmethod
-    def verify_binder(client_hello, handshake_hashes, position, secret, prf):
+    def verify_binder(client_hello, handshake_hashes, position, secret, prf,
+                      external=True):
         """Verify the PSK binder value in client hello.
 
         :param client_hello: ClientHello to verify
@@ -152,7 +153,8 @@ class HandshakeHelpers(object):
 
         binder = HandshakeHelpers._calc_binder(prf,
                                                secret,
-                                               hh)
+                                               hh,
+                                               external)
 
         if not ct_compare_digest(binder, ext.binders[position]):
             raise TLSIllegalParameterException("Binder does not verify")

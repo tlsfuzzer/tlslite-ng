@@ -2010,6 +2010,45 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsg(new_ticket):
             yield result
 
+    def _tryDecrypt(self, settings, identity):
+        if not settings.ticketKeys:
+            return
+
+        if len(identity.identity) < 13:
+            # too small for an encrypted ticket
+            return
+
+        iv, encrypted_ticket = identity.identity[:12], identity.identity[12:]
+        for key in settings.ticketKeys:
+            if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
+                cipher = createAESGCM(key, settings.cipherImplementations)
+            else:
+                cipher = createCHACHA20(key, settings.cipherImplementations)
+
+            ticket = cipher.open(iv, encrypted_ticket, b'')
+            if not ticket:
+                continue
+
+            parser = Parser(ticket)
+            try:
+                ticket = SessionTicketPayload().parse(parser)
+            except ValueError:
+                continue
+
+            prf = 'sha384' if ticket.cipher_suite \
+                in CipherSuite.sha384PrfSuites else 'sha256'
+
+            new_sess_ticket = NewSessionTicket()
+            new_sess_ticket.ticket_nonce = ticket.nonce
+            new_sess_ticket.ticket = identity.identity
+
+            psk = HandshakeHelpers.calc_res_binder_psk(identity,
+                                                       ticket.master_secret,
+                                                       [new_sess_ticket],
+                                                       prf)
+
+            return (identity.identity, psk, prf)
+
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version):
         """Perform a TLS 1.3 handshake"""
@@ -2035,12 +2074,17 @@ class TLSConnection(TLSRecordLayer):
         psk_types = clientHello.getExtension(
             ExtensionType.psk_key_exchange_modes)
         if psks and PskKeyExchangeMode.psk_dhe_ke in psk_types.modes and \
-                settings.pskConfigs:
+                (settings.pskConfigs or settings.ticketKeys):
             for i, ident in enumerate(psks.identities):
+                external = True
                 match = [j for j in settings.pskConfigs
                          if j[0] == ident.identity]
                 if not match:
-                    continue
+                    match = self._tryDecrypt(settings, ident)
+                    external = False
+                    if not match:
+                        continue
+                    match = [match]
 
                 # check if PSK can be used with selected cipher suite
                 psk_hash = match[0][2] if len(match[0]) > 2 else 'sha256'
@@ -2055,7 +2099,8 @@ class TLSConnection(TLSRecordLayer):
                         self._pre_client_hello_handshake_hash,
                         selected_psk,
                         psk,
-                        psk_hash)
+                        psk_hash,
+                        external)
                 except TLSIllegalParameterException as e:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
