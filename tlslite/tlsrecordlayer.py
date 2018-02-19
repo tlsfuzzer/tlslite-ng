@@ -12,6 +12,7 @@
 from __future__ import generators
 
 import io
+import time
 import socket
 
 from .utils.compat import *
@@ -262,6 +263,7 @@ class TLSRecordLayer(object):
                         if result in (0, 1):
                             yield result
                     if isinstance(result, NewSessionTicket):
+                        result.time = time.time()
                         self.tickets.append(result)
                         continue
                     applicationData = result
