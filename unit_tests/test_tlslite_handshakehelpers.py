@@ -9,7 +9,7 @@ try:
 except ImportError:
     import unittest
 from tlslite.handshakehelpers import HandshakeHelpers
-from tlslite.messages import ClientHello
+from tlslite.messages import ClientHello, NewSessionTicket
 from tlslite.extensions import SNIExtension, PreSharedKeyExtension, \
         PskIdentity
 from tlslite.handshakehashes import HandshakeHashes
@@ -285,6 +285,46 @@ class TestHandshakeHelpers(unittest.TestCase):
                                     b'M\x0e\xd2\xfe\xd6\x11\x07\n\x0c\xdc\xcf'
                                     b'\xee\xf43\x8e\x9b@z\x00\xbcE\xff\x15%'
                                     b'\xdc\xee\xb4\x1c\x8f\\\x03Z\xc5')])
+
+    def test_update_binders_with_ticket(self):
+        clientHello = ClientHello()
+        clientHello.create((3, 3), bytearray(32), bytearray(0), [0])
+        identities = [PskIdentity().create(bytearray(b'\x00ticket\x00ident'),
+                                           123)]
+        binders = [bytearray(48)]
+        psk_ext = PreSharedKeyExtension().create(identities, binders)
+        clientHello.extensions = [psk_ext]
+
+        ticket = NewSessionTicket().create(3600,  # ticket lifetime
+                                           123,   # age_add
+                                           bytearray(b'\xc0' * 48),  # nonce
+                                           bytearray(b'\x00ticket\x00ident'),
+                                           [])
+        hh = HandshakeHashes()
+        resum_master_secret = bytearray(b'\x01' * 48)
+
+        HandshakeHelpers.update_binders(clientHello, hh, [], [ticket],
+                                        resum_master_secret)
+
+        self.assertIsInstance(clientHello.extensions[-1],
+                              PreSharedKeyExtension)
+
+        ch_ext = clientHello.extensions[-1]
+        self.assertEqual(ch_ext.identities, identities)
+        self.assertEqual(ch_ext.binders,
+                         [bytearray(b'<\x03\xcd\xd5\xce\xaeo\x8d\xc6\x8c\xe3'
+                                    b'\xe3\xbc\xa2h\xdcm0+\xa7\xbe\xf7\x9ca-'
+                                    b'\xcc\x0c\xdb\xb2ZtE\x1e:\xe2\xc4\xb8'
+                                    b'\x1bd\x10wN\x8a\xb0\x90\x7f\xb1F')])
+
+    def test_update_binders_with_missing_secret(self):
+        clientHello = ClientHello()
+        psk = PreSharedKeyExtension()
+        clientHello.extensions = [psk]
+        hh = HandshakeHashes()
+
+        with self.assertRaises(ValueError):
+            HandshakeHelpers.update_binders(clientHello, hh, [], [None])
 
     def test_verify_binder_with_wrong_extension(self):
         clientHello = ClientHello()

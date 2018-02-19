@@ -41,7 +41,7 @@ class HandshakeHelpers(object):
             clientHello.extensions.append(paddingExtensionInstance)
 
     @staticmethod
-    def _calc_binder(prf, psk, handshake_hash):
+    def _calc_binder(prf, psk, handshake_hash, external=True):
         """
         Calculate the binder value for a given HandshakeHash (that includes
         a truncated client hello already)
@@ -51,14 +51,28 @@ class HandshakeHelpers(object):
 
         # HKDF-Extract(0, PSK)
         early_secret = secureHMAC(bytearray(key_len), psk, prf)
-        binder_key = derive_secret(early_secret, b"ext binder", None, prf)
+        if external:
+            binder_key = derive_secret(early_secret, b"ext binder", None, prf)
+        else:
+            binder_key = derive_secret(early_secret, b"res binder", None, prf)
         finished_key = HKDF_expand_label(binder_key, b"finished", b"", key_len,
                                          prf)
         binder = secureHMAC(finished_key, handshake_hash.digest(prf), prf)
         return binder
 
     @staticmethod
-    def update_binders(client_hello, handshake_hashes, psk_configs):
+    def calc_res_binder_psk(iden, resum_master_secret, tickets, ticket_hash):
+        """Calculate PSK associated with provided ticket identity."""
+        ticket = [i for i in tickets if i.ticket == iden.identity][0]
+
+        psk = HKDF_expand_label(resum_master_secret, b"resumption",
+                                ticket.ticket_nonce, len(resum_master_secret),
+                                ticket_hash)
+        return psk
+
+    @staticmethod
+    def update_binders(client_hello, handshake_hashes, psk_configs,
+                       tickets=None, resum_master_secret=None):
         """
         Sign the Client Hello using TLS 1.3 PSK binders.
 
@@ -68,32 +82,51 @@ class HandshakeHelpers(object):
         :param client_hello: ClientHello to sign
         :param handshake_hashes: hashes of messages exchanged so far
         :param psk_configs: PSK identities and secrets
+        :param tickets: optional list of tickets received from server
+        :param bytearray resum_master_secret: secret associated with the
+            tickets
         """
         ext = client_hello.extensions[-1]
         if not isinstance(ext, PreSharedKeyExtension):
             raise ValueError("Last extension in client_hello must be "
                              "PreSharedKeyExtension")
+        if tickets and not resum_master_secret:
+            raise ValueError("Tickets require setting resum_master_secret")
 
         hh = handshake_hashes.copy()
 
         hh.update(client_hello.psk_truncate())
 
         configs_iter = iter(psk_configs)
+        ticket_idens = []
+        if tickets:
+            ticket_idens = [i.ticket for i in tickets]
 
         for i, iden in enumerate(ext.identities):
-            try:
-                config = next(configs_iter)
-                while config[0] != iden.identity:
+            # identities that are tickets don't carry PSK directly
+            if iden.identity in ticket_idens:
+                binder_hash = 'sha256' if len(resum_master_secret) == 32 else \
+                    'sha384'
+                psk = HandshakeHelpers.calc_res_binder_psk(
+                    iden, resum_master_secret, tickets, binder_hash)
+                external = False
+            else:
+                try:
                     config = next(configs_iter)
-            except StopIteration:
-                raise ValueError("psk_configs don't match the "
-                                 "PreSharedKeyExtension")
+                    while config[0] != iden.identity:
+                        config = next(configs_iter)
+                except StopIteration:
+                    raise ValueError("psk_configs don't match the "
+                                     "PreSharedKeyExtension")
 
-            binder_hash = config[2] if len(config) > 2 else 'sha256'
+                binder_hash = config[2] if len(config) > 2 else 'sha256'
+                psk = config[1]
+                external = True
 
             binder = HandshakeHelpers._calc_binder(binder_hash,
-                                                   config[1],
-                                                   hh)
+                                                   psk,
+                                                   hh,
+                                                   external)
 
             # replace the fake value with calculated one
             ext.binders[i] = binder
