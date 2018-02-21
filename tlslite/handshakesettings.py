@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Dave Baggett (Arcode Corporation) - cleanup handling of constants
 #   Yngve Pettersen (ported by Paul Sokolovsky) - TLS 1.2
@@ -18,7 +18,8 @@ CIPHER_NAMES = ["chacha20-poly1305",
                 "3des"]
 ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
                                    "rc4", "null"]
-MAC_NAMES = ["sha", "sha256", "sha384", "aead"] # Don't allow "md5" by default.
+# Don't allow "md5" by default
+MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
 ALL_MAC_NAMES = MAC_NAMES + ["md5"]
 KEY_EXCHANGE_NAMES = ["rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha", "srp_sha_rsa",
                       "ecdh_anon", "dh_anon"]
@@ -38,6 +39,7 @@ ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
                       "ffdhe8192"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
+
 
 class HandshakeSettings(object):
     """
@@ -194,35 +196,48 @@ class HandshakeSettings(object):
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
         in seconds. 1 day by default
     """
-    def __init__(self):
+
+    def _init_key_settings(self):
+        """Create default variables for key-related settings."""
         self.minKeySize = 1023
         self.maxKeySize = 8193
-        self.cipherNames = list(CIPHER_NAMES)
-        self.macNames = list(MAC_NAMES)
-        self.keyExchangeNames = list(KEY_EXCHANGE_NAMES)
-        self.cipherImplementations = list(CIPHER_IMPLEMENTATIONS)
-        self.certificateTypes = list(CERTIFICATE_TYPES)
-        self.minVersion = (3, 1)
-        self.maxVersion = (3, 4)
-        self.versions = [TLS_1_3_DRAFT, (3, 3), (3, 2), (3, 1)]
-        self.useExperimentalTackExtension = False
-        self.sendFallbackSCSV = False
-        self.useEncryptThenMAC = True
         self.rsaSigHashes = list(RSA_SIGNATURE_HASHES)
         self.rsaSchemes = list(RSA_SCHEMES)
+        # DH key settings
         self.eccCurves = list(CURVE_NAMES)
-        self.usePaddingExtension = True
-        self.useExtendedMasterSecret = True
-        self.requireExtendedMasterSecret = False
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
         self.defaultCurve = "secp256r1"
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
+
+    def _init_misc_extensions(self):
+        """Default variables for assorted extensions."""
+        self.certificateTypes = list(CERTIFICATE_TYPES)
+        self.useExperimentalTackExtension = False
+        self.sendFallbackSCSV = False
+        self.useEncryptThenMAC = True
+        self.usePaddingExtension = True
+        self.useExtendedMasterSecret = True
+        self.requireExtendedMasterSecret = False
+        # PSKs
         self.pskConfigs = []
+        # session tickets
         self.ticketKeys = []
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
+
+    def __init__(self):
+        """Initialise default values for settings."""
+        self._init_key_settings()
+        self._init_misc_extensions()
+        self.minVersion = (3, 1)
+        self.maxVersion = (3, 4)
+        self.versions = [TLS_1_3_DRAFT, (3, 3), (3, 2), (3, 1)]
+        self.cipherNames = list(CIPHER_NAMES)
+        self.macNames = list(MAC_NAMES)
+        self.keyExchangeNames = list(KEY_EXCHANGE_NAMES)
+        self.cipherImplementations = list(CIPHER_IMPLEMENTATIONS)
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -239,60 +254,65 @@ class HandshakeSettings(object):
             raise ValueError("maxKeySize smaller than minKeySize")
 
     @staticmethod
-    def _sanityCheckPrimitivesNames(other):
-        """Check if specified cryptographic primitive names are known"""
-        unknownCiphers = [val for val in other.cipherNames \
-                          if val not in ALL_CIPHER_NAMES]
-        if unknownCiphers:
-            raise ValueError("Unknown cipher name: %s" % unknownCiphers)
+    def _not_matching(values, sieve):
+        """Return list of items from values that are not in sieve."""
+        return [val for val in values if val not in sieve]
 
-        unknownMacs = [val for val in other.macNames \
-                       if val not in ALL_MAC_NAMES]
-        if unknownMacs:
-            raise ValueError("Unknown MAC name: %s" % unknownMacs)
+    @staticmethod
+    def _sanityCheckCipherSettings(other):
+        """Check if specified cipher settings are known."""
+        not_matching = HandshakeSettings._not_matching
+        unknownCiph = not_matching(other.cipherNames, ALL_CIPHER_NAMES)
+        if unknownCiph:
+            raise ValueError("Unknown cipher name: {0}".format(unknownCiph))
 
-        unknownKex = [val for val in other.keyExchangeNames \
-                      if val not in KEY_EXCHANGE_NAMES]
+        unknownMac = not_matching(other.macNames, ALL_MAC_NAMES)
+        if unknownMac:
+            raise ValueError("Unknown MAC name: {0}".format(unknownMac))
+
+        unknownKex = not_matching(other.keyExchangeNames, KEY_EXCHANGE_NAMES)
         if unknownKex:
-            raise ValueError("Unknown key exchange name: %s" % unknownKex)
+            raise ValueError("Unknown key exchange name: {0}"
+                             .format(unknownKex))
 
-        unknownImpl = [val for val in other.cipherImplementations \
-                       if val not in CIPHER_IMPLEMENTATIONS]
+        unknownImpl = not_matching(other.cipherImplementations,
+                                   CIPHER_IMPLEMENTATIONS)
         if unknownImpl:
-            raise ValueError("Unknown cipher implementation: %s" % \
-                             unknownImpl)
+            raise ValueError("Unknown cipher implementation: {0}"
+                             .format(unknownImpl))
 
-        unknownType = [val for val in other.certificateTypes \
-                       if val not in CERTIFICATE_TYPES]
-        if unknownType:
-            raise ValueError("Unknown certificate type: %s" % unknownType)
+    @staticmethod
+    def _sanityCheckECDHSettings(other):
+        """Check ECDHE settings if they are sane."""
+        not_matching = HandshakeSettings._not_matching
 
-        unknownCurve = [val for val in other.eccCurves \
-                        if val not in ALL_CURVE_NAMES]
+        unknownCurve = not_matching(other.eccCurves, ALL_CURVE_NAMES)
         if unknownCurve:
-            raise ValueError("Unknown ECC Curve name: {0}".format(unknownCurve))
+            raise ValueError("Unknown ECC Curve name: {0}"
+                             .format(unknownCurve))
 
         if other.defaultCurve not in ALL_CURVE_NAMES:
             raise ValueError("Unknown default ECC Curve name: {0}"
                              .format(other.defaultCurve))
 
-        unknownSigHash = [val for val in other.rsaSigHashes \
-                          if val not in ALL_RSA_SIGNATURE_HASHES]
-        if unknownSigHash:
-            raise ValueError("Unknown RSA signature hash: '{0}'".\
-                             format(unknownSigHash))
+        nonAdvertisedGroup = [val for val in other.keyShares
+                              if val not in other.eccCurves and
+                              val not in other.dhGroups]
+        if nonAdvertisedGroup:
+            raise ValueError("Key shares for not enabled groups specified: {0}"
+                             .format(nonAdvertisedGroup))
 
-        unknownRSAPad = [val for val in other.rsaSchemes
-                         if val not in RSA_SCHEMES]
-        if unknownRSAPad:
-            raise ValueError("Unknown RSA padding mode: '{0}'".\
-                             format(unknownRSAPad))
-
-        unknownDHGroup = [val for val in other.dhGroups
-                          if val not in ALL_DH_GROUP_NAMES]
+        unknownDHGroup = not_matching(other.dhGroups, ALL_DH_GROUP_NAMES)
         if unknownDHGroup:
             raise ValueError("Unknown FFDHE group name: '{0}'"
                              .format(unknownDHGroup))
+
+    @staticmethod
+    def _sanityCheckDHSettings(other):
+        """Check if (EC)DHE settings are sane."""
+        not_matching = HandshakeSettings._not_matching
+
+        HandshakeSettings._sanityCheckECDHSettings(other)
 
         unknownKeyShare = [val for val in other.keyShares
                            if val not in ALL_DH_GROUP_NAMES and
@@ -301,12 +321,37 @@ class HandshakeSettings(object):
             raise ValueError("Unknown key share: '{0}'"
                              .format(unknownKeyShare))
 
-        nonAdvertisedGroup = [val for val in other.keyShares
-                              if val not in other.eccCurves and
-                              val not in other.dhGroups]
-        if nonAdvertisedGroup:
-            raise ValueError("Key shares for not enabled groups specified: {0}"
-                             .format(nonAdvertisedGroup))
+        if other.dhParams and (len(other.dhParams) != 2 or
+                               not isinstance(other.dhParams[0], int_types) or
+                               not isinstance(other.dhParams[1], int_types)):
+            raise ValueError("DH parameters need to be a tuple of integers")
+
+    @staticmethod
+    def _sanityCheckPrimitivesNames(other):
+        """Check if specified cryptographic primitive names are known"""
+        HandshakeSettings._sanityCheckCipherSettings(other)
+        HandshakeSettings._sanityCheckDHSettings(other)
+
+        not_matching = HandshakeSettings._not_matching
+
+        unknownType = not_matching(other.certificateTypes, CERTIFICATE_TYPES)
+        if unknownType:
+            raise ValueError("Unknown certificate type: {0}"
+                             .format(unknownType))
+
+        unknownSigHash = not_matching(other.rsaSigHashes,
+                                      ALL_RSA_SIGNATURE_HASHES)
+        if unknownSigHash:
+            raise ValueError("Unknown RSA signature hash: '{0}'"
+                             .format(unknownSigHash))
+
+        unknownRSAPad = not_matching(other.rsaSchemes, RSA_SCHEMES)
+        if unknownRSAPad:
+            raise ValueError("Unknown RSA padding mode: '{0}'"
+                             .format(unknownRSAPad))
+
+        if not other.rsaSigHashes and other.maxVersion >= (3, 3):
+            raise ValueError("TLS 1.2 requires signature algorithms to be set")
 
     @staticmethod
     def _sanityCheckProtocolVersions(other):
@@ -322,30 +367,42 @@ class HandshakeSettings(object):
             other.versions = [i for i in other.versions if i < (3, 4)]
 
     @staticmethod
-    def _sanityCheckExtensions(other):
-        """Check if set extension settings are sane"""
-        if other.useEncryptThenMAC not in (True, False):
-            raise ValueError("useEncryptThenMAC can only be True or False")
-
+    def _sanityCheckEMSExtension(other):
+        """Check if settings for EMS are sane."""
         if other.useExtendedMasterSecret not in (True, False):
             raise ValueError("useExtendedMasterSecret must be True or False")
         if other.requireExtendedMasterSecret not in (True, False):
             raise ValueError("requireExtendedMasterSecret must be True "
                              "or False")
         if other.requireExtendedMasterSecret and \
-            not other.useExtendedMasterSecret:
+                not other.useExtendedMasterSecret:
             raise ValueError("requireExtendedMasterSecret requires "
                              "useExtendedMasterSecret")
+
+    @staticmethod
+    def _sanityCheckExtensions(other):
+        """Check if set extension settings are sane"""
+        if other.useEncryptThenMAC not in (True, False):
+            raise ValueError("useEncryptThenMAC can only be True or False")
 
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+        HandshakeSettings._sanityCheckEMSExtension(other)
+
+    @staticmethod
+    def _not_allowed_len(values, sieve):
+        """Return True if length of any item in values is not in sieve."""
+        sieve = set(sieve)
+        return any(len(i) not in sieve for i in values)
+
     @staticmethod
     def _sanityCheckPsks(other):
         """Check if the set PSKs are sane."""
-        if any(len(i) not in set([2, 3]) for i in other.pskConfigs):
+        if HandshakeSettings._not_allowed_len(other.pskConfigs, [2, 3]):
             raise ValueError("pskConfigs items must be a 2 or 3-element"
                              "tuples")
+
         badHashes = [i[2] for i in other.pskConfigs if
                      len(i) == 3 and i[2] not in set(['sha256', 'sha384'])]
         if badHashes:
@@ -359,13 +416,74 @@ class HandshakeSettings(object):
             raise ValueError("Invalid cipher for session ticket encryption: "
                              "{0}".format(other.ticketCipher))
 
-        if any(len(i) not in set([16, 32]) for i in other.ticketKeys):
-            raise ValueError("session ticket encryption keys must be 16 or 32"
+        if HandshakeSettings._not_allowed_len(other.ticketKeys, [16, 32]):
+            raise ValueError("Session ticket encryption keys must be 16 or 32"
                              "bytes long")
 
         if not 0 < other.ticketLifetime <= 7 * 24 * 60 * 60:
-            raise ValueError("ticket lifetime must be a positive integer "
+            raise ValueError("Ticket lifetime must be a positive integer "
                              "smaller or equal 604800 (7 days)")
+
+    def _copy_cipher_settings(self, other):
+        """Copy values related to cipher selection."""
+        other.cipherNames = self.cipherNames
+        other.macNames = self.macNames
+        other.keyExchangeNames = self.keyExchangeNames
+        other.cipherImplementations = self.cipherImplementations
+        other.minVersion = self.minVersion
+        other.maxVersion = self.maxVersion
+        other.versions = self.versions
+
+    def _copy_extension_settings(self, other):
+        """Copy values of settings related to extensions."""
+        other.useExtendedMasterSecret = self.useExtendedMasterSecret
+        other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
+        other.sendFallbackSCSV = self.sendFallbackSCSV
+        other.useEncryptThenMAC = self.useEncryptThenMAC
+        other.usePaddingExtension = self.usePaddingExtension
+        # session tickets
+        other.padding_cb = self.padding_cb
+        other.ticketKeys = self.ticketKeys
+        other.ticketCipher = self.ticketCipher
+        other.ticketLifetime = self.ticketLifetime
+
+    @staticmethod
+    def _remove_all_matches(values, needle):
+        """Remove all instances of needle from values."""
+        values[:] = (i for i in values if i != needle)
+
+    def _sanity_check_ciphers(self, other):
+        """Remove unsupported ciphers in current configuration."""
+        if not cipherfactory.tripleDESPresent:
+            other.cipherNames = other.cipherNames[:]
+            self._remove_all_matches(other.cipherNames, "3des")
+
+        if not other.cipherNames:
+            raise ValueError("No supported ciphers")
+
+    def _sanity_check_implementations(self, other):
+        """Remove all backends that are not loaded."""
+        if not cryptomath.m2cryptoLoaded:
+            self._remove_all_matches(other.cipherImplementations, "openssl")
+        if not cryptomath.pycryptoLoaded:
+            self._remove_all_matches(other.cipherImplementations, "pycrypto")
+
+        if not other.cipherImplementations:
+            raise ValueError("No supported cipher implementations")
+
+    def _copy_key_settings(self, other):
+        """Copy key-related settings."""
+        other.minKeySize = self.minKeySize
+        other.maxKeySize = self.maxKeySize
+        other.certificateTypes = self.certificateTypes
+        other.rsaSigHashes = self.rsaSigHashes
+        other.rsaSchemes = self.rsaSchemes
+        # DH key params
+        other.eccCurves = self.eccCurves
+        other.dhParams = self.dhParams
+        other.dhGroups = self.dhGroups
+        other.defaultCurve = self.defaultCurve
+        other.keyShares = self.keyShares
 
     def validate(self):
         """
@@ -377,49 +495,15 @@ class HandshakeSettings(object):
         :raises ValueError: when settings are invalid, insecure or unsupported.
         """
         other = HandshakeSettings()
-        other.minKeySize = self.minKeySize
-        other.maxKeySize = self.maxKeySize
-        other.cipherNames = self.cipherNames
-        other.macNames = self.macNames
-        other.keyExchangeNames = self.keyExchangeNames
-        other.cipherImplementations = self.cipherImplementations
-        other.certificateTypes = self.certificateTypes
-        other.minVersion = self.minVersion
-        other.maxVersion = self.maxVersion
-        other.sendFallbackSCSV = self.sendFallbackSCSV
-        other.useEncryptThenMAC = self.useEncryptThenMAC
-        other.usePaddingExtension = self.usePaddingExtension
-        other.rsaSigHashes = self.rsaSigHashes
-        other.rsaSchemes = self.rsaSchemes
-        other.eccCurves = self.eccCurves
-        other.useExtendedMasterSecret = self.useExtendedMasterSecret
-        other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
-        other.dhParams = self.dhParams
-        other.dhGroups = self.dhGroups
-        other.defaultCurve = self.defaultCurve
-        other.padding_cb = self.padding_cb
-        other.versions = self.versions
-        other.keyShares = self.keyShares
+
+        self._copy_cipher_settings(other)
+        self._copy_extension_settings(other)
+        self._copy_key_settings(other)
+
         other.pskConfigs = self.pskConfigs
-        other.ticketKeys = self.ticketKeys
-        other.ticketCipher = self.ticketCipher
-        other.ticketLifetime = self.ticketLifetime
 
-        if not cipherfactory.tripleDESPresent:
-            other.cipherNames = [i for i in self.cipherNames if i != "3des"]
-        if len(other.cipherNames) == 0:
-            raise ValueError("No supported ciphers")
-        if len(other.certificateTypes) == 0:
+        if not other.certificateTypes:
             raise ValueError("No supported certificate types")
-
-        if not cryptomath.m2cryptoLoaded:
-            other.cipherImplementations = \
-                [e for e in other.cipherImplementations if e != "openssl"]
-        if not cryptomath.pycryptoLoaded:
-            other.cipherImplementations = \
-                [e for e in other.cipherImplementations if e != "pycrypto"]
-        if len(other.cipherImplementations) == 0:
-            raise ValueError("No supported cipher implementations")
 
         self._sanityCheckKeySizes(other)
 
@@ -429,22 +513,17 @@ class HandshakeSettings(object):
 
         self._sanityCheckExtensions(other)
 
-        if other.maxVersion < (3,3):
+        if other.maxVersion < (3, 3):
             # No sha-2 and AEAD pre TLS 1.2
-            other.macNames = [e for e in self.macNames if \
+            other.macNames = [e for e in self.macNames if
                               e == "sha" or e == "md5"]
-
-        if len(other.rsaSigHashes) == 0 and other.maxVersion >= (3, 3):
-            raise ValueError("TLS 1.2 requires signature algorithms to be set")
-
-        if other.dhParams and (len(other.dhParams) != 2 or
-                               not isinstance(other.dhParams[0], int_types) or
-                               not isinstance(other.dhParams[1], int_types)):
-            raise ValueError("DH parameters need to be a tuple of integers")
 
         self._sanityCheckPsks(other)
 
         self._sanityCheckTicketSettings(other)
+
+        self._sanity_check_implementations(other)
+        self._sanity_check_ciphers(other)
 
         return other
 

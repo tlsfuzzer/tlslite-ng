@@ -367,7 +367,7 @@ class TestHandshakeSettings(unittest.TestCase):
         with self.assertRaises(ValueError) as e:
             hs.validate()
 
-        self.assertIn("ticket lifetime", str(e.exception))
+        self.assertIn("Ticket lifetime", str(e.exception))
 
 
 if __name__ == '__main__':
