@@ -29,6 +29,7 @@ from .messages import *
 from .mathtls import *
 from .handshakesettings import HandshakeSettings
 from .utils.tackwrapper import *
+from .utils.deprecations import deprecated_params
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, AECDHKeyExchange
 from .handshakehelpers import HandshakeHelpers
@@ -107,9 +108,12 @@ class TLSConnection(TLSRecordLayer):
     # Client Handshake Functions
     #*********************************************************
 
+    @deprecated_params({"async_": "async"},
+                       "'{old_name}' is a keyword in Python 3.7, use"
+                       "'{new_name}'")
     def handshakeClientAnonymous(self, session=None, settings=None,
                                  checker=None, serverName=None,
-                                 async=False):
+                                 async_=False):
         """Perform an anonymous handshake in the role of client.
 
         This function performs an SSL or TLS handshake using an
@@ -143,8 +147,8 @@ class TLSConnection(TLSRecordLayer):
         :type serverName: string
         :param serverName: The ServerNameIndication TLS Extension.
 
-        :type async: bool
-        :param async: If False, this function will block until the
+        :type async_: bool
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
@@ -152,7 +156,7 @@ class TLSConnection(TLSRecordLayer):
             the handshake operation is completed.
 
         :rtype: None or an iterable
-        :returns: If 'async' is True, a generator object will be
+        :returns: If 'async_' is True, a generator object will be
             returned.
 
         :raises socket.error: If a socket error occurs.
@@ -167,15 +171,18 @@ class TLSConnection(TLSRecordLayer):
                                                 settings=settings,
                                                 checker=checker,
                                                 serverName=serverName)
-        if async:
+        if async_:
             return handshaker
         for result in handshaker:
             pass
 
+    @deprecated_params({"async_": "async"},
+                       "'{old_name}' is a keyword in Python 3.7, use"
+                       "'{new_name}'")
     def handshakeClientSRP(self, username, password, session=None,
                            settings=None, checker=None,
                            reqTack=True, serverName=None,
-                           async=False):
+                           async_=False):
         """Perform an SRP handshake in the role of client.
 
         This function performs a TLS/SRP handshake.  SRP mutually
@@ -220,8 +227,8 @@ class TLSConnection(TLSRecordLayer):
         :type serverName: string
         :param serverName: The ServerNameIndication TLS Extension.
 
-        :type async: bool
-        :param async: If False, this function will block until the
+        :type async_: bool
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
@@ -229,7 +236,7 @@ class TLSConnection(TLSRecordLayer):
             the handshake operation is completed.
 
         :rtype: None or an iterable
-        :returns: If 'async' is True, a generator object will be
+        :returns: If 'async_' is True, a generator object will be
             returned.
 
         :raises socket.error: If a socket error occurs.
@@ -252,17 +259,20 @@ class TLSConnection(TLSRecordLayer):
         # fashion, returning 1 when it is waiting to able to write, 0 when
         # it is waiting to read.
         #
-        # If 'async' is True, the generator is returned to the caller, 
+        # If 'async_' is True, the generator is returned to the caller,
         # otherwise it is executed to completion here.  
-        if async:
+        if async_:
             return handshaker
         for result in handshaker:
             pass
 
+    @deprecated_params({"async_": "async"},
+                       "'{old_name}' is a keyword in Python 3.7, use"
+                       "'{new_name}'")
     def handshakeClientCert(self, certChain=None, privateKey=None,
                             session=None, settings=None, checker=None,
                             nextProtos=None, reqTack=True, serverName=None,
-                            async=False, alpn=None):
+                            async_=False, alpn=None):
         """Perform a certificate-based handshake in the role of client.
 
         This function performs an SSL or TLS handshake.  The server
@@ -319,8 +329,8 @@ class TLSConnection(TLSRecordLayer):
         :type serverName: string
         :param serverName: The ServerNameIndication TLS Extension.
 
-        :type async: bool
-        :param async: If False, this function will block until the
+        :type async_: bool
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
@@ -333,7 +343,7 @@ class TLSConnection(TLSRecordLayer):
             Example items in the array include b'http/1.1' or b'h2'.
 
         :rtype: None or an iterable
-        :returns: If 'async' is True, a generator object will be
+        :returns: If 'async_' is True, a generator object will be
             returned.
 
         :raises socket.error: If a socket error occurs.
@@ -356,9 +366,9 @@ class TLSConnection(TLSRecordLayer):
         # fashion, returning 1 when it is waiting to able to write, 0 when
         # it is waiting to read.
         #
-        # If 'async' is True, the generator is returned to the caller, 
-        # otherwise it is executed to completion here.                        
-        if async:
+        # If 'async_' is True, the generator is returned to the caller,
+        # otherwise it is executed to completion here.
+        if async_:
             return handshaker
         for result in handshaker:
             pass

@@ -197,7 +197,7 @@ class AsyncStateMachine:
         :param generator handshaker: A generator created by using one of the
             asynchronous handshake functions (i.e.
             :py:meth:`~.TLSConnection.handshakeServerAsync` , or
-            handshakeClientxxx(..., async=True).
+            handshakeClientxxx(..., async_=True).
         """
         try:
             self._checkAssert(0)
