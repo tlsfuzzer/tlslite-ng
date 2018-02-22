@@ -91,6 +91,7 @@ before_install:
 
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2 'isort<4.3'; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then travis_retry pip install unittest2; fi
   - if [[ $TACKPY == 'true' ]]; then travis_retry pip install tackpy; fi
   - if [[ $M2CRYPTO == 'true' ]]; then travis_retry pip install --pre m2crypto; fi
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
