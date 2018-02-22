@@ -271,6 +271,8 @@ class RecordLayer(object):
 
         self.handshake_finished = False
 
+        self.padding_cb = None
+
     @property
     def encryptThenMAC(self):
         """
@@ -518,8 +520,10 @@ class RecordLayer(object):
 
         # TLS 1.3 hides the content type of messages
         if self._is_tls13_plus() and self._writeState.encContext:
-            # TODO - add support for padding
             data += bytearray([contentType])
+            if self.padding_cb:
+                # add number of zero bytes specified by padding_cb()
+                data += bytearray(self.padding_cb(len(data), contentType))
             # in TLS 1.3 contentType is ignored by _encryptThenSeal
             contentType = ContentType.application_data
 

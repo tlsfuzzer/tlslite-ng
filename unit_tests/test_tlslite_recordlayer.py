@@ -660,6 +660,57 @@ class TestRecordLayer(unittest.TestCase):
             b'o\x9fO\x16\x07\x878]GV\xa5l\x12\xb6\x85\xb5@\x83\x94\x06\xd6'
             ))
 
+    def test_sendRecord_with_padding_tls1_3(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(0))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        def padding_cb(length, contenttype):
+            return 100
+        recordLayer.padding_cb = padding_cb
+
+        ciph = CipherSuite.TLS_CHACHA20_POLY1305_SHA256
+        recordLayer.calcTLS1_3PendingState(ciph,
+                                           bytearray(48),  # cl_traffic_sec
+                                           bytearray(48),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeWriteState()
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.sendRecord(app_data):
+            # check if non-blocking socket
+            self.assertNotIn(result, (0, 1))
+            break
+        # we expect length 121 bytes (= 0x79)
+        #     4 B of application data
+        #     1 B of content type
+        #   100 B of padding
+        #    16 B of authentication tag
+        self.assertEqual(len(sock.sent), 1)
+        self.assertEqual(sock.sent[0][:5], bytearray(
+            b'\x17' +  # application_data
+            b'\x03\x01' +  # hidden protocol version - TLS 1.x
+            b'\x00\x79'  # length
+            ))
+        self.assertEqual(sock.sent[0][5:], bytearray(
+            b"o\x9fO\x16\x07\x96\xfdHGf\x8d\xe3\x03\x1a\x93p\xb9\xf6" +
+            b"\xf1\xafK\xbc\x92\xed\xdc\xa7\x02\xb0\x0e\x1e\x00\xd6\xc2" +
+            b"\xf6\x10\xe5}\xb1T\x85om\xa4\xfa\x1aS\x1f\xab\xc6b\'\xe6f" +
+            b"\xb3\xbe\xac\xfd\xed\x06\x93\xadbGMD\xd9\xb9\xca\xf6\x8b" +
+            b"\xac\x07\x96\xe8\xd13)r\xbcNJ\x9d#YP@\x9b\x8ez\x06\xfb" +
+            b"\x8f2\x8cz\xb7\xd6IP\xfa\xeezcQ\xf3\xe2n\x82\xd1\x9f\xd1x" +
+            b"\x01x\xea\xd4ht[)\x06"
+            ))
+
     def test_sendRecord_with_malformed_inner_plaintext(self):
         # setup
         patcher = mock.patch.object(os,

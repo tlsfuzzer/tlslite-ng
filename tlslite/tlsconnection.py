@@ -436,6 +436,7 @@ class TLSConnection(TLSRecordLayer):
         if not settings:
             settings = HandshakeSettings()
         settings = settings.validate()
+        self.sock.padding_cb = settings.padding_cb
 
         if clientCertChain:
             if not isinstance(clientCertChain, X509CertChain):
@@ -1252,6 +1253,7 @@ class TLSConnection(TLSRecordLayer):
         if not settings:
             settings = HandshakeSettings()
         settings = settings.validate()
+        self.sock.padding_cb = settings.padding_cb
         
         # OK Start exchanging messages
         # ******************************
