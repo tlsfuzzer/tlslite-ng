@@ -23,6 +23,7 @@ Submodules
    tlslite.utils.constanttime
    tlslite.utils.cryptomath
    tlslite.utils.datefuncs
+   tlslite.utils.deprecations
    tlslite.utils.dns_utils
    tlslite.utils.ecc
    tlslite.utils.keyfactory
