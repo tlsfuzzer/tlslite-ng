@@ -22,7 +22,7 @@ class ASN1Type(object):
     :ivar tagClass: type's class
 
     :vartype isPrimitive: int
-    :ivar isPrimitive: equals to 1 if the type is primitive, 0 if not
+    :ivar isPrimitive: equals to 0 if the type is primitive, 1 if not
 
     :vartype tagId: int
     :ivar tagId: ANS1 tag number
