@@ -92,6 +92,27 @@ class TestDeprecatedParams(unittest.TestCase):
         self.assertIn("old_param", str(e.warning))
         self.assertIn("new_param", str(e.warning))
 
+    def test_deprecated_twice(self):
+        @deprecated_params({'param_a': 'paramA'})
+        @deprecated_params({'param_b': 'ParamB'},
+                           "{old_name} custom {new_name}")
+        def method(param_a, param_b):
+            return "{0} {1}".format(param_a, param_b)
+
+        with self.assertWarns(DeprecationWarning) as e:
+            self.assertEqual(method(paramA="aa", param_b="ZZ"), "aa ZZ")
+
+        self.assertIn("paramA", str(e.warning))
+        self.assertIn("param_a", str(e.warning))
+        self.assertNotIn("custom", str(e.warning))
+
+        with self.assertWarns(DeprecationWarning) as e:
+            self.assertEqual(method("aa", ParamB="zz"), "aa zz")
+
+        self.assertIn("ParamB", str(e.warning))
+        self.assertIn("param_b", str(e.warning))
+        self.assertIn("custom", str(e.warning))
+
 
 class TestDeprecatedFields(unittest.TestCase):
     def test_no_change(self):
