@@ -45,20 +45,19 @@ PY_VER = sys.version_info[0]
 
 # the new() method to operate this cipher
 def new(key, IV=None):
-    return Triple_des(key, IV)
+    return Python_TripleDES(key, IV)
 
 # The base class shared by des and triple des.
 class _baseDes(object):
     def __init__(self, IV=None):
         if IV:
-            IV = self._guardAgainstUnicode(IV)
+            IV = self._guard_against_unicode(IV)
         self.block_size = 8
 
         # Sanity checking of arguments.
         if IV and len(IV) != self.block_size:
-            raise ValueError("Invalid Initial Value (IV), must be \
-                a multiple of " + str(self.block_size) + " bytes")
-
+            raise ValueError("Invalid Initial Value (IV), must be "
+                             "a multiple of {0} bytes".format(self.block_size))
         self._iv = IV
 
     def getKey(self):
@@ -67,7 +66,7 @@ class _baseDes(object):
 
     def setKey(self, key):
         """Will set the crypting key for this object."""
-        key = self._guardAgainstUnicode(key)
+        key = self._guard_against_unicode(key)
         self.__key = key
 
     def getIV(self):
@@ -79,16 +78,16 @@ class _baseDes(object):
         if not IV or len(IV) != self.block_size:
             raise ValueError("Invalid Initial Value (IV), must be a \
                              multiple of " + str(self.block_size) + " bytes")
-        IV = self._guardAgainstUnicode(IV)
+        IV = self._guard_against_unicode(IV)
         self._iv = IV
 
-    def _guardAgainstUnicode(self, data):
+    def _guard_against_unicode(self, data):
         # Only accept byte strings or ascii unicode values, otherwise
         # there is no way to correctly decode the data into bytes.
         if PY_VER < 3:
             if isinstance(data, unicode):
-                raise ValueError("Can only work with bytes, \
-                                 not Unicode strings.")
+                raise ValueError("Can only work with bytes,"
+                                 "not Unicode strings.")
         else:
             if isinstance(data, str):
                 # Only accept ascii unicode values.
@@ -96,8 +95,8 @@ class _baseDes(object):
                     return data.encode('ascii')
                 except UnicodeEncodeError:
                     pass
-                raise ValueError("Can only work with encoded strings, \
-                                 not Unicode.")
+                raise ValueError("Can only work with encoded strings,"
+                                 "not Unicode.")
         return data
 
 #############################################
@@ -234,8 +233,8 @@ class Des(_baseDes):
     def __init__(self, key, IV=None):
         # Sanity checking of arguments.
         if len(key) != 8:
-            raise ValueError("Invalid DES key size. Key must be exactly \
-                             8 bytes long.")
+            raise ValueError("Invalid DES key size. Key must be exactly"
+                             "8 bytes long.")
         _baseDes.__init__(self, IV)
         self.key_size = 8
 
@@ -251,7 +250,7 @@ class Des(_baseDes):
         _baseDes.setKey(self, key)
         self.__create_sub_keys()
 
-    def __String_to_BitList(self, data):
+    def __string_to_bitlist(self, data):
         """Turn the string data, into a list of bits (1, 0)'s"""
         if PY_VER < 3:
             # Turn the strings into integers. Python 3 uses a bytes
@@ -272,7 +271,7 @@ class Des(_baseDes):
 
         return result
 
-    def __BitList_to_String(self, data):
+    def __bitlist_to_string(self, data):
         """Turn the list of bits -> data, into a string"""
         result = []
         pos = 0
@@ -298,7 +297,7 @@ class Des(_baseDes):
     def __create_sub_keys(self):
         """Create the 16 subkeys K[1] to K[16] from the given key"""
         key = self.__permutate(Des.__pc1,
-                               self.__String_to_BitList(self.getKey()))
+                               self.__string_to_bitlist(self.getKey()))
         i = 0
         # Split into Left and Right sections
         self.L = key[:28]
@@ -392,16 +391,14 @@ class Des(_baseDes):
             return ''
         if len(data) % self.block_size != 0:
             if crypt_type == Des.DECRYPT:  # Decryption work on 8 byte blocks
-                raise ValueError("Invalid data length, data must be \
-                                 a multiple of " + str(self.block_size) + " \
-                                 bytes\n.")
-            # print "Len of data: %f" % (len(data) / self.block_size)
+                raise ValueError("Invalid data length, must be "
+                                 "a multiple of {0} bytes".format(self.block_size))
 
         if self.getIV():
-            iv = self.__String_to_BitList(self.getIV())
+            iv = self.__string_to_bitlist(self.getIV())
         else:
-            raise ValueError("For CBC mode, you must supply the \
-                             Initial Value (IV) for ciphering")
+            raise ValueError("For CBC mode, you must supply the"
+                             "Initial Value (IV) for ciphering")
 
         # Split the data into blocks, crypting each one seperately
         i = 0
@@ -409,7 +406,7 @@ class Des(_baseDes):
         result = []
         while i < len(data):
             # Test code for caching encryption results
-            block = self.__String_to_BitList(data[i:i+8])
+            block = self.__string_to_bitlist(data[i:i+8])
 
             # Xor with IV if using CBC mode
             if crypt_type == Des.ENCRYPT:
@@ -425,7 +422,7 @@ class Des(_baseDes):
                 iv = processed_block
 
             # Add the resulting crypted block to our list
-            result.append(self.__BitList_to_String(processed_block))
+            result.append(self.__bitlist_to_string(processed_block))
             i += 8
 
         # print "Lines: %d, cached: %d" % (lines, cached)
@@ -444,7 +441,7 @@ class Des(_baseDes):
         The data must be a multiple of 8 bytes and will be encrypted
         with the already specified key.
         """
-        data = self._guardAgainstUnicode(data)
+        data = self._guard_against_unicode(data)
         data = self.crypt(data, Des.ENCRYPT)
         return data
 
@@ -456,14 +453,14 @@ class Des(_baseDes):
         The data must be a multiple of 8 bytes and will be decrypted
         with the already specified key.
         """
-        data = self._guardAgainstUnicode(data)
+        data = self._guard_against_unicode(data)
         data = self.crypt(data, Des.DECRYPT)
         return data
 
 #############################################
 #               Triple DES                  #
 #############################################
-class Triple_des(_baseDes):
+class Python_TripleDES(_baseDes):
     """Triple DES encryption/decrytpion class
 
     This algorithm uses the DES-EDE3 (when a 24 byte key is supplied) or
@@ -477,8 +474,12 @@ class Triple_des(_baseDes):
     IV   -> Optional Initial Value bytes, must be supplied if using CBC mode.
             Must be 8 bytes in length.
     """
-    def __init__(self, key, IV=None):
+    def __init__(self, key=0, IV=None):
         _baseDes.__init__(self, IV)
+        if key == 0:
+          key = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00' +
+                          b'\x00\x00\x00\x00\x00\x00\x00\x00' +
+                          b'\x00\x00\x00\x00\x00\x00\x00\x00')
         self.setKey(key)
 
     def setKey(self, key):
@@ -488,8 +489,8 @@ class Triple_des(_baseDes):
             if len(key) == 16:  # Use DES-EDE2 mode
                 self.key_size = 16
             else:
-                raise ValueError("Invalid triple DES key size. \
-                                 Key must be either 16 or 24 bytes long")
+                raise ValueError("Invalid triple DES key size."
+                                 "Key must be either 16 or 24 bytes long")
 
         if not self.getIV():
             # Use the first 8 bytes of the key
@@ -522,7 +523,7 @@ class Triple_des(_baseDes):
         """
         ENCRYPT = Des.ENCRYPT
         DECRYPT = Des.DECRYPT
-        data = self._guardAgainstUnicode(data)
+        data = self._guard_against_unicode(data)
 
         # Pad the data accordingly.
         self.__key1.setIV(self.getIV())
@@ -554,7 +555,7 @@ class Triple_des(_baseDes):
         """
         ENCRYPT = Des.ENCRYPT
         DECRYPT = Des.DECRYPT
-        data = self._guardAgainstUnicode(data)
+        data = self._guard_against_unicode(data)
 
         self.__key1.setIV(self.getIV())
         self.__key2.setIV(self.getIV())
