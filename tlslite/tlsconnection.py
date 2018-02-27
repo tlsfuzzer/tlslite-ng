@@ -113,7 +113,7 @@ class TLSConnection(TLSRecordLayer):
 
     def handshakeClientAnonymous(self, session=None, settings=None,
                                  checker=None, serverName=None,
-                                 async=False):
+                                 async_=False):
         """Perform an anonymous handshake in the role of client.
 
         This function performs an SSL or TLS handshake using an
@@ -148,7 +148,7 @@ class TLSConnection(TLSRecordLayer):
         :param serverName: The ServerNameIndication TLS Extension.
 
         :type async: bool
-        :param async: If False, this function will block until the
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
@@ -179,7 +179,7 @@ class TLSConnection(TLSRecordLayer):
     def handshakeClientSRP(self, username, password, session=None,
                            settings=None, checker=None,
                            reqTack=True, serverName=None,
-                           async=False):
+                           async_=False):
         """Perform an SRP handshake in the role of client.
 
         This function performs a TLS/SRP handshake.  SRP mutually
@@ -225,7 +225,7 @@ class TLSConnection(TLSRecordLayer):
         :param serverName: The ServerNameIndication TLS Extension.
 
         :type async: bool
-        :param async: If False, this function will block until the
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
@@ -266,7 +266,7 @@ class TLSConnection(TLSRecordLayer):
     def handshakeClientCert(self, certChain=None, privateKey=None,
                             session=None, settings=None, checker=None,
                             nextProtos=None, reqTack=True, serverName=None,
-                            async=False, alpn=None):
+                            async_=False, alpn=None):
         """Perform a certificate-based handshake in the role of client.
 
         This function performs an SSL or TLS handshake.  The server
@@ -324,7 +324,7 @@ class TLSConnection(TLSRecordLayer):
         :param serverName: The ServerNameIndication TLS Extension.
 
         :type async: bool
-        :param async: If False, this function will block until the
+        :param async_: If False, this function will block until the
             handshake is completed.  If True, this function will return a
             generator.  Successive invocations of the generator will
             return 0 if it is waiting to read from the socket, 1 if it is
