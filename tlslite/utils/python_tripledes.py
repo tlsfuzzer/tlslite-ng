@@ -10,83 +10,75 @@
 #
 # Modified by: Adam Varga, 2018
 #
-# Triple DES class is implemented by utilising the DES base. Triple DES
-# is DES-EDE3 with a 24 byte key, or DES-EDE2 with a 16 byte key.
-"""
-A pure python implementation of the DES and TRIPLE DES
-encryption algorithms using CBC mode.
+# A pure python implementation of the DES and Triple DES
+# encryption algorithms using CBC mode. Triple DES class is 
+# implemented by utilising the DES base. Triple DES is 
+# DES-EDE3 with a 24 byte key, or DES-EDE2 with a 16 byte key.
 
+"""
 Class initialization
 --------------------
-pyDes.Des(key, [IV])
-pyDes.Triple_des(key, [IV])
+pyDes.Des(key, [iv])
+pyDes.Triple_des(key, [iv])
 
 key -> Bytes containing the encryption key. 8 bytes for DES, 16 or 24 bytes
        for Triple DES
-IV  -> Optional Initial Value bytes, must be supplied if using CBC mode.
+iv  -> Optional Initial Value bytes, must be supplied if using CBC mode.
        Length must be 8 bytes.
-
-Common methods
---------------
-encrypt(data)
-decrypt(data)
-
-data   -> Bytes to be encrypted/decrypted
 """
 
 import sys
-# from tripledes import _baseDes
-# from tripledes import DES
-# from tripledes import TripleDES
-
-
 # PY_VER is used to handle Python2 and Python3 differences.
-PY_VER = sys.version_info[0]
+PY_VER = (sys.version_info[0], )
 
 # the new() method to operate this cipher
-def new(key, IV=None):
-    return Python_TripleDES(key, IV)
+def new(key, iv=None):
+    return Python_TripleDES(key, iv)
 
 # The base class shared by des and triple des.
 class _baseDes(object):
-    def __init__(self, IV=None):
-        if IV:
-            IV = self._guard_against_unicode(IV)
+    def __init__(self, iv=None):
+        if iv:
+            iv = self._guard_against_unicode(iv)
         self.block_size = 8
 
         # Sanity checking of arguments.
-        if IV and len(IV) != self.block_size:
-            raise ValueError("Invalid Initial Value (IV), must be "
-                             "a multiple of {0} bytes".format(self.block_size))
-        self._iv = IV
+        if iv and len(iv) != self.block_size:
+            raise ValueError("Invalid Initial Value (iv), must be a "
+                             "multiple of {0} bytes".format(self.block_size))
+        self._iv = iv
 
-    def getKey(self):
-        """getKey() -> bytes"""
+    @property
+    def key(self):
+        # return bytes
         return self.__key
 
-    def setKey(self, key):
-        """Will set the crypting key for this object."""
+    @key.setter
+    def key(self, key):
+        # Set the crypting key for this object
         key = self._guard_against_unicode(key)
         self.__key = key
 
-    def getIV(self):
-        """getIV() -> bytes"""
+    @property
+    def iv(self):
+        # return bytes
         return self._iv
 
-    def setIV(self, IV):
-        """Will set the Initial Value, used in conjunction with CBC mode"""
-        if not IV or len(IV) != self.block_size:
-            raise ValueError("Invalid Initial Value (IV), must be a \
-                             multiple of " + str(self.block_size) + " bytes")
-        IV = self._guard_against_unicode(IV)
-        self._iv = IV
+    @iv.setter
+    def iv(self, iv):
+        # Set the Initial Value
+        if not iv or len(iv) != self.block_size:
+            raise ValueError("Invalid Initial Value (iv), must be a "
+                             "multiple of {0} bytes".format(self.block_size))
+        iv = self._guard_against_unicode(iv)
+        self._iv = iv
 
     def _guard_against_unicode(self, data):
         # Only accept byte strings or ascii unicode values, otherwise
         # there is no way to correctly decode the data into bytes.
-        if PY_VER < 3:
+        if PY_VER < (3, ):
             if isinstance(data, unicode):
-                raise ValueError("Can only work with bytes,"
+                raise ValueError("Can only work with bytes, "
                                  "not Unicode strings.")
         else:
             if isinstance(data, str):
@@ -95,7 +87,7 @@ class _baseDes(object):
                     return data.encode('ascii')
                 except UnicodeEncodeError:
                     pass
-                raise ValueError("Can only work with encoded strings,"
+                raise ValueError("Can only work with encoded strings, "
                                  "not Unicode.")
         return data
 
@@ -107,10 +99,10 @@ class Des(_baseDes):
 
     Supports CBC (Cypher Block Chaining) mode.
 
-    pyDes.des(key, [IV])
+    pyDes.des(key, [iv])
 
     key  -> Bytes containing the encryption key, must be exactly 8 bytes
-    IV   -> Optional Initial Value bytes, must be supplied if using CBC mode.
+    iv   -> Optional Initial Value bytes, must be supplied if using CBC mode.
         Must be 8 bytes in length.
     """
 
@@ -159,7 +151,7 @@ class Des(_baseDes):
                          27, 28, 29, 30, 31, 0]
 
     # The (in)famous S-boxes
-    __sbox = [# S1
+    __sbox = [  # S1
               [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7,
                0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8,
                4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0,
@@ -230,12 +222,12 @@ class Des(_baseDes):
     DECRYPT = 0x01
 
     # Initialisation
-    def __init__(self, key, IV=None):
+    def __init__(self, key, iv=None):
         # Sanity checking of arguments.
         if len(key) != 8:
-            raise ValueError("Invalid DES key size. Key must be exactly"
+            raise ValueError("Invalid DES key size. Key must be exactly "
                              "8 bytes long.")
-        _baseDes.__init__(self, IV)
+        _baseDes.__init__(self, iv)
         self.key_size = 8
 
         self.L = []
@@ -247,12 +239,12 @@ class Des(_baseDes):
 
     def setKey(self, key):
         """Will set the crypting key for this object. Must be 8 bytes."""
-        _baseDes.setKey(self, key)
+        _baseDes.key = key
         self.__create_sub_keys()
 
     def __string_to_bitlist(self, data):
         """Turn the string data, into a list of bits (1, 0)'s"""
-        if PY_VER < 3:
+        if PY_VER < (3, ):
             # Turn the strings into integers. Python 3 uses a bytes
             # class, which already has this behaviour.
             data = [ord(c) for c in data]
@@ -283,40 +275,35 @@ class Des(_baseDes):
                 c = 0
             pos += 1
 
-        if PY_VER < 3:
+        if PY_VER < (3, ):
             return ''.join([chr(c) for c in result])
         else:
             return bytes(result)
 
     def __permutate(self, table, block):
         """Permutate this block with the specified table"""
-        return list(map(lambda x: block[x], table))
+        return [block[x] for x in table]
 
     # Transform the secret key, so that it is ready for data processing
     # Create the 16 subkeys, K[1] - K[16]
     def __create_sub_keys(self):
         """Create the 16 subkeys K[1] to K[16] from the given key"""
         key = self.__permutate(Des.__pc1,
-                               self.__string_to_bitlist(self.getKey()))
-        i = 0
+                               self.__string_to_bitlist(self.key))
         # Split into Left and Right sections
         self.L = key[:28]
         self.R = key[28:]
-        while i < 16:
+        for i in range(16):
             j = 0
             # Perform circular left shifts
-            while j < Des.__left_rotations[i]:
+            for j in range(Des.__left_rotations[i]):
                 self.L.append(self.L[0])
                 del self.L[0]
                 self.R.append(self.R[0])
                 del self.R[0]
 
-                j += 1
-
             # Create one of the 16 subkeys through pc2 permutation
             self.Kn[i] = self.__permutate(Des.__pc2, self.L + self.R)
-
-            i += 1
 
     # Main part of the encryption algorithm, the number cruncher :)
     def __des_crypt(self, block, crypt_type):
@@ -334,8 +321,7 @@ class Des(_baseDes):
             iteration = 15
             iteration_adjustment = -1
 
-        i = 0
-        while i < 16:
+        for i in range(16):
             # Make a copy of R[i-1], this will later become L[i]
             tempR = self.R[:]
 
@@ -343,15 +329,14 @@ class Des(_baseDes):
             self.R = self.__permutate(Des.__expansion_table, self.R)
 
             # Exclusive or R[i - 1] with K[i], create B[1] to B[8] whilst here
-            self.R = list(map(lambda x, y: x ^ y, self.R, self.Kn[iteration]))
+            self.R = [x ^ y for x, y in zip(self.R, self.Kn[iteration])]
             B = [self.R[:6], self.R[6:12], self.R[12:18], self.R[18:24],
                  self.R[24:30], self.R[30:36], self.R[36:42], self.R[42:]]
 
             # Permutate B[1] to B[8] using the S-Boxes
-            j = 0
-            Bn = [0] * 32
+            bn = [0] * 32
             pos = 0
-            while j < 8:
+            for j in range(8):
                 # Work out the offsets
                 m = (B[j][0] << 1) + B[j][5]
                 n = (B[j][1] << 3) + (B[j][2] << 2) + (B[j][3] << 1) + B[j][4]
@@ -359,23 +344,21 @@ class Des(_baseDes):
                 # Find the permutation value
                 v = Des.__sbox[j][(m << 4) + n]
 
-                # Turn value into bits, add it to result: Bn
-                Bn[pos] = (v & 8) >> 3
-                Bn[pos + 1] = (v & 4) >> 2
-                Bn[pos + 2] = (v & 2) >> 1
-                Bn[pos + 3] = v & 1
+                # Turn value into bits, add it to result: bn
+                bn[pos] = (v & 8) >> 3
+                bn[pos + 1] = (v & 4) >> 2
+                bn[pos + 2] = (v & 2) >> 1
+                bn[pos + 3] = v & 1
 
                 pos += 4
-                j += 1
 
-            # Permutate the concatination of B[1] to B[8] (Bn)
-            self.R = self.__permutate(Des.__p, Bn)
+            # Permutate the concatination of B[1] to B[8] (bn)
+            self.R = self.__permutate(Des.__p, bn)
 
             # Xor with L[i - 1]
-            self.R = list(map(lambda x, y: x ^ y, self.R, self.L))
+            self.R = [x ^ y for x, y in zip(self.R, self.L)]
             self.L = tempR
 
-            i += 1
             iteration += iteration_adjustment
 
         # Final permutation of R[16]L[16]
@@ -389,34 +372,32 @@ class Des(_baseDes):
         # Error check the data
         if not data:
             return ''
-        if len(data) % self.block_size != 0:
+        if len(data) % self.block_size:
             if crypt_type == Des.DECRYPT:  # Decryption work on 8 byte blocks
-                raise ValueError("Invalid data length, must be "
-                                 "a multiple of {0} bytes".format(self.block_size))
+                raise ValueError("Invalid data length, must be a multiple "
+                                 "of {0} bytes".format(self.block_size))
 
-        if self.getIV():
-            iv = self.__string_to_bitlist(self.getIV())
+        if self.iv:
+            iv = self.__string_to_bitlist(self.iv)
         else:
-            raise ValueError("For CBC mode, you must supply the"
-                             "Initial Value (IV) for ciphering")
+            raise ValueError("For CBC mode, you must supply the "
+                             "Initial Value (iv) for ciphering")
 
         # Split the data into blocks, crypting each one seperately
         i = 0
-        dict = {}
         result = []
         while i < len(data):
             # Test code for caching encryption results
             block = self.__string_to_bitlist(data[i:i+8])
 
-            # Xor with IV if using CBC mode
+            # Xor with iv if using CBC mode
             if crypt_type == Des.ENCRYPT:
-                block = list(map(lambda x, y: x ^ y, block, iv))
+                block = [x ^ y for x, y in zip(block, iv)]
 
             processed_block = self.__des_crypt(block, crypt_type)
 
             if crypt_type == Des.DECRYPT:
-                processed_block = list(map(lambda x, y: x ^ y,
-                                           processed_block, iv))
+                processed_block = [x ^ y for x, y in zip(processed_block, iv)]
                 iv = block
             else:
                 iv = processed_block
@@ -425,13 +406,8 @@ class Des(_baseDes):
             result.append(self.__bitlist_to_string(processed_block))
             i += 8
 
-        # print "Lines: %d, cached: %d" % (lines, cached)
-
         # Return the full crypted string
-        if PY_VER < 3:
-            return ''.join(result)
-        else:
-            return bytes.fromhex('').join(result)
+        return b''.join(result)
 
     def encrypt(self, data):
         """encrypt(data) -> bytes
@@ -467,51 +443,44 @@ class Python_TripleDES(_baseDes):
     the DES-EDE2 (when a 16 byte key is supplied) encryption methods.
     Supports CBC (Cypher Block Chaining) mode.
 
-    pyDes.des(key, [IV])
+    pyDes.des(key, [iv])
 
     key  -> Bytes containing the encryption key, must be either 16 or
             24 bytes long
-    IV   -> Optional Initial Value bytes, must be supplied if using CBC mode.
+    iv   -> Optional Initial Value bytes, must be supplied if using CBC mode.
             Must be 8 bytes in length.
     """
-    def __init__(self, key=0, IV=None):
-        _baseDes.__init__(self, IV)
-        if key == 0:
-          key = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00' +
-                          b'\x00\x00\x00\x00\x00\x00\x00\x00' +
-                          b'\x00\x00\x00\x00\x00\x00\x00\x00')
+    def __init__(self, key, iv=None):
+        _baseDes.__init__(self, iv)
         self.setKey(key)
 
     def setKey(self, key):
         """Will set crypting key for this object. Either 16/24 bytes long."""
-        self.key_size = 24  # Use DES-EDE3 mode
-        if len(key) != self.key_size:
-            if len(key) == 16:  # Use DES-EDE2 mode
-                self.key_size = 16
-            else:
-                raise ValueError("Invalid triple DES key size."
-                                 "Key must be either 16 or 24 bytes long")
+        self.key_size = len(key)
+        if self.key_size not in (16, 24):
+            raise ValueError("Invalid triple DES key size. "
+                             "Key must be either 16 or 24 bytes long")
 
-        if not self.getIV():
+        if not self.iv:
             # Use the first 8 bytes of the key
             self._iv = key[:self.block_size]
-        if len(self.getIV()) != self.block_size:
-            raise ValueError("Invalid IV, must be 8 bytes in length")
+        if len(self.iv) != self.block_size:
+            raise ValueError("Invalid iv, must be 8 bytes in length")
         self.__key1 = Des(key[:8], self._iv)
         self.__key2 = Des(key[8:16], self._iv)
         if self.key_size == 16:
             self.__key3 = self.__key1
         else:
             self.__key3 = Des(key[16:], self._iv)
-        _baseDes.setKey(self, key)
+        _baseDes.key = key
 
     # Override setter methods to work on all 3 keys.
 
-    def setIV(self, IV):
+    def setiv(self, iv):
         """Will set the Initial Value, used in conjunction with CBC mode"""
-        _baseDes.setIV(self, IV)
+        _baseDes.setiv(self, iv)
         for key in (self.__key1, self.__key2, self.__key3):
-            key.setIV(IV)
+            key.setiv(iv)
 
     def encrypt(self, data):
         """ encrypt(data) -> bytes
@@ -525,25 +494,22 @@ class Python_TripleDES(_baseDes):
         DECRYPT = Des.DECRYPT
         data = self._guard_against_unicode(data)
 
-        # Pad the data accordingly.
-        self.__key1.setIV(self.getIV())
-        self.__key2.setIV(self.getIV())
-        self.__key3.setIV(self.getIV())
+        self.__key1.iv = self.iv
+        self.__key2.iv = self.iv
+        self.__key3.iv = self.iv
         i = 0
         result = []
         while i < len(data):
             block = self.__key1.crypt(data[i:i+8], ENCRYPT)
             block = self.__key2.crypt(block, DECRYPT)
             block = self.__key3.crypt(block, ENCRYPT)
-            self.__key1.setIV(block)
-            self.__key2.setIV(block)
-            self.__key3.setIV(block)
+            self.__key1.iv = block
+            self.__key2.iv = block
+            self.__key3.iv = block
             result.append(block)
             i += 8
-        if PY_VER < 3:
-            return ''.join(result)
-        else:
-            return bytes.fromhex('').join(result)
+        
+        return b''.join(result)
 
     def decrypt(self, data):
         """ decrypt(data) -> bytes
@@ -557,9 +523,9 @@ class Python_TripleDES(_baseDes):
         DECRYPT = Des.DECRYPT
         data = self._guard_against_unicode(data)
 
-        self.__key1.setIV(self.getIV())
-        self.__key2.setIV(self.getIV())
-        self.__key3.setIV(self.getIV())
+        self.__key1.iv = self.iv
+        self.__key2.iv = self.iv
+        self.__key3.iv = self.iv
         i = 0
         result = []
         while i < len(data):
@@ -567,14 +533,11 @@ class Python_TripleDES(_baseDes):
             block = self.__key3.crypt(iv, DECRYPT)
             block = self.__key2.crypt(block, ENCRYPT)
             block = self.__key1.crypt(block, DECRYPT)
-            self.__key1.setIV(iv)
-            self.__key2.setIV(iv)
-            self.__key3.setIV(iv)
+            self.__key1.iv = iv
+            self.__key2.iv = iv
+            self.__key3.iv = iv
             result.append(block)
             i += 8
-        if PY_VER < 3:
-            data = ''.join(result)
-        else:
-            data = bytes.fromhex('').join(result)
+        data = b''.join(result)
 
         return data

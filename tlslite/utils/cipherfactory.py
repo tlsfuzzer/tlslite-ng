@@ -32,31 +32,31 @@ if cryptomath.pycryptoLoaded:
 # Factory Functions for AES
 # **************************************************************************
 
-def createAES(key, IV, implList=None):
+def createAES(key, iv, imp_list=None):
     """Create a new AES object.
 
     :type key: str
     :param key: A 16, 24, or 32 byte string.
 
-    :type IV: str
-    :param IV: A 16 byte string
+    :type iv: str
+    :param iv: A 16 byte string
 
     :rtype: tlslite.utils.AES
     :returns: An AES object.
     """
-    if implList is None:
-        implList = ["openssl", "pycrypto", "python"]
+    if imp_list is None:
+        imp_list = ["openssl", "pycrypto", "python"]
 
-    for impl in implList:
+    for impl in imp_list:
         if impl == "openssl" and cryptomath.m2cryptoLoaded:
-            return openssl_aes.new(key, 2, IV)
+            return openssl_aes.new(key, 2, iv)
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
-            return pycrypto_aes.new(key, 2, IV)
+            return pycrypto_aes.new(key, 2, iv)
         elif impl == "python":
-            return python_aes.new(key, 2, IV)
+            return python_aes.new(key, 2, iv)
     raise NotImplementedError()
 
-def createAESGCM(key, implList=None):
+def createAESGCM(key, imp_list=None):
     """Create a new AESGCM object.
 
     :type key: bytearray
@@ -65,17 +65,17 @@ def createAESGCM(key, implList=None):
     :rtype: tlslite.utils.AESGCM
     :returns: An AESGCM object.
     """
-    if implList is None:
-        implList = ["pycrypto", "python"]
+    if imp_list is None:
+        imp_list = ["pycrypto", "python"]
 
-    for impl in implList:
+    for impl in imp_list:
         if impl == "pycrypto" and cryptomath.pycryptoLoaded:
             return pycrypto_aesgcm.new(key)
         if impl == "python":
             return python_aesgcm.new(key)
     raise NotImplementedError()
 
-def createCHACHA20(key, implList=None):
+def createCHACHA20(key, imp_list=None):
     """Create a new CHACHA20_POLY1305 object.
 
     :type key: bytearray
@@ -84,32 +84,32 @@ def createCHACHA20(key, implList=None):
     :rtype: tlslite.utils.CHACHA20_POLY1305
     :returns: A ChaCha20/Poly1305 object
     """
-    if implList is None:
-        implList = ["python"]
+    if imp_list is None:
+        imp_list = ["python"]
 
-    for impl in implList:
+    for impl in imp_list:
         if impl == "python":
             return python_chacha20_poly1305.new(key)
     raise NotImplementedError()
 
-def createRC4(key, IV, implList=None):
+def createRC4(key, iv, imp_list=None):
     """Create a new RC4 object.
 
     :type key: str
     :param key: A 16 to 32 byte string.
 
-    :type IV: object
-    :param IV: Ignored, whatever it is.
+    :type iv: object
+    :param iv: Ignored, whatever it is.
 
     :rtype: tlslite.utils.RC4
     :returns: An RC4 object.
     """
-    if implList is None:
-        implList = ["openssl", "pycrypto", "python"]
+    if imp_list is None:
+        imp_list = ["openssl", "pycrypto", "python"]
 
-    if len(IV) != 0:
+    if len(iv) != 0:
         raise AssertionError()
-    for impl in implList:
+    for impl in imp_list:
         if impl == "openssl" and cryptomath.m2cryptoLoaded:
             return openssl_rc4.new(key)
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
@@ -119,26 +119,26 @@ def createRC4(key, IV, implList=None):
     raise NotImplementedError()
 
 #Create a new TripleDES instance
-def createTripleDES(key, IV=None, implList=None):
+def createTripleDES(key, iv=None, imp_list=None):
     """Create a new 3DES object.
 
     :type key: str
     :param key: A 24 byte string.
 
-    :type IV: str
-    :param IV: An 8 byte string
+    :type iv: str
+    :param iv: An 8 byte string
 
     :rtype: tlslite.utils.TripleDES
     :returns: A 3DES object.
     """
-    if implList is None:
-        implList = ["openssl", "pycrypto", "python"]
+    if imp_list is None:
+        imp_list = ["openssl", "pycrypto", "python"]
 
-    for impl in implList:
+    for impl in imp_list:
         if impl == "openssl" and cryptomath.m2cryptoLoaded:
-            return openssl_tripledes.new(key, 2, IV)
+            return openssl_tripledes.new(key, 2, iv)
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
-            return pycrypto_tripledes.new(key, 2, IV)
+            return pycrypto_tripledes.new(key, 2, iv)
         elif impl == "python":
-            return python_tripledes.new(key, IV)
+            return python_tripledes.new(key, iv)
     raise NotImplementedError()
