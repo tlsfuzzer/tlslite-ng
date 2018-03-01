@@ -54,72 +54,77 @@ class X509(object):
         """
         Parse a DER-encoded X.509 certificate.
 
-        :type bytes: str or L{bytearray} of unsigned bytes
+        :type bytes: L{str} (in python2) or L{bytearray} of unsigned bytes
         :param bytes: A DER-encoded X.509 certificate.
         """
         self.bytes = bytearray(bytes)
-        p = ASN1Parser(bytes)
+        parser = ASN1Parser(self.bytes)
 
-        #Get the tbsCertificate
-        tbsCertificateP = p.getChild(0)
+        # Get the tbsCertificate
+        tbs_certificate = parser.getChild(0)
 
-        #Is the optional version field present?
-        #This determines which index the key is at.
-        if tbsCertificateP.value[0]==0xA0:
-            subjectPublicKeyInfoIndex = 6
+        # Is the optional version field present?
+        # This determines which index the key is at.
+        if tbs_certificate.value[0] == 0xA0:
+            subject_public_key_info_index = 6
         else:
-            subjectPublicKeyInfoIndex = 5
+            subject_public_key_info_index = 5
 
-        #Get the subject
-        self.subject = tbsCertificateP.getChildBytes(\
-                           subjectPublicKeyInfoIndex - 1)
+        # Get the subject
+        self.subject = tbs_certificate.getChildBytes(
+            subject_public_key_info_index - 1)
 
-        #Get the subjectPublicKeyInfo
-        subjectPublicKeyInfoP = tbsCertificateP.getChild(\
-                                    subjectPublicKeyInfoIndex)
+        # Get the subjectPublicKeyInfo
+        subject_public_key_info = tbs_certificate.getChild(
+            subject_public_key_info_index)
 
         # Get the AlgorithmIdentifier
-        algIdentifier = subjectPublicKeyInfoP.getChild(0)
-        algIdentifierLen = algIdentifier.getChildCount()
+        alg_identifier = subject_public_key_info.getChild(0)
+        alg_identifier_len = alg_identifier.getChildCount()
+
         # first item of AlgorithmIdentifier is the algorithm
-        alg = algIdentifier.getChild(0)
-        rsaOID = alg.value
-        if list(rsaOID) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
+        alg = alg_identifier.getChild(0)
+        rsa_oid = alg.value
+        if list(rsa_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
             self.certAlg = "rsa"
-        elif list(rsaOID) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
+        elif list(rsa_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
             self.certAlg = "rsa-pss"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
         # for RSA the parameters of AlgorithmIdentifier should be a NULL
         if self.certAlg == "rsa":
-            if algIdentifierLen != 2:
+            if alg_identifier_len != 2:
                 raise SyntaxError("Missing parameters in AlgorithmIdentifier")
-            params = algIdentifier.getChild(1)
+            params = alg_identifier.getChild(1)
             if params.value != bytearray(0):
                 raise SyntaxError("Unexpected non-NULL parameters in "
                                   "AlgorithmIdentifier")
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
 
-        #Get the subjectPublicKey
-        subjectPublicKeyP = subjectPublicKeyInfoP.getChild(1)
+        # Get the subjectPublicKey
+        subject_public_key = subject_public_key_info.getChild(1)
 
-        #Adjust for BIT STRING encapsulation
-        if (subjectPublicKeyP.value[0] !=0):
+        # Adjust for BIT STRING encapsulation
+        if subject_public_key.value[0]:
             raise SyntaxError()
-        subjectPublicKeyP = ASN1Parser(subjectPublicKeyP.value[1:])
+        subject_public_key = ASN1Parser(subject_public_key.value[1:])
 
-        #Get the modulus and exponent
-        modulusP = subjectPublicKeyP.getChild(0)
-        publicExponentP = subjectPublicKeyP.getChild(1)
+        # Get the modulus and exponent
+        modulus = subject_public_key.getChild(0)
+        public_exponent = subject_public_key.getChild(1)
 
-        #Decode them into numbers
-        n = bytesToNumber(modulusP.value)
-        e = bytesToNumber(publicExponentP.value)
+        # Decode them into numbers
+        # pylint: disable=invalid-name
+        # 'n' and 'e' are the universally used parameters in RSA algorithm
+        # definition
+        n = bytesToNumber(modulus.value)
+        e = bytesToNumber(public_exponent.value)
 
-        #Create a public key instance
+        # Create a public key instance
         self.publicKey = _createPublicRSAKey(n, e)
+        # pylint: enable=invalid-name
 
     def getFingerprint(self):
         """
