@@ -22,11 +22,12 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         RenegotiationInfoExtension, ALPNExtension, StatusRequestExtension, \
         SupportedVersionsExtension, VarSeqListExtension, ListExtension, \
         ClientKeyShareExtension, KeyShareEntry, ServerKeyShareExtension, \
-        CertificateStatusExtension, HRRKeyShareExtension
+        CertificateStatusExtension, HRRKeyShareExtension, \
+        SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
-        CertificateStatusType
+        CertificateStatusType, SignatureScheme
 from tlslite.errors import TLSInternalError
 
 class TestTLSExtension(unittest.TestCase):
@@ -1537,6 +1538,57 @@ class TestSignatureAlgorithmsExtension(unittest.TestCase):
         self.assertEqual(repr(ext), "SignatureAlgorithmsExtension("
                 "sigalgs=None)")
 
+
+class TestSignatureAlgorithmsCertExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = SignatureAlgorithmsCertExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.sigalgs)
+        self.assertEqual(ext.extType, 50)
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_write(self):
+        ext = SignatureAlgorithmsCertExtension()
+        ext.create([SignatureScheme.rsa_pss_pss_sha384,
+                    SignatureScheme.rsa_pkcs1_sha1])
+
+        self.assertEqual(bytearray(
+            b'\x00\x32' +  # type
+            b'\x00\x06' +  # overall length
+            b'\x00\x04' +  # lenth of array
+            b'\x08\x0a' +  # pss+sha384
+            b'\x02\x01'),  # pkcs1+sha1
+            ext.write())
+
+    def test___repr__(self):
+        algs = [SignatureScheme.rsa_pkcs1_sha1,
+                SignatureScheme.rsa_pss_rsae_sha512,
+                SignatureScheme.rsa_pss_pss_sha256,
+                (HashAlgorithm.sha384,
+                 SignatureAlgorithm.dsa)]
+        ext = SignatureAlgorithmsCertExtension().create(algs)
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=["
+                "rsa_pkcs1_sha1, rsa_pss_rsae_sha512, rsa_pss_pss_sha256, "
+                "(sha384, dsa)])")
+
+    def test___repr___with_legacy_name(self):
+        algs = [SignatureScheme.rsa_pss_sha256]
+        ext = SignatureAlgorithmsCertExtension().create(algs)
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=["
+                "rsa_pss_rsae_sha256])")
+
+    def test___repr___with_none(self):
+        ext = SignatureAlgorithmsCertExtension()
+
+        self.assertEqual(repr(ext),
+                "SignatureAlgorithmsCertExtension(sigalgs=None)")
+
+
 class TestPaddingExtension(unittest.TestCase):
     def test__init__(self):
         ext = PaddingExtension()
@@ -1894,6 +1946,69 @@ class TestSupportedVersionsExtension(unittest.TestCase):
             ext.parse(p)
 
 
+class TestSrvSupportedVersionsExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = SrvSupportedVersionsExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.version)
+        self.assertEqual(bytearray(), ext.extData)
+        self.assertEqual(43, ext.extType)
+
+    def test_create(self):
+        ext = SrvSupportedVersionsExtension()
+        ext = ext.create((3, 4))
+
+        self.assertEqual(ext.version, (3, 4))
+
+        self.assertEqual("SrvSupportedVersionsExtension(version=(3, 4))",
+                         str(ext))
+
+    def test_extData(self):
+        ext = SrvSupportedVersionsExtension().create((3, 4))
+
+        self.assertEqual(bytearray(b'\x03\x04'), ext.extData)
+
+    def test_parse_in_HRR(self):
+        ext = TLSExtension(hrr=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type of extension
+            b'\x00\x02'  # length of extension
+            b'\x03\x05'  # version
+            ))
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, SrvSupportedVersionsExtension)
+        self.assertEqual((3, 5), ext.version)
+
+    def test_parse_in_SH(self):
+        ext = TLSExtension(server=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type of extension
+            b'\x00\x02'  # length of extension
+            b'\x03\x05'  # version
+            ))
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, SrvSupportedVersionsExtension)
+        self.assertEqual((3, 5), ext.version)
+
+    def test_parse_malformed(self):
+        ext = TLSExtension(server=True)
+
+        parser = Parser(bytearray(
+            b'\x00\x2b'  # type
+            b'\x00\x03'  # length
+            b'\x03\x05\x01'))  # payload
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+
 class TestKeyShareEntry(unittest.TestCase):
     def setUp(self):
         self.kse = KeyShareEntry()
@@ -2011,7 +2126,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share extension
+            b'\x00\x33'  # ID of key_share extension
             b'\x00\x07'  # length of the extension
             b'\x00\x0a'  # group ID of first entry
             b'\x00\x03'  # length of share of first entry
@@ -2029,7 +2144,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse_with_no_data(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share
+            b'\x00\x33'  # ID of key_share
             b'\x00\x00'  # empty payload
             ))
         ext = TLSExtension(server=True)
@@ -2040,7 +2155,7 @@ class TestServerKeyShareExtension(unittest.TestCase):
 
     def test_parse_with_trailing_data(self):
         parser = Parser(bytearray(
-            b'\x00\x28'  # ID of key_share extension
+            b'\x00\x33'  # ID of key_share extension
             b'\x00\x08'  # length of the extension
             b'\x00\x0a'  # group ID of first entry
             b'\x00\x03'  # length of share of first entry
@@ -2142,7 +2257,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
     def test_extData(self):
         ext = HRRKeyShareExtension().create(GroupName.x25519)
 
-        self.assertEqual(bytearray(b'\x00\x28'
+        self.assertEqual(bytearray(b'\x00\x33'
                                    b'\x00\x02'
                                    b'\x00\x1d'),
                          ext.write())
@@ -2153,7 +2268,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
         self.assertEqual(ext.extData, bytearray())
 
     def test_parse(self):
-        parser = Parser(bytearray(b'\x00\x28'
+        parser = Parser(bytearray(b'\x00\x33'
                                   b'\x00\x02'
                                   b'\x00\x1d'))
         ext = TLSExtension(hrr=True)
@@ -2163,7 +2278,7 @@ class TestHRRKeyShareExtension(unittest.TestCase):
         self.assertEqual(ext.selected_group, GroupName.x25519)
 
     def test_parse_with_trailing_data(self):
-        parser = Parser(bytearray(b'\x00\x28'
+        parser = Parser(bytearray(b'\x00\x33'
                                   b'\x00\x03'
                                   b'\x00\x1d\x00'))
         ext = TLSExtension(hrr=True)

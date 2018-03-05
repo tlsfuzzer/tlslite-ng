@@ -880,21 +880,18 @@ class ServerHello(HelloMessage):
         p.startLengthCheck(3)
         self.server_version = (p.get(1), p.get(1))
         self.random = p.getFixBytes(32)
-        if self.server_version <= (3, 3):
-            self.session_id = p.getVarBytes(1)
-        else:
-            self.session_id = None
+        self.session_id = p.getVarBytes(1)
         self.cipher_suite = p.get(2)
-        if self.server_version <= (3, 3):
-            self.compression_method = p.get(1)
-        else:
-            self.compression_method = None
+        self.compression_method = p.get(1)
         if not p.atLengthCheck():
             self.extensions = []
             totalExtLength = p.get(2)
             p2 = Parser(p.getFixBytes(totalExtLength))
             while p2.getRemainingLength() > 0:
-                ext = TLSExtension(server=True).parse(p2)
+                if self.random == TLS_1_3_HRR:
+                    ext = TLSExtension(hrr=True).parse(p2)
+                else:
+                    ext = TLSExtension(server=True).parse(p2)
                 self.extensions += [ext]
         p.stopLengthCheck()
         return self
@@ -904,11 +901,9 @@ class ServerHello(HelloMessage):
         w.add(self.server_version[0], 1)
         w.add(self.server_version[1], 1)
         w.bytes += self.random
-        if self.server_version <= (3, 3):
-            w.addVarSeq(self.session_id, 1, 1)
+        w.addVarSeq(self.session_id, 1, 1)
         w.add(self.cipher_suite, 2)
-        if self.server_version <= (3, 3):
-            w.add(self.compression_method, 1)
+        w.add(self.compression_method, 1)
 
         if self.extensions is not None:
             w2 = Writer()
@@ -1919,51 +1914,6 @@ class NewSessionTicket(HelloMessage):
         while ext_parser.getRemainingLength():
             self.extensions.append(TLSExtension().parse(ext_parser))
 
-        parser.stopLengthCheck()
-        return self
-
-
-class HelloRetryRequest(HelloMessage):
-    """Handling of TLS 1.3 Hello Retry Request handshake message."""
-
-    def __init__(self):
-        """Create Hello Retry Request object."""
-        super(HelloRetryRequest, self).__init__(HandshakeType
-                                                .hello_retry_request)
-        self.server_version = (0, 0)
-        self.cipher_suite = 0
-        self.extensions = []
-
-    def create(self, server_version, cipher_suite, extensions):
-        """Initialise a Hello Retry Request message."""
-        self.server_version = server_version
-        self.cipher_suite = cipher_suite
-        self.extensions = extensions
-        return self
-
-    def write(self):
-        """Serialise the object."""
-        writer = Writer()
-        writer.addFixSeq(self.server_version, 1)
-        writer.add(self.cipher_suite, 2)
-        w2 = Writer()
-        for ext in self.extensions:
-            w2.bytes += ext.write()
-        writer.add(len(w2.bytes), 2)
-        writer.bytes += w2.bytes
-
-        return self.postWrite(writer)
-
-    def parse(self, parser):
-        """Deserialise the object from on the wire data."""
-        parser.startLengthCheck(3)
-
-        self.server_version = (parser.get(1), parser.get(1))
-        self.cipher_suite = parser.get(2)
-        self.extensions = []
-        ext_parser = Parser(parser.getVarBytes(2))
-        while ext_parser.getRemainingLength():
-            self.extensions.append(TLSExtension(hrr=True).parse(ext_parser))
         parser.stopLengthCheck()
         return self
 

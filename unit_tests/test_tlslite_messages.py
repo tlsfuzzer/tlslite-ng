@@ -21,13 +21,13 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
-        NewSessionTicket, HelloRetryRequest
+        NewSessionTicket
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
         SSL2HandshakeType, CertificateStatusType, HandshakeType, \
-        SignatureScheme
+        SignatureScheme, TLS_1_3_HRR
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
     ServerCertTypeExtension
@@ -1145,10 +1145,13 @@ class TestServerHello(unittest.TestCase):
     def test_parse_tls1_3(self):
         parser = Parser(bytearray(
             # b'\x02' +  # type - server_hello
-            b'\x00\x00\x26' +  # overall length
+            b'\x00\x00\x2c' +  # overall length
             b'\x03\x04' +  # protocol version
             b'\x02' * 32 +  # random
+            b'\x04' +  # session_id len
+            b'\x03' * 4 +  # session_id
             b'\x00\x04'  + # cipher suite
+            b'\x00' +  # compression method
             b'\x00\x00'))  # extensions
 
         server_hello = ServerHello().parse(parser)
@@ -1156,9 +1159,34 @@ class TestServerHello(unittest.TestCase):
         self.assertIsInstance(server_hello, ServerHello)
         self.assertEqual(server_hello.server_version, (3, 4))
         self.assertEqual(server_hello.random, bytearray(b'\x02' * 32))
+        self.assertEqual(server_hello.session_id, bytearray(b'\x03' * 4))
         self.assertEqual(server_hello.cipher_suite, 4)
+        self.assertEqual(server_hello.compression_method, 0)
         self.assertEqual(server_hello.extensions, [])
 
+    def test_parse_tls1_3_hrr(self):
+        parser = Parser(bytearray(
+            b'\x00\x00\x30' +  # overall length
+            b'\x03\x04' +  # protocol version
+            TLS_1_3_HRR +  # random
+            b'\x04' +  # session_id len
+            b'\x03' * 4 +  # session_id
+            b'\x00\x04'  + # cipher suite
+            b'\x00' +  # compression method
+            b'\x00\x04' +  # extensions
+            b'\x00\xff' +  # extID
+            b'\x00\x00'))  # ext length
+
+        server_hello = ServerHello().parse(parser)
+
+        self.assertIsInstance(server_hello, ServerHello)
+        self.assertEqual(server_hello.server_version, (3, 4))
+        self.assertEqual(server_hello.random, TLS_1_3_HRR)
+        self.assertEqual(server_hello.session_id, bytearray(b'\x03' * 4))
+        self.assertEqual(server_hello.cipher_suite, 4)
+        self.assertEqual(server_hello.compression_method, 0)
+        self.assertEqual(server_hello.extensions,
+                         [TLSExtension(extType=0xff).create(bytearray())])
 
     def test_write(self):
         server_hello = ServerHello().create(
@@ -1213,16 +1241,19 @@ class TestServerHello(unittest.TestCase):
         server_hello = ServerHello().create(
                 (3, 4),  # version
                 bytearray(b'\x02'*32),  # random
-                None,  # session id
+                bytearray(b'\x03'*4),  # session id
                 4,  # cipher suite
                 extensions=[])
 
         self.assertEqual(list(bytearray(
             b'\x02' +  # type - server_hello
-            b'\x00\x00\x26' +  # overall length
+            b'\x00\x00\x2c' +  # overall length
             b'\x03\x04' +  # protocol version
             b'\x02' * 32 +  # random
-            b'\x00\x04'  + # cipher suite
+            b'\x04' +  # session_id length
+            b'\x03' * 4 +  # session_id
+            b'\x00\x04' +  # cipher suite
+            b'\x00' +  # compression
             b'\x00\x00')),  # extensions
             list(server_hello.write()))
 
@@ -3310,76 +3341,6 @@ class TestNewSessionTicket(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             ticket.parse(parser)
-
-
-class TestHelloRetryRequest(unittest.TestCase):
-    def test___init__(self):
-        hrr = HelloRetryRequest()
-
-        self.assertEqual((0, 0), hrr.server_version)
-        self.assertEqual(0, hrr.cipher_suite)
-        self.assertEqual([], hrr.extensions)
-
-    def test_create(self):
-        version = mock.Mock()
-        cipher = mock.Mock()
-        ext = mock.Mock()
-
-        hrr = HelloRetryRequest()
-        hrr = hrr.create(version, cipher, [ext])
-
-        self.assertIs(hrr.server_version, version)
-        self.assertIs(hrr.cipher_suite, cipher)
-        self.assertEqual(len(hrr.extensions), 1)
-        self.assertIs(hrr.extensions[0], ext)
-
-    def test_write(self):
-        hrr = HelloRetryRequest()
-        hrr = hrr.create((3, 4), CipherSuite.TLS_AES_128_GCM_SHA256,
-                         [TLSExtension(extType=255).create(bytearray(0))])
-
-        self.assertEqual(hrr.write(), bytearray(
-            b'\x06'  # type - Hello Retry Request
-            b'\x00\x00\x0a'  # overall length
-            b'\x03\x04'  # protocol version
-            b'\x13\x01'  # cipher suite
-            b'\x00\x04'  # extensions length
-            b'\x00\xff'  # extension type
-            b'\x00\x00'  # extension length
-            ))
-
-    def test_parse(self):
-        parser = Parser(bytearray(
-            b'\x00\x00\x0a'  # overall length
-            b'\xfe\xfe'  # protocol version
-            b'\x13\x01'  # cipher suite
-            b'\x00\x04'  # extensions length
-            b'\x00\xff'  # extension type
-            b'\x00\x00'  # extension length
-            ))
-        hrr = HelloRetryRequest()
-
-        hrr = hrr.parse(parser)
-
-        self.assertEqual((0xfe, 0xfe), hrr.server_version)
-        self.assertEqual(0x1301, hrr.cipher_suite)
-        self.assertEqual([TLSExtension(extType=255).create(bytearray(0))],
-                         hrr.extensions)
-
-    def test_parse_with_trailing_data(self):
-        parser = Parser(bytearray(
-            b'\x00\x00\x0b'  # overall length
-            b'\xfe\xfe'  # protocol version
-            b'\x13\x01'  # cipher suite
-            b'\x00\x04'  # extensions length
-            b'\x00\xff'  # extension type
-            b'\x00\x00'  # extension length
-            b'\x00'  # trailing data
-            ))
-        hrr = HelloRetryRequest()
-
-        with self.assertRaises(SyntaxError):
-            hrr.parse(parser)
 
 
 if __name__ == '__main__':

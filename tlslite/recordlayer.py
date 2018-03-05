@@ -313,8 +313,8 @@ class RecordLayer(object):
         """Make sure that the version and tls13record setting is consistent."""
         if self._is_tls13_plus():
             # in TLS 1.3 all records need to be sent with the generic version
-            # which is the same as TLS 1.0
-            self._recordSocket.version = (3, 1)
+            # which is the same as TLS 1.2
+            self._recordSocket.version = (3, 3)
         else:
             self._recordSocket.version = self._version
 
@@ -519,7 +519,9 @@ class RecordLayer(object):
         contentType = msg.contentType
 
         # TLS 1.3 hides the content type of messages
-        if self._is_tls13_plus() and self._writeState.encContext:
+        # but CCS is always not encrypted
+        if self._is_tls13_plus() and self._writeState.encContext and \
+                contentType != ContentType.change_cipher_spec:
             data += bytearray([contentType])
             if self.padding_cb:
                 max_padding = 2**14 - len(data) - 1
@@ -533,6 +535,10 @@ class RecordLayer(object):
         padding = 0
         if self.version in ((0, 2), (2, 0)):
             data, padding = self._ssl2Encrypt(data)
+        elif self.version > (3, 3) and \
+                contentType == ContentType.change_cipher_spec:
+            # TLS 1.3 does not encrypt CCS messages
+            pass
         elif self._writeState.encContext and \
                 self._writeState.encContext.isAEAD:
             data = self._encryptThenSeal(data, contentType)
@@ -801,6 +807,11 @@ class RecordLayer(object):
             data = self._decryptSSL2(data, header.padding)
             if self.handshake_finished:
                 header.type = ContentType.application_data
+        # in TLS 1.3, the other party may send an unprotected CCS message
+        # at any point in connection
+        elif self._is_tls13_plus() and \
+                header.type == ContentType.change_cipher_spec:
+            pass
         elif self._readState and \
             self._readState.encContext and \
             self._readState.encContext.isAEAD:
@@ -814,8 +825,10 @@ class RecordLayer(object):
         else:
             data = self._decryptStreamThenMAC(header.type, data)
 
-        # TLS 1.3 encrypts the type
-        if self._is_tls13_plus():
+        # TLS 1.3 encrypts the type, CCS is not encrypted
+        if self._is_tls13_plus() and self._readState and \
+                self._readState.encContext and\
+                header.type != ContentType.change_cipher_spec:
             data, contentType = self._tls13_de_pad(data)
             header = RecordHeader3().create((3, 4), contentType, len(data))
 

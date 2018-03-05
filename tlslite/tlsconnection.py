@@ -77,6 +77,8 @@ class TLSConnection(TLSRecordLayer):
         self._clientRandom = bytearray(0)
         self._serverRandom = bytearray(0)
         self.next_proto = None
+        # whether the CCS was already sent in the connection (for hello retry)
+        self._ccs_sent = False
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -504,7 +506,8 @@ class TLSConnection(TLSRecordLayer):
 
         # if we're doing tls1.3, use the new code as the negotiation is much
         # different
-        if serverHello.server_version > (3, 3):
+        ext = serverHello.getExtension(ExtensionType.supported_versions)
+        if ext and ext.version > (3, 3):
             for result in self._clientTLS13Handshake(settings, clientHello,
                                                      serverHello):
                 if result in (0, 1):
@@ -690,8 +693,10 @@ class TLSConnection(TLSRecordLayer):
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
 
-        # when TLS 1.3 advertised, add key shares
+        session_id = bytearray()
+        # when TLS 1.3 advertised, add key shares, set fake session_id
         if next((i for i in settings.versions if i > (3, 3)), None):
+            session_id = getRandomBytes(32)
             extensions.append(SupportedVersionsExtension().
                               create(settings.versions))
 
@@ -732,7 +737,7 @@ class TLSConnection(TLSRecordLayer):
         else:
             clientHello = ClientHello()
             clientHello.create(sent_version, getRandomBytes(32),
-                               bytearray(0), wireCipherSuites,
+                               session_id, wireCipherSuites,
                                certificateTypes, 
                                srpUsername,
                                reqTack, nextProtos is not None, 
@@ -751,13 +756,14 @@ class TLSConnection(TLSRecordLayer):
     def _clientGetServerHello(self, settings, clientHello):
         client_hello_hash = self._handshake_hash.copy()
         for result in self._getMsg(ContentType.handshake,
-                                   (HandshakeType.server_hello,
-                                    HandshakeType.hello_retry_request)):
+                                   HandshakeType.server_hello):
             if result in (0,1): yield result
             else: break
 
         hello_retry = None
-        if isinstance(result, HelloRetryRequest):
+        ext = result.getExtension(ExtensionType.supported_versions)
+        if result.random == TLS_1_3_HRR and ext and ext.version > (3, 3):
+            self.version = ext.version
             hello_retry = result
 
             # create synthetic handshake hash
@@ -830,8 +836,10 @@ class TLSConnection(TLSRecordLayer):
                     yield result
 
             # resend the client hello with performed changes
-            for result in self._sendMsg(clientHello):
+            ccs = ChangeCipherSpec().create()
+            for result in self._sendMsgs([ccs, clientHello]):
                 yield result
+            self._ccs_sent = True
 
             # retry getting server hello
             for result in self._getMsg(ContentType.handshake,
@@ -845,11 +853,12 @@ class TLSConnection(TLSRecordLayer):
 
         #Get the server version.  Do this before anything else, so any
         #error alerts will use the server's version
-        self.version = serverHello.server_version
-        # TODO remove when TLS 1.3 is final (server_version will be set to
-        # draft version in draft protocol implementations)
-        if self.version > (3, 4):
-            self.version = (3, 4)
+        real_version = serverHello.server_version
+        if serverHello.server_version >= (3, 3):
+            ext = serverHello.getExtension(ExtensionType.supported_versions)
+            if ext:
+                real_version = ext.version
+        self.version = real_version
 
         #Check ServerHello
         if hello_retry and \
@@ -858,21 +867,22 @@ class TLSConnection(TLSRecordLayer):
                                           "server selected different cipher "
                                           "in HRR and Server Hello"):
                 yield result
-        if serverHello.server_version < settings.minVersion:
-            for result in self._sendError(\
-                AlertDescription.protocol_version,
-                "Too old version: %s" % str(serverHello.server_version)):
+        if real_version < settings.minVersion:
+            for result in self._sendError(
+                    AlertDescription.protocol_version,
+                    "Too old version: {0} (min: {1})"
+                    .format(real_version, settings.minVersion)):
                 yield result
-        if serverHello.server_version > settings.maxVersion and \
-                serverHello.server_version not in settings.versions:
-            for result in self._sendError(\
-                AlertDescription.protocol_version,
-                "Too new version: %s" % str(serverHello.server_version)):
+        if real_version > settings.maxVersion and \
+                real_version not in settings.versions:
+            for result in self._sendError(
+                    AlertDescription.protocol_version,
+                    "Too new version: {0} (max: {1})"
+                    .format(real_version, settings.maxVersion)):
                 yield result
-        serverVer = serverHello.server_version
         cipherSuites = CipherSuite.filterForVersion(clientHello.cipher_suites,
-                                                    minVersion=serverVer,
-                                                    maxVersion=serverVer)
+                                                    minVersion=real_version,
+                                                    maxVersion=real_version)
         if serverHello.cipher_suite not in cipherSuites:
             for result in self._sendError(\
                 AlertDescription.illegal_parameter,
@@ -883,7 +893,7 @@ class TLSConnection(TLSRecordLayer):
                 AlertDescription.illegal_parameter,
                 "Server responded with incorrect certificate type"):
                 yield result
-        if serverVer <= (3, 3) and serverHello.compression_method != 0:
+        if serverHello.compression_method != 0:
             for result in self._sendError(\
                 AlertDescription.illegal_parameter,
                 "Server responded with incorrect compression method"):
@@ -1092,7 +1102,13 @@ class TLSConnection(TLSRecordLayer):
         cl_finished = Finished(self.version, prf_size)
         cl_finished.create(cl_verify_data)
 
-        for result in self._sendMsg(cl_finished):
+        if not self._ccs_sent:
+            ccs = ChangeCipherSpec().create()
+            msgs = [ccs, cl_finished]
+        else:
+            msgs = [cl_finished]
+
+        for result in self._sendMsgs(msgs):
             yield result
 
         # Master secret
@@ -1860,20 +1876,25 @@ class TLSConnection(TLSRecordLayer):
                                     if i.group == selected_group)
                 break
         else:
-            raise ValueError("HRR not supported on server side")
+            raise TLSInternalError("HRR did not work?!")
 
         kex = self._getKEX(selected_group, version)
         key_share = self._genKeyShareEntry(selected_group, version)
 
         sh_extensions = []
         sh_extensions.append(ServerKeyShareExtension().create(key_share))
+        sh_extensions.append(SrvSupportedVersionsExtension().create(version))
 
         serverHello = ServerHello()
-        serverHello.create(version, getRandomBytes(32),
-                           None, # session ID
+        # in TLS1.3 the version selected is sent in extension, (3, 3) is
+        # just dummy value to workaround broken middleboxes
+        serverHello.create((3, 3), getRandomBytes(32),
+                           clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
-        for result in self._sendMsg(serverHello):
+        ccs = ChangeCipherSpec().create()
+
+        for result in self._sendMsgs([serverHello, ccs]):
             yield result
 
         Z = kex.calc_shared_key(key_share.private, cl_key_share.key_exchange)
@@ -1907,6 +1928,21 @@ class TLSConnection(TLSRecordLayer):
         self._changeWriteState()
 
         ee_extensions = []
+
+        # a bit of a hack to detect if the HRR was sent
+        # as that means that original key share didn't match what we wanted
+        # send the client updated list of shares we support,
+        # preferred ones first
+        if clientHello.getExtension(ExtensionType.cookie):
+            ext = SupportedGroupsExtension()
+            groups = [getattr(GroupName, i) for i in settings.keyShares]
+            groups += [getattr(GroupName, i) for i in settings.eccCurves
+                       if i not in groups]
+            groups += [getattr(GroupName, i) for i in settings.dhGroups
+                       if i not in groups]
+            if groups:
+                ext.create(groups)
+                ee_extensions.append(ext)
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
         for result in self._sendMsg(encryptedExtensions):
@@ -2030,9 +2066,9 @@ class TLSConnection(TLSRecordLayer):
         # Tentatively set version to most-desirable version, so if an error
         # occurs parsing the ClientHello, this will be the version we'll use
         # for the error alert
-        # If TLS 1.3 is enabled, use the "universal" TLS 1.x version
+        # If TLS 1.3 is enabled, use the "compatible" TLS 1.2 version
         self.version = settings.maxVersion if settings.maxVersion < (3, 4) \
-                       else (3, 1)
+                       else (3, 3)
 
         #Get ClientHello
         for result in self._getMsg(ContentType.handshake,
@@ -2136,6 +2172,52 @@ class TLSConnection(TLSRecordLayer):
                     "Master Secret extension"):
                 yield result
 
+        # sanity check the TLS 1.3 extensions
+        ext = clientHello.getExtension(ExtensionType.supported_versions)
+        if ext and (0x7f, 21) in ext.versions:
+            ext = clientHello.getExtension(ExtensionType.signature_algorithms)
+            if not ext:
+                for result in self._sendError(AlertDescription
+                                              .missing_extension,
+                                              "Missing signature_algorithms "
+                                              "extension"):
+                    yield result
+
+            key_share = clientHello.getExtension(ExtensionType.key_share)
+            if not key_share:
+                for result in self._sendError(AlertDescription
+                                              .missing_extension,
+                                              "Missing key_share extension"):
+                    yield result
+            # key share can be empty, supported groups can't
+
+            sup_groups = clientHello.getExtension(ExtensionType
+                                                  .supported_groups)
+            if not sup_groups:
+                for result in self._sendError(AlertDescription
+                                              .missing_extension,
+                                              "Missing supported_groups "
+                                              "extension"):
+                    yield result
+            if not sup_groups.groups:
+                for result in self._sendError(AlertDescription
+                                              .decode_error,
+                                              "Empty supported_groups "
+                                              "extension"):
+                    yield result
+
+            mismatch = next((i for i in key_share.client_shares
+                             if i.group not in sup_groups.groups), None)
+            if mismatch:
+                for result in self._sendError(AlertDescription
+                                              .illegal_parameter,
+                                              "Client sent key share for "
+                                              "group it did not advertise "
+                                              "support for: {0}"
+                                              .format(GroupName
+                                                      .toStr(mismatch))):
+                    yield result
+
         versionsExt = clientHello.getExtension(ExtensionType
                                                .supported_versions)
         high_ver = None
@@ -2146,8 +2228,8 @@ class TLSConnection(TLSRecordLayer):
             # when we selected TLS 1.3, we cannot set the record layer to
             # it as well as that also switches it to a mode where the
             # content type is encrypted
-            # use a generic TLS version instead
-            self.version = (3, 1)
+            # use the backwards compatible TLS 1.2 version instead
+            self.version = (3, 3)
             version = high_ver
         elif clientHello.client_version > settings.maxVersion:
             # in TLS 1.3 the version is negotiatied with extension,
@@ -2166,6 +2248,9 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendError(\
                   AlertDescription.inappropriate_fallback):
                 yield result
+
+        # TODO when TLS 1.3 is final, check the client hello random for
+        # downgrade too
 
         #Check if there's intersection between supported curves by client and
         #server
@@ -2396,6 +2481,170 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.handshake_failure,
                     "the client doesn't support my certificate type"):
                 yield result
+
+        # when we have selected TLS 1.3, check if we don't have to ask for
+        # a new client hello
+        if version > (3, 3):
+            self.version = version
+            hrr_ext = []
+
+            # check if we have good key share
+            share = clientHello.getExtension(ExtensionType.key_share)
+            share_ids = [i.group for i in share.client_shares]
+            acceptable_ids = [getattr(GroupName, i) for i in
+                              chain(settings.keyShares, settings.eccCurves,
+                                    settings.dhGroups)]
+            for selected_group in acceptable_ids:
+                if selected_group in share_ids:
+                    cl_key_share = next(i for i in share.client_shares
+                                        if i.group == selected_group)
+                    break
+            else:
+                # if no key share is acceptable, pick one of the supported
+                # groups that we support
+                supported = clientHello.getExtension(ExtensionType
+                                                     .supported_groups)
+                supported_ids = supported.groups
+                selected_group = next((i for i in acceptable_ids
+                                       if i in supported_ids), None)
+                if not selected_group:
+                    for result in self._sendError(AlertDescription
+                                                  .handshake_failure,
+                                                  "No acceptable group "
+                                                  "advertised by client"):
+                        yield result
+                hrr_ks = HRRKeyShareExtension().create(selected_group)
+                hrr_ext.append(hrr_ks)
+
+            if hrr_ext:
+                cookie = TLSExtension(extType=ExtensionType.cookie)
+                cookie = cookie.create(bytearray(b'\x00\x20') +
+                                       getRandomBytes(32))
+                hrr_ext.append(cookie)
+
+            if hrr_ext:
+                clientHello1 = clientHello
+
+                # create synthetic handshake hash of the first Client Hello
+                prf_name, prf_size = self._getPRFParams(cipherSuite)
+
+                client_hello_hash = self._handshake_hash.digest(prf_name)
+                self._handshake_hash = HandshakeHashes()
+                writer = Writer()
+                writer.add(HandshakeType.message_hash, 1)
+                writer.addVarSeq(client_hello_hash, 1, 3)
+                self._handshake_hash.update(writer.bytes)
+
+                # send the version that was really selected
+                vers = SrvSupportedVersionsExtension().create(version)
+                hrr_ext.append(vers)
+
+                # send the HRR
+                hrr = ServerHello()
+                # version is hardcoded in TLS 1.3, and real version
+                # is sent as extension
+                hrr.create((3, 3), TLS_1_3_HRR, clientHello.session_id,
+                           cipherSuite, extensions=hrr_ext)
+
+                ccs = ChangeCipherSpec().create()
+                for result in self._sendMsgs([hrr, ccs]):
+                    yield result
+                self._ccs_sent = True
+
+                for result in self._getMsg(ContentType.handshake,
+                                           HandshakeType.client_hello):
+                    if result in (0, 1):
+                        yield result
+                    else:
+                        break
+                clientHello = result
+
+                # verify that the new key share is present
+                ext = clientHello.getExtension(ExtensionType.key_share)
+                if not ext:
+                    for result in self._sendError(AlertDescription
+                                                  .missing_extension,
+                                                  "Key share missing in "
+                                                  "Client Hello"):
+                        yield result
+
+                # here we're assuming that the HRR was sent because of
+                # missing key share, that may not always be the case
+                if len(ext.client_shares) != 1:
+                    for result in self._sendError(AlertDescription
+                                                  .illegal_parameter,
+                                                  "Multiple key shares in "
+                                                  "second Client Hello"):
+                        yield result
+                if ext.client_shares[0].group != selected_group:
+                    for result in self._sendError(AlertDescription
+                                                  .illegal_parameter,
+                                                  "Client key share does not "
+                                                  "match Hello Retry Request"):
+                        yield result
+
+                # here we're assuming no 0-RTT and possibly no session
+                # resumption
+                # verify that new client hello is like the old client hello
+                # with the exception of changes requested in HRR
+                old_ext = clientHello1.getExtension(ExtensionType.key_share)
+                new_ext = clientHello.getExtension(ExtensionType.key_share)
+                old_ext.client_shares = new_ext.client_shares
+
+                # TODO when 0-RTT supported, remove early_data from old hello
+
+                if cookie:
+                    # insert the extension at the same place in the old hello
+                    # as it is in the new hello so that later binary compare
+                    # works
+                    for i, ext in enumerate(clientHello.extensions):
+                        if ext.extType == ExtensionType.cookie:
+                            if ext.extData != cookie.extData:
+                                eType = AlertDescription.illegal_parameter
+                                eText = "Malformed cookie extension"
+                                for result in self._sendError(eType, eText):
+                                    yield result
+                            clientHello1.extensions.insert(i, ext)
+                            break
+                    else:
+                        for result in self._sendError(AlertDescription
+                                                      .missing_extension,
+                                                      "Second client hello "
+                                                      "does not contain "
+                                                      "cookie extension"):
+                            yield result
+
+                # also padding extension may change
+                old_ext = clientHello1.getExtension(
+                    ExtensionType.client_hello_padding)
+                new_ext = clientHello.getExtension(
+                    ExtensionType.client_hello_padding)
+                if old_ext != new_ext:
+                    if old_ext is None and new_ext:
+                        for i, ext in enumerate(clientHello.extensions):
+                            if ext.extType == \
+                                    ExtensionType.client_hello_padding:
+                                clientHello1.extensions.insert(i, ext)
+                                break
+                    elif old_ext and new_ext is None:
+                        # extension was removed, so remove it here too
+                        clientHello1.extensions[:] = \
+                            (i for i in clientHello1.extensions
+                             if i.extType !=
+                             ExtensionType.client_hello_padding)
+                    else:
+                        old_ext.paddingData = new_ext.paddingData
+
+                # TODO with PSK - PSKs non compatible with cipher suite MAY
+                # be removed, but must have updated obfuscated ticket age
+
+                if clientHello1 != clientHello:
+                    for result in self._sendError(AlertDescription
+                                                  .illegal_parameter,
+                                                  "Old Client Hello does not "
+                                                  "match the updated Client "
+                                                  "Hello"):
+                        yield result
 
         # If resumption was not requested, or
         # we have no session cache, or
@@ -2869,9 +3118,14 @@ class TLSConnection(TLSRecordLayer):
                     if schemeName == 'pss' and hashName == 'sha512'\
                             and privateKey and privateKey.n < 2**2047:
                         continue
+                    # advertise support for both rsaEncryption and RSA-PSS OID
+                    # key type
                     sigAlgs.append(getattr(SignatureScheme,
-                                           "rsa_{0}_{1}".format(schemeName,
-                                                                hashName)))
+                                           "rsa_{0}_rsae_{1}"
+                                           .format(schemeName, hashName)))
+                    sigAlgs.append(getattr(SignatureScheme,
+                                           "rsa_{0}_pss_{1}"
+                                           .format(schemeName, hashName)))
                 except AttributeError:
                     if schemeName == 'pkcs1':
                         sigAlgs.append((getattr(HashAlgorithm, hashName),

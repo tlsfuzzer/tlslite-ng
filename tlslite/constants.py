@@ -8,12 +8,19 @@
 #
 # See the LICENSE file for legal information regarding use of this file.
 
+from .utils.compat import a2b_hex
+
 """Constants used in various places."""
 
 
 # protocol version number used for negotiating TLS 1.3 between implementations
 # of the draft specification
-TLS_1_3_DRAFT = (127, 21)
+TLS_1_3_DRAFT = (127, 23)
+
+
+# ServerHello.random value meaning that the message is a HelloRetryRequest
+TLS_1_3_HRR = a2b_hex("CF21AD74E59A6111BE1D8C021E65B891"
+                      "C2A211167ABB8C5E079E09E2C8A8339C")
 
 
 class TLSEnum(object):
@@ -96,7 +103,6 @@ class HandshakeType(TLSEnum):
     client_hello = 1
     server_hello = 2
     new_session_ticket = 4
-    hello_retry_request = 6
     encrypted_extensions = 8
     certificate = 11
     server_key_exchange = 12
@@ -142,10 +148,12 @@ class ExtensionType(TLSEnum):
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
-    key_share = 40  # TLS 1.3
+    extended_random = 40  # draft-rescorla-tls-extended-random-02
     early_data = 42  # TLS 1.3
     supported_versions = 43  # TLS 1.3
     cookie = 44  # TLS 1.3
+    signature_algorithms_cert = 50  # TLS 1.3
+    key_share = 51  # TLS 1.3
     supports_npn = 13172
     tack = 0xF300
     renegotiation_info = 0xff01  # RFC 5746
@@ -184,6 +192,14 @@ class SignatureScheme(TLSEnum):
     rsa_pkcs1_sha256 = (4, 1)
     rsa_pkcs1_sha384 = (5, 1)
     rsa_pkcs1_sha512 = (6, 1)
+    rsa_pss_rsae_sha256 = (8, 4)
+    rsa_pss_rsae_sha384 = (8, 5)
+    rsa_pss_rsae_sha512 = (8, 6)
+    rsa_pss_pss_sha256 = (8, 9)
+    rsa_pss_pss_sha384 = (8, 10)
+    rsa_pss_pss_sha512 = (8, 11)
+
+    # backwards compatibility (for TLS1.2)
     rsa_pss_sha256 = (8, 4)
     rsa_pss_sha384 = (8, 5)
     rsa_pss_sha512 = (8, 6)
@@ -193,7 +209,9 @@ class SignatureScheme(TLSEnum):
         """Convert numeric type to name representation"""
         if blacklist is None:
             blacklist = []
-        blacklist += ['getKeyType', 'getPadding', 'getHash']
+        blacklist += ['getKeyType', 'getPadding', 'getHash',
+                      'rsa_pss_sha256', 'rsa_pss_sha384', 'rsa_pss_sha512']
+
         return super(SignatureScheme, cls).toRepr(value, blacklist)
 
     @staticmethod
@@ -207,8 +225,8 @@ class SignatureScheme(TLSEnum):
             getattr(SignatureScheme, scheme)
         except AttributeError:
             raise ValueError("\"{0}\" scheme is unknown".format(scheme))
-        kType, _, _ = scheme.split('_')
-        return kType
+        vals = scheme.split('_', 4)
+        return vals[0]
 
     @staticmethod
     def getPadding(scheme):
@@ -217,7 +235,12 @@ class SignatureScheme(TLSEnum):
             getattr(SignatureScheme, scheme)
         except AttributeError:
             raise ValueError("\"{0}\" scheme is unknown".format(scheme))
-        kType, padding, _ = scheme.split('_')
+        vals = scheme.split('_', 4)
+        assert len(vals) in (3, 4)
+        if len(vals) == 3:
+            kType, padding, _ = vals
+        else:
+            kType, padding, _, _ = vals
         assert kType == 'rsa'
         return padding
 
@@ -228,7 +251,12 @@ class SignatureScheme(TLSEnum):
             getattr(SignatureScheme, scheme)
         except AttributeError:
             raise ValueError("\"{0}\" scheme is unknown".format(scheme))
-        kType, _, hName = scheme.split('_')
+        vals = scheme.split('_', 4)
+        assert len(vals) in (3, 4)
+        if len(vals) == 3:
+            kType, _, hName = vals
+        else:
+            kType, _, _, hName = vals
         assert kType == 'rsa'
         return hName
 
