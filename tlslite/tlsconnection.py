@@ -2320,8 +2320,7 @@ class TLSConnection(TLSRecordLayer):
         # occurs parsing the ClientHello, this will be the version we'll use
         # for the error alert
         # If TLS 1.3 is enabled, use the "compatible" TLS 1.2 version
-        self.version = settings.maxVersion if settings.maxVersion < (3, 4) \
-                       else (3, 3)
+        self.version = min(settings.maxVersion, (3, 3))
 
         self._pre_client_hello_handshake_hash = self._handshake_hash.copy()
         #Get ClientHello
@@ -2511,12 +2510,11 @@ class TLSConnection(TLSRecordLayer):
         elif clientHello.client_version > settings.maxVersion:
             # in TLS 1.3 the version is negotiatied with extension,
             # but the settings use the (3, 4) as the max version
-            self.version = settings.maxVersion if settings.maxVersion < (3, 4)\
-                           else (3, 3)
+            self.version = min(settings.maxVersion, (3, 3))
             version = self.version
         else:
             #Set the version to the client's version
-            self.version = clientHello.client_version
+            self.version = min(clientHello.client_version, (3, 3))
             version = self.version
 
         #Detect if the client performed an inappropriate fallback.
