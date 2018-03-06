@@ -2518,10 +2518,10 @@ class TLSConnection(TLSRecordLayer):
             version = self.version
 
         #Detect if the client performed an inappropriate fallback.
-        if clientHello.client_version < settings.maxVersion and \
-            CipherSuite.TLS_FALLBACK_SCSV in clientHello.cipher_suites:
-            for result in self._sendError(\
-                  AlertDescription.inappropriate_fallback):
+        if version < settings.maxVersion and \
+                CipherSuite.TLS_FALLBACK_SCSV in clientHello.cipher_suites:
+            for result in self._sendError(
+                    AlertDescription.inappropriate_fallback):
                 yield result
 
         # TODO when TLS 1.3 is final, check the client hello random for
