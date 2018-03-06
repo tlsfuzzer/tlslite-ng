@@ -17,6 +17,7 @@ import sys
 import os
 import os.path
 import socket
+import time
 import timeit
 import getopt
 from tempfile import mkstemp
@@ -239,7 +240,9 @@ def clientTestCmd(argv):
     test_no += 1
 
     print("Test {0} - good SRP (db)".format(test_no))
+    print("client {0} - waiting for synchro".format(time.time()))
     synchro.recv(1)
+    print("client {0} - synchro received".format(time.time()))
     connection = connect()
     settings = HandshakeSettings()
     settings.maxVersion = (3, 3)
@@ -997,15 +1000,23 @@ def serverTestCmd(argv):
     print("Test {0} - good SRP (db)".format(test_no))
     try:
         (db_file, db_name) = mkstemp()
+        print("server {0} - tmp file created".format(time.time()))
         os.close(db_file)
+        print("server {0} - tmp file closed".format(time.time()))
         # this is race'y but the interface dbm interface is stupid like that...
         os.remove(db_name)
+        print("server {0} - tmp file removed".format(time.time()))
         verifierDB = VerifierDB(db_name)
+        print("server {0} - verifier initialised".format(time.time()))
         verifierDB.create()
+        print("server {0} - verifier created".format(time.time()))
         entry = VerifierDB.makeVerifier("test", "password", 1536)
+        print("server {0} - entry created".format(time.time()))
         verifierDB[b"test"] = entry
+        print("server {0} - entry added".format(time.time()))
 
         synchro.send(b'R')
+        print("server {0} - synchro sent".format(time.time()))
         connection = connect()
         connection.handshakeServer(verifierDB=verifierDB)
         testConnServer(connection)
