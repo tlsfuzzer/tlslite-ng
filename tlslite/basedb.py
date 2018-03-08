@@ -12,6 +12,8 @@ except ImportError:
     # Python 3
     import dbm as anydbm
 import threading
+import time
+import logging
 
 class BaseDB(object):
     def __init__(self, filename, type):
@@ -29,11 +31,19 @@ class BaseDB(object):
 
         :raises anydbm.error: If there's a problem creating the database.
         """
+        logger = logging.getLogger(__name__)
+
         if self.filename:
+            logger.debug('server %s - create - will open db', time.time())
             self.db = anydbm.open(self.filename, "n") #raises anydbm.error
+            logger.debug('server %s - create - setting type', time.time())
             self.db["--Reserved--type"] = self.type
+            logger.debug('server %s - create - syncing', time.time())
             self.db.sync()
+            logger.debug('server %s - create - fun exit', time.time())
         else:
+            logger.debug('server %s - create - using dict() as DB',
+                         time.time())
             self.db = {}
 
     def open(self):
