@@ -999,6 +999,8 @@ def serverTestCmd(argv):
 
     print("Test {0} - good SRP (db)".format(test_no))
     try:
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
         (db_file, db_name) = mkstemp()
         print("server {0} - tmp file created".format(time.time()))
         os.close(db_file)
