@@ -10,7 +10,8 @@ from __future__ import generators
 from .utils.codec import Writer, Parser
 from collections import namedtuple
 from .constants import NameType, ExtensionType, CertificateStatusType, \
-        SignatureAlgorithm, HashAlgorithm, SignatureScheme
+        SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
+        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat
 from .errors import TLSInternalError
 
 class TLSExtension(object):
@@ -291,17 +292,20 @@ class ListExtension(TLSExtension):
     of same-sized elementes inside an array
     """
 
-    def __init__(self, fieldName, extType):
+    def __init__(self, fieldName, extType, item_enum=None):
         """
         Create instance of the class.
 
         :param str fieldName: name of the field to store the list that is
             the payload
         :type int extType: numerical ID of the extension
+        :param class item_enum: TLSEnum class that defines the enum of the
+            items in the list
         """
         super(ListExtension, self).__init__(extType=extType)
         self._fieldName = fieldName
         self._internalList = None
+        self._item_enum = item_enum
 
     @property
     def extData(self):
@@ -350,11 +354,19 @@ class ListExtension(TLSExtension):
             return
         super(ListExtension, self).__setattr__(name, value)
 
+    def _list_to_repr(self):
+        """Return human redable representation of the item list"""
+        if not self._internalList or not self._item_enum:
+            return "{0!r}".format(self._internalList)
+
+        return "[{0}]".format(
+            ", ".join(self._item_enum.toStr(i) for i in self._internalList))
+
     def __repr__(self):
         """Return human readable representation of the extension."""
-        return "{0}({1}={2!r})".format(self.__class__.__name__,
-                                       self._fieldName,
-                                       self._internalList)
+        return "{0}({1}={2})".format(self.__class__.__name__,
+                                     self._fieldName,
+                                     self._list_to_repr())
 
 
 class VarListExtension(ListExtension):
@@ -365,8 +377,18 @@ class VarListExtension(ListExtension):
     of same-sized elementes inside an array
     """
 
-    def __init__(self, elemLength, lengthLength, fieldName, extType):
-        super(VarListExtension, self).__init__(fieldName, extType=extType)
+    def __init__(self, elemLength, lengthLength, fieldName, extType,
+                 item_enum=None):
+        """Create handler for extension that has a list of items as payload.
+
+        :param int elemLength: number of bytes needed to encode single element
+        :param int lengthLength: number of bytes needed to encode length field
+        :param str fieldName: name of the field storing the list of elements
+        :param int extType: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the list
+        """
+        super(VarListExtension, self).__init__(fieldName, extType=extType,
+                                               item_enum=item_enum)
         self._elemLength = elemLength
         self._lengthLength = lengthLength
 
@@ -414,7 +436,8 @@ class VarSeqListExtension(ListExtension):
     of same-sized elements in same-sized tuples
     """
 
-    def __init__(self, elemLength, elemNum, lengthLength, fieldName, extType):
+    def __init__(self, elemLength, elemNum, lengthLength, fieldName, extType,
+                 item_enum=None):
         """
         Create a handler for extension that has a list of tuples as payload.
 
@@ -425,8 +448,10 @@ class VarSeqListExtension(ListExtension):
             length of the list
         :param str fieldName: name of the field storing the list of elements
         :param int extType: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the list
         """
-        super(VarSeqListExtension, self).__init__(fieldName, extType=extType)
+        super(VarSeqListExtension, self).__init__(fieldName, extType=extType,
+                                                  item_enum=item_enum)
         self._elemLength = elemLength
         self._elemNum = elemNum
         self._lengthLength = lengthLength
@@ -803,8 +828,10 @@ class ClientCertTypeExtension(VarListExtension):
 
         See also: :py:meth:`create` and :py:meth:`parse`
         """
-        super(ClientCertTypeExtension, self).__init__(1, 1, 'certTypes', \
-                ExtensionType.cert_type)
+        super(ClientCertTypeExtension, self).__init__(
+            1, 1, 'certTypes',
+            ExtensionType.cert_type,
+            CertificateType)
 
 class ServerCertTypeExtension(TLSExtension):
     """
@@ -1225,8 +1252,11 @@ class SupportedGroupsExtension(VarListExtension):
 
     def __init__(self):
         """Create instance of class"""
-        super(SupportedGroupsExtension, self).__init__(2, 2, 'groups', \
-            ExtensionType.supported_groups)
+        super(SupportedGroupsExtension, self).__init__(
+            2, 2, 'groups',
+            ExtensionType.supported_groups,
+            GroupName)
+
 
 class ECPointFormatsExtension(VarListExtension):
     """
@@ -1240,8 +1270,10 @@ class ECPointFormatsExtension(VarListExtension):
 
     def __init__(self):
         """Create instance of class"""
-        super(ECPointFormatsExtension, self).__init__(1, 1, 'formats', \
-                ExtensionType.ec_point_formats)
+        super(ECPointFormatsExtension, self).__init__(
+            1, 1, 'formats',
+            ExtensionType.ec_point_formats,
+            ECPointFormat)
 
 
 class _SigListExt(VarSeqListExtension):
@@ -1250,8 +1282,12 @@ class _SigListExt(VarSeqListExtension):
     SignatureAlgorithmsCertExtension.
     """
 
-    def _repr_sigalgs(self):
-        """Return a text representation of sigalgs field."""
+    def _list_to_repr(self):
+        """Return a text representation of sigalgs field.
+
+        Override the one from ListExtension to be able to handle legacy
+        signature algorithms.
+        """
         if self.sigalgs is None:
             return "None"
 
@@ -1278,16 +1314,11 @@ class SignatureAlgorithmsExtension(_SigListExt):
 
     def __init__(self):
         """Create instance of class"""
-        super(SignatureAlgorithmsExtension, self).__init__(1, 2, 2,
-                                                           'sigalgs',
-                                                           extType=
-                                                           ExtensionType.
-                                                           signature_algorithms)
-
-    def __repr__(self):
-        """Return a text representation of the extension."""
-        return "SignatureAlgorithmsExtension(sigalgs={0})".format(
-                self._repr_sigalgs())
+        super(SignatureAlgorithmsExtension, self).__init__(
+            1, 2, 2,
+            'sigalgs',
+            ExtensionType.signature_algorithms,
+            SignatureScheme)
 
 
 class SignatureAlgorithmsCertExtension(_SigListExt):
@@ -1305,12 +1336,8 @@ class SignatureAlgorithmsCertExtension(_SigListExt):
         super(SignatureAlgorithmsCertExtension, self).__init__(
             1, 2, 2,
             'sigalgs',
-            extType=ExtensionType.signature_algorithms_cert)
-
-    def __repr__(self):
-        """Return a text representation of the extension."""
-        return "SignatureAlgorithmsCertExtension(sigalgs={0})".format(
-                self._repr_sigalgs())
+            ExtensionType.signature_algorithms_cert,
+            SignatureScheme)
 
 
 class PaddingExtension(TLSExtension):
@@ -1845,6 +1872,147 @@ class HRRKeyShareExtension(TLSExtension):
         return self
 
 
+class PskIdentity(object):
+    """Handling of PskIdentity from PreSharedKey Extension."""
+    def __init__(self):
+        """Create instance of class."""
+        super(PskIdentity, self).__init__()
+        self.identity = None
+        self.obfuscated_ticket_age = None
+
+    def create(self, identity, obf_ticket_age):
+        """Initialise instance."""
+        self.identity = identity
+        self.obfuscated_ticket_age = obf_ticket_age
+        return self
+
+    def write(self):
+        """Serialise the object."""
+        writer = Writer()
+        writer.addTwo(len(self.identity))
+        writer.bytes += self.identity
+        writer.addFour(self.obfuscated_ticket_age)
+        return writer.bytes
+
+    def parse(self, parser):
+        """Deserialize the object from bytearray."""
+        self.identity = parser.getVarBytes(2)
+        self.obfuscated_ticket_age = parser.get(4)
+        return self
+
+
+class PreSharedKeyExtension(TLSExtension):
+    """
+    Class for handling Pre Shared Key negotiation.
+    """
+    def __init__(self):
+        """Create instance of class."""
+        super(PreSharedKeyExtension, self).__init__(
+            extType=ExtensionType.pre_shared_key)
+        self.identities = None
+        self.binders = None
+
+    def create(self, identities, binders):
+        """Set list of offered PSKs."""
+        self.identities = identities
+        self.binders = binders
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the payload of the extension."""
+        if self.identities is None:
+            return bytearray()
+
+        writer = Writer()
+
+        iden_writer = Writer()
+        for i in self.identities:
+            iden_writer.bytes += i.write()
+        writer.add(len(iden_writer.bytes), 2)
+        writer.bytes += iden_writer.bytes
+
+        binder_writer = Writer()
+        for i in self.binders:
+            binder_writer.add(len(i), 1)
+            binder_writer.bytes += i
+        writer.add(len(binder_writer.bytes), 2)
+        writer.bytes += binder_writer.bytes
+        return writer.bytes
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format."""
+        if not parser.getRemainingLength():
+            self.identities = None
+            self.binders = None
+            return self
+
+        # PskIdentity identities<7..2^16-1>;
+        parser.startLengthCheck(2)
+        self.identities = []
+        while not parser.atLengthCheck():
+            self.identities.append(PskIdentity().parse(parser))
+        parser.stopLengthCheck()
+
+        # PskBinderEntry binders<33..2^16-1>;
+        parser.startLengthCheck(2)
+        self.binders = []
+        while not parser.atLengthCheck():
+            self.binders.append(parser.getVarBytes(1))
+        parser.stopLengthCheck()
+
+        if parser.getRemainingLength():
+            raise SyntaxError()
+        return self
+
+
+class SrvPreSharedKeyExtension(TLSExtension):
+    """Handling of the Pre Shared Key extension from server."""
+
+    def __init__(self):
+        """Create instance of class."""
+        super(SrvPreSharedKeyExtension, self).__init__(
+            extType=ExtensionType.pre_shared_key)
+        self.selected = None
+
+    def create(self, selected):
+        """Set the selected PSK identity."""
+        self.selected = selected
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the extension payload."""
+        if self.selected is None:
+            return bytearray()
+        writer = Writer()
+        writer.addTwo(self.selected)
+        return writer.bytes
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format."""
+        if not parser.getRemainingLength():
+            self.selected = None
+            return self
+
+        self.selected = parser.get(2)
+        if parser.getRemainingLength():
+            raise SyntaxError()
+
+        return self
+
+
+class PskKeyExchangeModesExtension(VarListExtension):
+    """Handling of the PSK Key Exchange Modes extension."""
+
+    def __init__(self):
+        """Create instance of class."""
+        super(PskKeyExchangeModesExtension, self).__init__(
+            1, 1, 'modes',
+            ExtensionType.psk_key_exchange_modes,
+            PskKeyExchangeMode)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -1861,14 +2029,17 @@ TLSExtension._universalExtensions = \
         ExtensionType.supported_versions: SupportedVersionsExtension,
         ExtensionType.key_share: ClientKeyShareExtension,
         ExtensionType.signature_algorithms_cert:
-            SignatureAlgorithmsCertExtension}
+            SignatureAlgorithmsCertExtension,
+        ExtensionType.pre_shared_key: PreSharedKeyExtension,
+        ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension}
 
 TLSExtension._serverExtensions = \
     {
         ExtensionType.cert_type: ServerCertTypeExtension,
         ExtensionType.tack: TACKExtension,
         ExtensionType.key_share: ServerKeyShareExtension,
-        ExtensionType.supported_versions: SrvSupportedVersionsExtension}
+        ExtensionType.supported_versions: SrvSupportedVersionsExtension,
+        ExtensionType.pre_shared_key: SrvPreSharedKeyExtension}
 
 TLSExtension._certificateExtensions = \
     {
