@@ -586,8 +586,31 @@ encrypt-then-MAC mode for CBC ciphers.
 ===========
 
 0.8.0 - wip
+* DEPRECATION NOTICE: camelCase method and argument names are considered now
+  deprecated, ones that use underscore_separator are now the primary ones
+  (the procedure to support it is not yet finished, but any new code must
+  follow this new style and new deprecations will be introduced as time goes
+  on. Please run your test suite with `-Wd` to see where the depracated calls
+  are being made, the python standard DeprecationWarning will be emited there)
+* Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
+* fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
+* TLS 1.3
+  * draft-23 support
+  * TLS 1.3 specific ciphers
+  * TLS 1.3 specific extensions and extension code points
+  * 1-RTT handshake mode
+  * HelloRetryRequest support
+  * PSK with (EC)DH key exchange
+  * session resumption in TLS 1.3 using PSK tickets
+  * padding support (Stanislav Zidek)
+* fix minor compatibility issue with Jython2.7 (Filip Goldefus)
+* higher precision of throughput measurement on non-Linux platforms
+  (Efthimis Iosifidis)
+* refactor keyexchange.py module to make (EC)DH key exchange standalone
+* more human readable errors upon receiving unexpected messages
+* `__eq__` supported on all Handshake messages
 * fix minor bugs in message objects, extend test coverage for tlslite.messages
-* repr() for SignatureAlgorithmsExtension and Certificate
+* repr() for Certificate and few extensions
 
 0.7.0 - 2017-07-31
 
