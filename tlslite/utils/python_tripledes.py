@@ -28,9 +28,11 @@ iv  -> Optional Initialization Vector bytes, must be supplied if using CBC mode.
 """
 
 import sys
+import warnings
 
 # PY_VER is used to handle Python2 and Python3 differences.
 PY_VER = sys.version_info
+FLAG = 1
 
 def new(key, iv=None):
     # the new() method to operate this cipher
@@ -44,6 +46,8 @@ class _baseDes(object):
         self.block_size = 8
 
         # Sanity checking of arguments.
+        if not iv:
+            raise ValueError("Initialization Vector (iv) must be supplied")
         if iv and len(iv) != self.block_size:
             raise ValueError("Invalid Initialization Vector (iv), must be a "
                              "multiple of {0} bytes".format(self.block_size))
@@ -79,24 +83,27 @@ class _baseDes(object):
         # there is no way to correctly decode the data into bytes.
         if PY_VER < (3, ):
             if isinstance(data, unicode):
-                raise ValueError("Can only work with bytes, "
-                                 "not Unicode strings.")
+                raise ValueError("Only bytes, bytearray or memoryview "
+                                 "objects of them should be passed, "
+                                 "not Unicode strings")
         else:
             if isinstance(data, str):
+                warnings.warn("Only bytes, bytearray or memoryview "
+                              "objects of them should be passed",
+                              DeprecationWarning,
+                              stacklevel=1)
                 # Only accept ascii unicode values.
                 try:
                     return data.encode('ascii')
                 except UnicodeEncodeError:
                     pass
-                raise ValueError("Can only work with encoded strings, "
-                                 "not Unicode.")
-                #raise DeprecationWarning("Only bytes, bytearray or memoryview"
-                #                         " objects of them should be passed.")
+                raise ValueError("The Unicode strings shouldn't be passed")
         return data
 
 #############################################
 #                   DES                     #
 #############################################
+
 
 class Des(_baseDes):
     """ DES encryption/decrytpion class
@@ -230,7 +237,7 @@ class Des(_baseDes):
         # Sanity checking of arguments.
         if len(key) != 8:
             raise ValueError("Invalid DES key size. Key must be exactly "
-                             "8 bytes long.")
+                             "8 bytes long")
         super(Des, self).__init__(iv)
         
         self.key_size = 8
@@ -251,7 +258,7 @@ class Des(_baseDes):
         if PY_VER < (3, ):
             # Turn the strings into integers. Python 3 uses a bytes
             # class, which already has this behaviour.
-            data = [ord(c) for c in data]
+            data = [ord(c) for c in data if isinstance(c, str)]
         len_data = len(data) * 8
         result = [0] * len_data
         pos = 0
@@ -441,6 +448,7 @@ class Des(_baseDes):
 #               Triple DES                  #
 #############################################
 
+
 class Python_TripleDES(_baseDes):
     """Triple DES encryption/decrytpion class
 
@@ -471,11 +479,6 @@ class Python_TripleDES(_baseDes):
             raise ValueError("Invalid triple DES key size. "
                              "Key must be either 16 or 24 bytes long")
 
-        if not self.iv:
-            # Use the first 8 bytes of the key
-            self._iv = key[:self.block_size]
-        if len(self.iv) != self.block_size:
-            raise ValueError("Invalid iv, must be 8 bytes in length")
         self.__key1 = Des(key[:8], self._iv)
         self.__key2 = Des(key[8:16], self._iv)
         if self.key_size == 16:
