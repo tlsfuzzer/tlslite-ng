@@ -58,7 +58,7 @@ class X509(object):
         :param bytes: A DER-encoded X.509 certificate.
         """
         self.bytes = bytearray(bytes)
-        p = ASN1Parser(bytes)
+        p = ASN1Parser(self.bytes)
 
         #Get the tbsCertificate
         tbsCertificateP = p.getChild(0)
