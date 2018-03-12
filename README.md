@@ -586,6 +586,12 @@ encrypt-then-MAC mode for CBC ciphers.
 12 History
 ===========
 
+0.7.2 - 2018-03-12
+* Jython2.7 bytearray compatibility fix (Filip Goldefus)
+* Python 2 compatibility with X.509 DER parsing (Erkki Vahala)
+* Python 3.7 compatibility (`async` keyword is deprecated) (Pierre Ståhl)
+* minor fix to M2Crypto 0.27.0 compatibility (only test suite fix)
+
 0.7.1 - 2018-02-09
 
 * fix support for M2Crypto on Python3
