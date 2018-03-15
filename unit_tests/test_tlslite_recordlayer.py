@@ -547,8 +547,8 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
-            b'\xe1\x90\x2d\xd1\xfd\x24\xc8\x47\x70\xd4'
-            b'\x8c\x36\xf3\x2c\x93\x04\x39\x1f\x6f\x42\xeb'
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
             ))
 
     def test_recvRecord_with_encryption_tls1_3_aes_128_gcm(self):
@@ -562,8 +562,8 @@ class TestRecordLayer(unittest.TestCase):
             b'\x17'  # application_data
             b'\x03\x01'  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
-            b'\xe1\x90\x2d\xd1\xfd\x24\xc8\x47\x70\xd4'
-            b'\x8c\x36\xf3\x2c\x93\x04\x39\x1f\x6f\x42\xeb'
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
             ))
 
         recordLayer = RecordLayer(sock)
@@ -621,7 +621,8 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
-            b'}\x17w_#\xf0\xf2R\xaa*s\xe2\xca\xab\x9d\xea\x9d\xf3\xc1-\xd2'
+            b'}\x17w_#'
+            b'\xfc\\\xaf\x1ef6\x03X\xd2\xe3\x1c\xe4]\xcb\xb7\xbb'
             ))
 
     def test_sendRecord_with_encryption_tls1_3_chacha20(self):
@@ -657,7 +658,8 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
-            b'o\x9fO\x16\x07\x878]GV\xa5l\x12\xb6\x85\xb5@\x83\x94\x06\xd6'
+            b'o\x9fO\x16\x07'
+            b'\xbdUy\x17E6\n\xd9\x9cT\xec\xdav\x1f\xb4$'
             ))
 
     def test_sendRecord_with_padding_tls1_3(self):
@@ -707,9 +709,8 @@ class TestRecordLayer(unittest.TestCase):
             b"\xf6\x10\xe5}\xb1T\x85om\xa4\xfa\x1aS\x1f\xab\xc6b\'\xe6f" +
             b"\xb3\xbe\xac\xfd\xed\x06\x93\xadbGMD\xd9\xb9\xca\xf6\x8b" +
             b"\xac\x07\x96\xe8\xd13)r\xbcNJ\x9d#YP@\x9b\x8ez\x06\xfb" +
-            b"\x8f2\x8cz\xb7\xd6IP\xfa\xeezcQ\xf3\xe2n\x82\xd1\x9f\xd1x" +
-            b"\x01x\xea\xd4ht[)\x06"
-            ))
+            b"\x8f2\x8cz\xb7\xd6IP\xfa\xeezcQ\xf3"
+            b"(\t\x8e\x0b\xf8\x02\xb4\x9du\xa0f\x88;\xb9\xfd\x87"))
 
     def test_sendRecord_with_malformed_inner_plaintext(self):
         # setup
@@ -748,7 +749,8 @@ class TestRecordLayer(unittest.TestCase):
             b'\x00\x15'  # length
             ))
         self.assertEqual(sock.sent[0][5:], bytearray(
-            b'\x95\xf5^\xa5\xea\x8cCf\xbb\xbb\xe2\xdb!\x13\xf1\x1b\x93s\x81>M'
+            b'\x95\xf5^\xa5\xea'
+            b'\xddV\x81z97\xaf\xf4\xd7g\xae\xd4\x89\x9b\xe6\xa9'
             ))
 
         # test proper

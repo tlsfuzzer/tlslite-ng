@@ -465,7 +465,12 @@ class RecordLayer(object):
                                                 len(buf)//256,
                                                 len(buf)%256])
         else:  # TLS 1.3
-            authData = bytearray(0)
+            out_len = len(buf) + self._writeState.encContext.tagLength
+            # this is just recreated Record Layer header
+            authData = bytearray([contentType,
+                                  self._recordSocket.version[0],
+                                  self._recordSocket.version[1],
+                                  out_len // 256, out_len % 256])
 
         nonce = self._getNonce(self._writeState, seqNumBytes)
 
@@ -694,7 +699,7 @@ class RecordLayer(object):
     def _decryptAndUnseal(self, recordType, buf):
         """Decrypt AEAD encrypted data"""
         seqnumBytes = self._readState.getSeqNumBytes()
-        #AES-GCM, has an explicit variable nonce.
+        # AES-GCM has an explicit variable nonce in TLS 1.2
         if "aes" in self._readState.encContext.name and \
                 not self._is_tls13_plus():
             explicitNonceLength = 8
@@ -704,6 +709,8 @@ class RecordLayer(object):
             nonce = self._readState.fixedNonce + buf[:explicitNonceLength]
             buf = buf[8:]
         else:
+            # for TLS 1.3 and Chacha20 in TLS 1.2 share nonce generation
+            # algorithm
             nonce = self._getNonce(self._readState, seqnumBytes)
 
         if self._readState.encContext.tagLength > len(buf):
@@ -717,7 +724,9 @@ class RecordLayer(object):
                                                 plaintextLen//256,
                                                 plaintextLen%256])
         else:  # TLS 1.3
-            authData = bytearray(0)
+            # this is essentially a Record Layer header
+            authData = bytearray([recordType, 3, 3,
+                                  len(buf) // 256, len(buf) % 256])
 
         buf = self._readState.encContext.open(nonce, buf, authData)
         if buf is None:
