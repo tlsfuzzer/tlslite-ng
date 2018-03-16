@@ -904,6 +904,9 @@ class TLSRecordLayer(object):
                     yield result
                 else:
                     break
+        except TLSUnexpectedMessage:
+            for result in self._sendError(AlertDescription.unexpected_message):
+                yield result
         except TLSRecordOverflow:
             for result in self._sendError(AlertDescription.record_overflow):
                 yield result

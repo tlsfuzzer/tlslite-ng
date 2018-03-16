@@ -696,7 +696,7 @@ class RecordLayer(object):
 
         return buf
 
-    def _decryptAndUnseal(self, recordType, buf):
+    def _decryptAndUnseal(self, header, buf):
         """Decrypt AEAD encrypted data"""
         seqnumBytes = self._readState.getSeqNumBytes()
         # AES-GCM has an explicit variable nonce in TLS 1.2
@@ -719,14 +719,23 @@ class RecordLayer(object):
 
         if not self._is_tls13_plus():
             plaintextLen = len(buf) - self._readState.encContext.tagLength
-            authData = seqnumBytes + bytearray([recordType, self.version[0],
+            authData = seqnumBytes + bytearray([header.type, self.version[0],
                                                 self.version[1],
                                                 plaintextLen//256,
                                                 plaintextLen%256])
         else:  # TLS 1.3
-            # this is essentially a Record Layer header
-            authData = bytearray([recordType, 3, 3,
-                                  len(buf) // 256, len(buf) % 256])
+            # enforce the checks for encrypted records
+            if header.type != ContentType.application_data:
+                raise TLSUnexpectedMessage(
+                    "Invalid ContentType for encrypted record: {0}"
+                    .format(ContentType.toStr(header.type)))
+            if header.version != (3, 3):
+                raise TLSIllegalParameterException(
+                    "Unexpected version in encrypted record: {0}"
+                    .format(header.version))
+            if header.length != len(buf):
+                raise TLSBadRecordMAC("Length mismatch")
+            authData = header.write()
 
         buf = self._readState.encContext.open(nonce, buf, authData)
         if buf is None:
@@ -824,7 +833,7 @@ class RecordLayer(object):
         elif self._readState and \
             self._readState.encContext and \
             self._readState.encContext.isAEAD:
-            data = self._decryptAndUnseal(header.type, data)
+            data = self._decryptAndUnseal(header, data)
         elif self._readState and self._readState.encryptThenMAC:
             data = self._macThenDecrypt(header.type, data)
         elif self._readState and \

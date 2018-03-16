@@ -551,7 +551,67 @@ class TestRecordLayer(unittest.TestCase):
             b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
             ))
 
-    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm(self):
+    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm_wrong_type(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            b'\x16'  # handshake
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        with self.assertRaises(TLSUnexpectedMessage) as exc:
+            for result in recordLayer.recvRecord():
+                # check if non-blocking socket
+                self.assertNotIn(result, (0, 1))
+                break
+
+        self.assertIn('Invalid ContentType', str(exc.exception))
+        self.assertIn('handshake', str(exc.exception))
+
+    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm_wrong_length(self):
+        header = RecordHeader3().create((3, 3), 0x17, 0x14)
+        buf = bytearray(
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            )
+
+        recordLayer = RecordLayer(None)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        with self.assertRaises(TLSBadRecordMAC) as exc:
+            # other way to test it is to patch the recv() method of the record
+            # socket to return a header with wrong length
+            recordLayer._decryptAndUnseal(header, buf)
+
+        self.assertIn('Length mismatch', str(exc.exception))
+
+    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm_wrong_version(self):
         patcher = mock.patch.object(os,
                                     'urandom',
                                     lambda x : bytearray(x))
@@ -561,6 +621,41 @@ class TestRecordLayer(unittest.TestCase):
         sock = MockSocket(bytearray(
             b'\x17'  # application_data
             b'\x03\x01'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        with self.assertRaises(TLSIllegalParameterException) as exc:
+            for result in recordLayer.recvRecord():
+                # check if non-blocking socket
+                self.assertNotIn(result, (0, 1))
+                break
+
+        self.assertIn('Unexpected version', str(exc.exception))
+        self.assertIn('(3, 1)', str(exc.exception))
+
+    def test_recvRecord_with_encryption_tls1_3_aes_128_gcm(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
             b'\x00\x15'  # length
             b"\xe1\x90\x2d\xd1\xfd"
             b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
