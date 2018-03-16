@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.8.0-alpha1                                    2017-08-24
+tlslite-ng version 0.8.0-alpha2                                    2018-03-16
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -593,10 +593,11 @@ encrypt-then-MAC mode for CBC ciphers.
   on. Please run your test suite with `-Wd` to see where the depracated calls
   are being made, the python standard DeprecationWarning will be emited there)
 * Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
+* Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
 * TLS 1.3
-  * draft-23 support
-  * TLS 1.3 specific ciphers
+  * draft-26 support
+  * TLS 1.3 specific ciphers (AES-GCM and Chacha20)
   * TLS 1.3 specific extensions and extension code points
   * 1-RTT handshake mode
   * HelloRetryRequest support
