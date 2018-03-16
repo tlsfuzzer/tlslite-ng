@@ -12,6 +12,7 @@
 from __future__ import generators
 
 import io
+import time
 import socket
 
 from .utils.compat import *
@@ -262,6 +263,7 @@ class TLSRecordLayer(object):
                         if result in (0, 1):
                             yield result
                     if isinstance(result, NewSessionTicket):
+                        result.time = time.time()
                         self.tickets.append(result)
                         continue
                     applicationData = result
@@ -902,6 +904,9 @@ class TLSRecordLayer(object):
                     yield result
                 else:
                     break
+        except TLSUnexpectedMessage:
+            for result in self._sendError(AlertDescription.unexpected_message):
+                yield result
         except TLSRecordOverflow:
             for result in self._sendError(AlertDescription.record_overflow):
                 yield result

@@ -21,7 +21,7 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
-        NewSessionTicket
+        NewSessionTicket, SessionTicketPayload
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
@@ -3265,6 +3265,107 @@ class TestEncryptedExtensions(unittest.TestCase):
                           b'\x00\x06'  # key share extension length
                           b'\x00\x04'  # length of named_group_list
                           b'\x00\x17\x00\x1D'))  # secp256r1 and x25519
+
+
+class TestSessionTicketPayload(unittest.TestCase):
+    def test___init__(self):
+        ticket = SessionTicketPayload()
+
+        self.assertIsInstance(ticket, SessionTicketPayload)
+        self.assertEqual(ticket.version, 0)
+        self.assertEqual(ticket.cipher_suite, 0)
+
+    def test_create(self):
+        ticket = SessionTicketPayload()
+
+        ms = mock.Mock()
+        pv = mock.Mock()
+        cs = mock.Mock()
+        ct = mock.Mock()
+        nonce = mock.Mock()
+        ticket = ticket.create(ms, pv, cs, ct, nonce)
+
+        self.assertIs(ticket.master_secret, ms)
+        self.assertIs(ticket.protocol_version, pv)
+        self.assertIs(ticket.cipher_suite, cs)
+        self.assertIs(ticket.creation_time, ct)
+        self.assertIs(ticket.nonce, nonce)
+
+    def test_write(self):
+        ticket = SessionTicketPayload()
+        ticket.create(bytearray(b'\x22' * 32),
+                      (3, 4),
+                      0x1302,
+                      12345678,
+                      bytearray(b'\x11' * 16))
+
+        self.assertEqual(
+            ticket.write(),
+            bytearray(b'\x00\x00' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e'))  # creation time
+
+    def test_parse(self):
+        parser = Parser(
+            bytearray(b'\x00\x00' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e'))  # creation time
+        ticket = SessionTicketPayload().parse(parser)
+
+        self.assertEqual(ticket.master_secret, bytearray(b'\x22' * 32))
+        self.assertEqual(ticket.protocol_version, (3, 4))
+        self.assertEqual(ticket.cipher_suite, 0x1302)
+        self.assertEqual(ticket.creation_time, 12345678)
+        self.assertEqual(ticket.nonce, bytearray(b'\x11' * 16))
+
+
+    def test_parse_with_wrong_version(self):
+        parser = Parser(
+            bytearray(b'\x00\x01' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e'))  # creation time
+
+
+        ticket = SessionTicketPayload()
+
+        with self.assertRaises(ValueError) as e:
+            ticket.parse(parser)
+
+        self.assertIn("version", str(e.exception))
+
+    def test_parse_with_extra_data_at_end(self):
+        parser = Parser(
+            bytearray(b'\x00\x00' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e' +  # creation time
+                      b'\x00'))  # extra data
+
+        ticket = SessionTicketPayload()
+
+        with self.assertRaises(ValueError) as e:
+            ticket.parse(parser)
+
+        self.assertIn("Malformed", str(e.exception))
 
 
 class TestNewSessionTicket(unittest.TestCase):

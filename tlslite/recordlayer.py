@@ -465,7 +465,12 @@ class RecordLayer(object):
                                                 len(buf)//256,
                                                 len(buf)%256])
         else:  # TLS 1.3
-            authData = bytearray(0)
+            out_len = len(buf) + self._writeState.encContext.tagLength
+            # this is just recreated Record Layer header
+            authData = bytearray([contentType,
+                                  self._recordSocket.version[0],
+                                  self._recordSocket.version[1],
+                                  out_len // 256, out_len % 256])
 
         nonce = self._getNonce(self._writeState, seqNumBytes)
 
@@ -691,10 +696,10 @@ class RecordLayer(object):
 
         return buf
 
-    def _decryptAndUnseal(self, recordType, buf):
+    def _decryptAndUnseal(self, header, buf):
         """Decrypt AEAD encrypted data"""
         seqnumBytes = self._readState.getSeqNumBytes()
-        #AES-GCM, has an explicit variable nonce.
+        # AES-GCM has an explicit variable nonce in TLS 1.2
         if "aes" in self._readState.encContext.name and \
                 not self._is_tls13_plus():
             explicitNonceLength = 8
@@ -704,6 +709,8 @@ class RecordLayer(object):
             nonce = self._readState.fixedNonce + buf[:explicitNonceLength]
             buf = buf[8:]
         else:
+            # for TLS 1.3 and Chacha20 in TLS 1.2 share nonce generation
+            # algorithm
             nonce = self._getNonce(self._readState, seqnumBytes)
 
         if self._readState.encContext.tagLength > len(buf):
@@ -712,12 +719,23 @@ class RecordLayer(object):
 
         if not self._is_tls13_plus():
             plaintextLen = len(buf) - self._readState.encContext.tagLength
-            authData = seqnumBytes + bytearray([recordType, self.version[0],
+            authData = seqnumBytes + bytearray([header.type, self.version[0],
                                                 self.version[1],
                                                 plaintextLen//256,
                                                 plaintextLen%256])
         else:  # TLS 1.3
-            authData = bytearray(0)
+            # enforce the checks for encrypted records
+            if header.type != ContentType.application_data:
+                raise TLSUnexpectedMessage(
+                    "Invalid ContentType for encrypted record: {0}"
+                    .format(ContentType.toStr(header.type)))
+            if header.version != (3, 3):
+                raise TLSIllegalParameterException(
+                    "Unexpected version in encrypted record: {0}"
+                    .format(header.version))
+            if header.length != len(buf):
+                raise TLSBadRecordMAC("Length mismatch")
+            authData = header.write()
 
         buf = self._readState.encContext.open(nonce, buf, authData)
         if buf is None:
@@ -815,7 +833,7 @@ class RecordLayer(object):
         elif self._readState and \
             self._readState.encContext and \
             self._readState.encContext.isAEAD:
-            data = self._decryptAndUnseal(header.type, data)
+            data = self._decryptAndUnseal(header, data)
         elif self._readState and self._readState.encryptThenMAC:
             data = self._macThenDecrypt(header.type, data)
         elif self._readState and \

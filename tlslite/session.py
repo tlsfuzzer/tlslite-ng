@@ -50,6 +50,24 @@ class Session(object):
     :vartype appProto: bytearray
     :ivar appProto: name of the negotiated application level protocol, None
         if not negotiated
+
+    :vartype cl_app_secret: bytearray
+    :ivar cl_app_secret: key used for deriving keys used by client to encrypt
+        and protect data in TLS 1.3
+
+    :vartype sr_app_secret: bytearray
+    :ivar sr_app_secret: key used for deriving keys used by server to encrypt
+        and protect data in TLS 1.3
+
+    :vartype exporterMasterSecret: bytearray
+    :ivar exporterMasterSecret: master secret used for TLS Exporter in TLS1.3
+
+    :vartype resumptionMasterSecret: bytearray
+    :ivar resumptionMasterSecret: master secret used for session resumption in
+        TLS 1.3
+
+    :vartype tickets: list
+    :ivar tickets: list of tickets received from the server
     """
 
     def __init__(self):
@@ -66,12 +84,19 @@ class Session(object):
         self.encryptThenMAC = False
         self.extendedMasterSecret = False
         self.appProto = bytearray(0)
+        self.cl_app_secret = bytearray(0)
+        self.sr_app_secret = bytearray(0)
+        self.exporterMasterSecret = bytearray(0)
+        self.resumptionMasterSecret = bytearray(0)
+        self.tickets = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
                tackExt, tackInHelloExt, serverName, resumable=True,
                encryptThenMAC=False, extendedMasterSecret=False,
-               appProto=bytearray(0)):
+               appProto=bytearray(0), cl_app_secret=bytearray(0),
+               sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
+               resumptionMasterSecret=bytearray(0), tickets=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -85,6 +110,12 @@ class Session(object):
         self.encryptThenMAC = encryptThenMAC
         self.extendedMasterSecret = extendedMasterSecret
         self.appProto = appProto
+        self.cl_app_secret = cl_app_secret
+        self.sr_app_secret = sr_app_secret
+        self.exporterMasterSecret = exporterMasterSecret
+        self.resumptionMasterSecret = resumptionMasterSecret
+        # NOTE we need a reference copy not a copy of object here!
+        self.tickets = tickets
 
     def _clone(self):
         other = Session()
@@ -101,6 +132,11 @@ class Session(object):
         other.encryptThenMAC = self.encryptThenMAC
         other.extendedMasterSecret = self.extendedMasterSecret
         other.appProto = self.appProto
+        other.cl_app_secret = self.cl_app_secret
+        other.sr_app_secret = self.sr_app_secret
+        other.exporterMasterSecret = self.exporterMasterSecret
+        other.resumptionMasterSecret = self.resumptionMasterSecret
+        other.tickets = self.tickets
         return other
 
     def valid(self):
@@ -109,7 +145,8 @@ class Session(object):
         :rtype: bool
         :returns: If this session can be used for session resumption.
         """
-        return self.resumable and self.sessionID
+        # TODO add checks for tickets received from server (freshness etc.)
+        return self.resumable and (self.sessionID or self.tickets)
 
     def _setResumable(self, boolean):
         #Only let it be set to True if the sessionID is non-null
