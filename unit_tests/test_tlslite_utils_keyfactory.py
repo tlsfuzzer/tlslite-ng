@@ -173,7 +173,7 @@ class TestParsePEMKey(unittest.TestCase):
 
         # XXX doesn't handle files without newlines
         # old version of M2Crypto return a Null, in Python3 it raises exception
-        if M2Crypto.version_info >= (0, 27, 0):
+        if M2Crypto.version_info >= (0, 28, 0):
             exp = M2Crypto.EVP.EVPError
         else:
             exp = SyntaxError
