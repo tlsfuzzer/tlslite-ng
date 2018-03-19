@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.7.2                                           2018-03-12
+tlslite-ng version 0.7.3                                           2018-03-19
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -585,6 +585,9 @@ encrypt-then-MAC mode for CBC ciphers.
 
 12 History
 ===========
+
+0.7.3 - 2018-03-19
+* M2Crypto - fix test suite compatibility with 0.27.0 for real this time
 
 0.7.2 - 2018-03-12
 * Jython2.7 bytearray compatibility fix (Filip Goldefus)
