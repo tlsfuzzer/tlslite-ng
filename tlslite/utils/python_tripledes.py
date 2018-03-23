@@ -33,14 +33,14 @@ import warnings
 PY_VER = sys.version_info
 FLAG = 1
 
-
-def new(key, iv=None):
+def new(key, iv):
     # the new() method to operate this cipher
     return Python_TripleDES(key, iv)
 
 
 class _baseDes(object):
-    # The base class shared by des and triple des.
+    """ The base class shared by des and triple des.
+    """
     def __init__(self, iv=None):
         if iv:
             iv = self._guard_against_unicode(iv)
@@ -55,34 +55,24 @@ class _baseDes(object):
         self._iv = iv
 
     @property
-    def key(self):
-        # return bytes
-        return self.__key
-
-    @key.setter
-    def key(self, key):
-        # Set the crypting key for this object
-        key = self._guard_against_unicode(key)
-        self.__key = key
-
-    @property
     def iv(self):
         # return bytes
         return self._iv
 
     @iv.setter
     def iv(self, iv):
-        # Set the Initialization Vector
-        if not iv or len(iv) != self.block_size:
-            raise ValueError("Invalid Initialization Vector (iv), must be a "
-                             "multiple of {0} bytes".format(self.block_size))
-        iv = self._guard_against_unicode(iv)
         self._iv = iv
 
     def _guard_against_unicode(self, data):
         # Only accept byte strings or ascii unicode values, otherwise
         # there is no way to correctly decode the data into bytes.
+
         if PY_VER < (3, ):
+            if isinstance(data, str):
+                warnings.warn("Only bytes, bytearray or memoryview "
+                              "objects of them should be passed",
+                              DeprecationWarning,
+                              stacklevel=1)
             if isinstance(data, unicode):
                 raise ValueError("Only bytes, bytearray or memoryview "
                                  "objects of them should be passed, "
@@ -300,9 +290,8 @@ class Des(_baseDes):
         self.l = key[:28]
         self.r = key[28:]
         for i in range(16):
-            j = 0
             # Perform circular left shifts
-            for j in range(Des.__left_rotations[i]):
+            for _ in range(Des.__left_rotations[i]):
                 self.l.append(self.l[0])
                 del self.l[0]
                 self.r.append(self.r[0])
@@ -327,7 +316,7 @@ class Des(_baseDes):
             iteration = 15
             iteration_adjustment = -1
 
-        for i in range(16):
+        for _ in range(16):
             # Make a copy of r[i-1], this will later become l[i]
             temp_r = self.r[:]
 
@@ -375,19 +364,7 @@ class Des(_baseDes):
     def crypt(self, data, crypt_type):
         """Crypt the data in blocks, running it through des_crypt()"""
 
-        # Error check the data
-        if not data:
-            return ''
-        if len(data) % self.block_size:
-            if crypt_type == Des.DECRYPT:  # Decryption work on 8B blocks
-                raise ValueError("Invalid data length, must be a multiple "
-                                 "of {0} bytes".format(self.block_size))
-
-        if self.iv:
-            iv = self.__string_to_bitlist(self.iv)
-        else:
-            raise ValueError("For CBC mode, you must supply the "
-                             "Initialization Vector (iv) for ciphering")
+        iv = self.__string_to_bitlist(self.iv)
 
         # Split the data into blocks, crypting each one seperately
         i = 0
@@ -415,30 +392,6 @@ class Des(_baseDes):
         # Return the full crypted string
         return b''.join(result)
 
-    def encrypt(self, data):
-        """encrypt(data) -> bytes
-
-        data : Bytes to be encrypted
-
-        The data must be a multiple of 8 bytes and will be encrypted
-        with the already specified key.
-        """
-        data = self._guard_against_unicode(data)
-        data = self.crypt(data, Des.ENCRYPT)
-        return data
-
-    def decrypt(self, data):
-        """decrypt(data) -> bytes
-
-        data : Bytes to be encrypted
-
-        The data must be a multiple of 8 bytes and will be decrypted
-        with the already specified key.
-        """
-        data = self._guard_against_unicode(data)
-        data = self.crypt(data, Des.DECRYPT)
-        return data
-
 #############################################
 #               Triple DES                  #
 #############################################
@@ -453,19 +406,13 @@ class Python_TripleDES(_baseDes):
     """
     def __init__(self, key, iv=None):
         super(Python_TripleDES, self).__init__(iv)
-        self.key = key
 
-    @property
-    def key(self):
-        return self.key
-
-    @key.setter
-    def key(self, key):
-        """Will set crypting key for this object. Either 16/24 bytes long."""
+        # Will set crypting key for this object. Either 16/24 bytes long.
         self.key_size = len(key)
         if self.key_size not in (16, 24):
             raise ValueError("Invalid triple DES key size. "
                              "Key must be either 16 or 24 bytes long")
+        key = self._guard_against_unicode(key)
 
         self.__key1 = Des(key[:8], self._iv)
         self.__key2 = Des(key[8:16], self._iv)
@@ -474,7 +421,7 @@ class Python_TripleDES(_baseDes):
         else:
             self.__key3 = Des(key[16:], self._iv)
 
-    def encrypt(self, data):
+    def encrypt(self, data=None):
         """ encrypt(data) -> bytes
 
         data : bytes to be encrypted
@@ -482,9 +429,17 @@ class Python_TripleDES(_baseDes):
         The data must be a multiple of 8 bytes and will be encrypted
         with the already specified key.
         """
+
         ENCRYPT = Des.ENCRYPT
         DECRYPT = Des.DECRYPT
+
+        if not data:
+            return b''
+
         data = self._guard_against_unicode(data)
+        if len(data) % self.block_size:
+            raise ValueError("Invalid data length, must be a multiple "
+                             "of {0} bytes".format(self.block_size))
 
         self.__key1.iv = self.iv
         self.__key2.iv = self.iv
@@ -503,7 +458,7 @@ class Python_TripleDES(_baseDes):
 
         return b''.join(result)
 
-    def decrypt(self, data):
+    def decrypt(self, data=None):
         """ decrypt(data) -> bytes
 
         data : bytes to be encrypted
@@ -513,7 +468,14 @@ class Python_TripleDES(_baseDes):
         """
         ENCRYPT = Des.ENCRYPT
         DECRYPT = Des.DECRYPT
+
+        if not data:
+            return b''
+
         data = self._guard_against_unicode(data)
+        if len(data) % self.block_size:
+            raise ValueError("Invalid data length, must be a multiple "
+                             "of {0} bytes".format(self.block_size))
 
         self.__key1.iv = self.iv
         self.__key2.iv = self.iv
