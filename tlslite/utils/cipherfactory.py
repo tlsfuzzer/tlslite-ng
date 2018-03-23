@@ -14,19 +14,18 @@ from tlslite.utils import python_tripledes
 from tlslite.utils import cryptomath
 
 tripleDESPresent = True
+"""Inform if the 3DES algorithm is supported."""
 
 if cryptomath.m2cryptoLoaded:
     from tlslite.utils import openssl_aes
     from tlslite.utils import openssl_rc4
     from tlslite.utils import openssl_tripledes
-    tripleDESPresent = True
 
 if cryptomath.pycryptoLoaded:
     from tlslite.utils import pycrypto_aes
     from tlslite.utils import pycrypto_aesgcm
     from tlslite.utils import pycrypto_rc4
     from tlslite.utils import pycrypto_tripledes
-    tripleDESPresent = True
 
 # **************************************************************************
 # Factory Functions for AES
@@ -119,7 +118,7 @@ def createRC4(key, IV, implList=None):
     raise NotImplementedError()
 
 #Create a new TripleDES instance
-def createTripleDES(key, IV=None, implList=None):
+def createTripleDES(key, IV, implList=None):
     """Create a new 3DES object.
 
     :type key: str
