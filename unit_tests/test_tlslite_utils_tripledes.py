@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright (c) 2018, Adam Varga
 #
 # See the LICENSE file for legal information regarding use of this file.
@@ -17,9 +18,137 @@ try:
 except ImportError:
     import unittest
 
-from tlslite.utils.python_tripledes import Python_TripleDES
+from tlslite.utils.python_tripledes import *
 from tlslite.utils.cryptomath import *
 from tlslite.errors import *
+import warnings
+
+class Test3DES_components(unittest.TestCase):
+    # component functions NOT tested from test vectors
+
+    def test_no_iv(self):
+        with self.assertRaises(ValueError):
+            Python_TripleDES(
+                bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                          b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                          b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'))
+
+    def test_bad_iv(self):
+        with self.assertRaises(ValueError):
+            Python_TripleDES(
+                bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                          b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                          b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'),
+                b'\x55\xfe\x07\x2a\x73\x51\xa5')
+
+    def test_bad_key_size(self):
+        with self.assertRaises(ValueError):
+            Python_TripleDES(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57',
+                             b'\x55\xfe\x07\x2a\x73\x51\xa5\x00')
+
+    def test_str_instance(self):
+        key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
+
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES('asdfdasdfdsasdfdsasgdfds', iv)
+
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(key, 'asdfdasd')
+
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(key, iv).encrypt('161514131211109876543210')
+
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(key, iv).decrypt('161514131211109876543210')
+
+    def test_unicode_instance(self):
+        key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(u'aáäbcčdďeéfghiíjklĺľmnňo', iv)
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(key, u'aáäbcčdď')
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(key, iv).encrypt(u'aáäbcčdďeéfghiíjklĺľmnňo')
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(key, iv).decrypt(u'aáäbcčdďeéfghiíjklĺľmnňo')
+
+    def test_1des_bad_key(self):
+        with self.assertRaises(ValueError):
+            Des(b'\x00\x00\x00\x00\x00\x00\x00',
+                b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
+    def test_3des_16B_key(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        triple_des = Python_TripleDES(key, iv)
+
+        self.assertEqual(
+            triple_des.encrypt(
+                bytearray(
+                    b'\x80\x00\x00\x00\x00\x00\x00\x00'
+                    b'\x80\x00\x00\x00\x00\x00\x00\x00'
+                    b'\x80\x00\x00\x00\x00\x00\x00\x00')),
+            bytearray(
+                b'\x56\x28\x4a\x04\xc9\xb5\xf7\xb6'
+                b'\x8f\x36\xf6\xcd\xf6\x36\x17\xd2'
+                b'\x9a\x1c\x07\x9a\xc4\x0c\xf4\x62'))
+
+    def test1_no_data_encrypt(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        self.assertEqual(Python_TripleDES(key, iv).encrypt(b''), b'')
+
+
+    def test2_no_data_encrypt(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        Python_TripleDES(key, iv).encrypt()
+
+    def test1_no_data_decrypt(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        self.assertEqual(Python_TripleDES(key, iv).decrypt(b''), b'')
+
+    def test2_no_data_decrypt(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        Python_TripleDES(key, iv).decrypt()
+
+    def test_bad_data_len(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(key, iv).encrypt('161514131211109876543')
+
+        with self.assertRaises(ValueError):
+            Python_TripleDES(key, iv).decrypt('161514131211109876543')
 
 class Test3DES_KATs_KO3(unittest.TestCase):
     # KATs from the official CAVP
