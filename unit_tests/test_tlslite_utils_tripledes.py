@@ -21,7 +21,10 @@ except ImportError:
 from tlslite.utils.python_tripledes import *
 from tlslite.utils.cryptomath import *
 from tlslite.errors import *
+import sys
 import warnings
+
+PY_VER = sys.version_info
 
 class Test3DES_components(unittest.TestCase):
     # component functions NOT tested from test vectors
@@ -33,7 +36,7 @@ class Test3DES_components(unittest.TestCase):
                           b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
                           b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'))
 
-    def test_bad_iv(self):
+    def test_too_short_iv(self):
         with self.assertRaises(ValueError):
             Python_TripleDES(
                 bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
@@ -41,28 +44,30 @@ class Test3DES_components(unittest.TestCase):
                           b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'),
                 b'\x55\xfe\x07\x2a\x73\x51\xa5')
 
-    def test_bad_key_size(self):
+    def test_too_short_key_size(self):
         with self.assertRaises(ValueError):
             Python_TripleDES(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57',
                              b'\x55\xfe\x07\x2a\x73\x51\xa5\x00')
+    if PY_VER > (3, ):
+        # DeprecationWarning check should apply only on python3
 
-    def test_str_instance(self):
-        key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
-        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
+        def test_str_instance(self):
+            key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                             b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                             b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+            iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
 
-        with self.assertWarns(DeprecationWarning):
-            Python_TripleDES('asdfdasdfdsasdfdsasgdfds', iv)
+            with self.assertWarns(DeprecationWarning):
+                Python_TripleDES('asdfdasdfdsasdfdsasgdfds', iv)
 
-        with self.assertWarns(DeprecationWarning):
-            Python_TripleDES(key, 'asdfdasd')
+            with self.assertWarns(DeprecationWarning):
+                Python_TripleDES(key, 'asdfdasd')
 
-        with self.assertWarns(DeprecationWarning):
-            Python_TripleDES(key, iv).encrypt('161514131211109876543210')
+            with self.assertWarns(DeprecationWarning):
+                Python_TripleDES(key, iv).encrypt('161514131211109876543210')
 
-        with self.assertWarns(DeprecationWarning):
-            Python_TripleDES(key, iv).decrypt('161514131211109876543210')
+            with self.assertWarns(DeprecationWarning):
+                Python_TripleDES(key, iv).decrypt('161514131211109876543210')
 
     def test_unicode_instance(self):
         key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
@@ -82,7 +87,7 @@ class Test3DES_components(unittest.TestCase):
         with self.assertRaises(ValueError):
             Python_TripleDES(key, iv).decrypt(u'aáäbcčdďeéfghiíjklĺľmnňo')
 
-    def test_1des_bad_key(self):
+    def test_1des_too_short_key(self):
         with self.assertRaises(ValueError):
             Des(b'\x00\x00\x00\x00\x00\x00\x00',
                 b'\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -113,14 +118,14 @@ class Test3DES_components(unittest.TestCase):
 
         self.assertEqual(Python_TripleDES(key, iv).encrypt(b''), b'')
 
-
     def test2_no_data_encrypt(self):
         key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
         iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
 
-        Python_TripleDES(key, iv).encrypt()
+        with self.assertRaises(TypeError):
+            Python_TripleDES(key, iv).encrypt()
 
     def test1_no_data_decrypt(self):
         key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
@@ -136,9 +141,10 @@ class Test3DES_components(unittest.TestCase):
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
         iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
 
-        Python_TripleDES(key, iv).decrypt()
+        with self.assertRaises(TypeError):
+            Python_TripleDES(key, iv).decrypt()
 
-    def test_bad_data_len(self):
+    def test_bad_data_len_encrypt(self):
         key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
@@ -146,6 +152,12 @@ class Test3DES_components(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Python_TripleDES(key, iv).encrypt('161514131211109876543')
+
+    def test_bad_data_len_decrypt(self):
+        key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
+                        b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
+        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
 
         with self.assertRaises(ValueError):
             Python_TripleDES(key, iv).decrypt('161514131211109876543')
@@ -168,7 +180,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
             triple_des.encrypt(b'\x80\x00\x00\x00\x00\x00\x00\x00'),
             b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00')
 
-
     def test_3des_vartext_decrypt(self):
         #Variable Plaintext Known Answer Test, decrypt one block
 
@@ -183,7 +194,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
             triple_des.decrypt(b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00'),
             b'\x80\x00\x00\x00\x00\x00\x00\x00')
 
-
     def test_3des_invperm_encrypt(self):
         #Inverse Permutation Known Answer Test, encrypt one block.
 
@@ -197,7 +207,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
         self.assertEqual(
             triple_des.encrypt(b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00'),
             b'\x80\x00\x00\x00\x00\x00\x00\x00')
-
 
     def test_3des_invperm_decrypt(self):
         #Inverse Permutation Known Answer Test, decrypt one block
@@ -227,7 +236,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
             triple_des.encrypt(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
             b'\x95\xa8\xd7\x28\x13\xda\xa9\x4d')
 
-
     def test_3des_varkey_decrypt(self):
         #Variable Key Known Answer Test, decrypt one block
 
@@ -256,7 +264,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
             triple_des.encrypt(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
             b'\x88\xd5\x5e\x54\xf5\x4c\x97\xb4')
 
-
     def test_3des_permop_decrypt(self):
         #Permutation Operation Known Answer Test, decrypt one block
 
@@ -284,7 +291,6 @@ class Test3DES_KATs_KO3(unittest.TestCase):
         self.assertEqual(
             triple_des.encrypt(b'\x01\xa1\xd6\xd0\x39\x77\x67\x42'),
             b'\x69\x0f\x5b\x0d\x9a\x26\x93\x9b')
-
 
     def test_3des_subtab_decrypt(self):
         #Substitution Table Known Answer Test, decrypt one block
