@@ -47,8 +47,9 @@ tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 
 Implemented features of TLS include:
 
-* SSLv3, TLSv1.0, TLSv1.1 and TLSv1.2
-* ciphersuites with DHE, ADH, ECDHE, AECDH, RSA and SRP key exchange together
+* SSLv3, TLSv1.0, TLSv1.1, TLSv1.2 and TLSv1.3
+* ciphersuites with DHE, ADH, ECDHE, AECDH, RSA, SRP, PSK and PSK-(EC)DHE
+  key exchange together
   with AES (including GCM variant), 3DES, RC4 and ChaCha20 (both the official
   standard and the IETF draft) symmetric ciphers and NULL encryption.
 * Secure Renegotiation
@@ -58,6 +59,10 @@ Implemented features of TLS include:
 * padding extension
 * keying material exporter
 * RSA-PSS signatures in TLSv1.2, RSA-PSS in certificates (TLSv1.3 extension)
+* ticket based session resumption in TLS 1.3
+* 1-RTT handshake, Hello Retry Request, middlebox compatibility mode and
+  cookie extension
+  (TLS 1.3)
 * X25519 and X448 ECDHE key exchange
 * (experimental) TACK extension
 
