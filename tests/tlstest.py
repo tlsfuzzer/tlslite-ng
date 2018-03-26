@@ -790,12 +790,6 @@ def clientTestCmd(argv):
 
     print("Test {0} - Internet servers test".format(test_no))
     try:
-        #i = IMAP4_TLS("cyrus.andrew.cmu.edu")
-        #i.login("anonymous", "anonymous@anonymous.net")
-        #i.logout()
-
-        #test_no += 1
-
         print("Test {0}: IMAP4 good".format(test_no))
         p = POP3_TLS("pop.gmail.com")
         p.quit()
