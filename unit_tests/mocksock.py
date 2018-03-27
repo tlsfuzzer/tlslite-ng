@@ -4,6 +4,8 @@
 
 import socket
 import errno
+
+
 class MockSocket(socket.socket):
     def __init__(self, buf, maxRet=None, maxWrite=None, blockEveryOther=False):
         # current position in read buffer (buf)
@@ -13,6 +15,8 @@ class MockSocket(socket.socket):
         # write buffer (data sent from application, to be asserted by test)
         self.sent = []
         self.closed = False
+        self.closed_read = False
+        self.closed_write = False
         # maximum number of bytes that socket will read/return at a time
         self.maxRet = maxRet
         # maximum number of bytes that socket will write at a time
@@ -29,7 +33,7 @@ class MockSocket(socket.socket):
                 self.index, self.buf, self.sent)
 
     def recv(self, size):
-        if self.closed:
+        if self.closed or self.closed_read:
             raise ValueError("Read from closed socket")
 
         # simulate a socket with full buffers, make it rise "Would block"
@@ -53,7 +57,7 @@ class MockSocket(socket.socket):
 
         # don't allow reading past array end
         if len(self.buf[self.index:]) == 0:
-            raise socket.error(errno.EWOULDBLOCK)
+            return bytearray(0)
         # if asked for more than we have prepared, return just as much as we
         # have
         elif len(self.buf[self.index:]) < size:
@@ -67,7 +71,7 @@ class MockSocket(socket.socket):
             return ret
 
     def send(self, data):
-        if self.closed:
+        if self.closed or self.closed_write:
             raise ValueError("Write to closed socket")
 
         # simulate a socket with full buffer, raise "Would Block" every other
@@ -91,3 +95,11 @@ class MockSocket(socket.socket):
 
     def close(self):
         self.closed = True
+        self.closed_read = True
+        self.closed_write = True
+
+    def shutdown(self, how):
+        if how in (socket.SHUT_WR, socket.SHUT_RDWR):
+            self.closed_write = True
+        if how in (socket.SHUT_RD, socket.SHUT_RDWR):
+            self.closed_read = True

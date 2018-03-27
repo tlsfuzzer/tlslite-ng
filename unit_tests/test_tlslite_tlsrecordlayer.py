@@ -210,10 +210,8 @@ class TestTLSRecordLayer(unittest.TestCase):
         sock = TLSRecordLayer(mockSock)
 
         # XXX using private method!
-        for result in sock._getNextRecord():
-            break
-
-        self.assertEqual(0, result)
+        with self.assertRaises(TLSAbruptCloseError):
+            next(sock._getNextRecord())
 
     def test__getNextRecord_with_SSL2_record_with_incomplete_header(self):
         mockSock = MockSocket(bytearray(
@@ -223,10 +221,8 @@ class TestTLSRecordLayer(unittest.TestCase):
         sock = TLSRecordLayer(mockSock)
 
         # XXX using private method
-        for result in sock._getNextRecord():
-            break
-
-        self.assertEqual(0, result)
+        with self.assertRaises(TLSAbruptCloseError):
+            next(sock._getNextRecord())
 
     def test__getNextRecord_with_empty_handshake(self):
 

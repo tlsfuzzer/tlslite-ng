@@ -13,6 +13,7 @@ from __future__ import generators
 
 import io
 import time
+import errno
 import socket
 
 from .utils.compat import *
@@ -577,6 +578,24 @@ class TLSRecordLayer(object):
         alert = Alert().create(alertDescription, AlertLevel.fatal)
         for result in self._sendMsg(alert):
             yield result
+        if self.closeSocket:
+            # attempt delivery of the above Alert message
+            isinstance(self.sock.socket, socket.socket)
+            self.sock.socket.shutdown(socket.SHUT_WR)
+            # try to wait for client socket close
+            # if we received multiple messages from client, it most likely
+            # did get our message
+            for _ in range(5):
+                try:
+                    ret = self.sock.socket.recv(4096)
+                except socket.error as why:
+                    if why.args[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+                        yield 0
+                        continue
+                    else:
+                        raise
+                if not ret:
+                    break
         self._shutdown(False)
         raise TLSLocalAlert(alert, errorStr)
 

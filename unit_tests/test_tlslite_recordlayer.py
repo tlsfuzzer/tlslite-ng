@@ -315,10 +315,8 @@ class TestRecordSocket(unittest.TestCase):
 
         sock = RecordSocket(mockSock)
 
-        for result in sock.recv():
-            break
-
-        self.assertEqual(0, result)
+        with self.assertRaises(TLSAbruptCloseError):
+            next(sock.recv())
 
     def test_recv_with_SSL2_record_with_incomplete_header(self):
         mockSock = MockSocket(bytearray(
@@ -327,10 +325,8 @@ class TestRecordSocket(unittest.TestCase):
 
         sock = RecordSocket(mockSock)
 
-        for result in sock.recv():
-            break
-
-        self.assertEqual(0, result)
+        with self.assertRaises(TLSAbruptCloseError):
+            next(sock.recv())
 
     def test_recv_with_long_SSL2_header(self):
         mockSock = MockSocket(bytearray(
