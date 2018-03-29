@@ -32,11 +32,11 @@ class SingleResponse(object):
         self.parse(value)
 
     def parse(self, value):
-        certID = value.getChild(0)
-        self.cert_hash_alg = certID.getChild(0).value
-        self.cert_issuer_name_hash = certID.getChild(1).value
-        self.cert_issuer_key_hash = certID.getChild(2).value
-        self.cert_serial_num = certID.getChild(3).value
+        cert_id = value.getChild(0)
+        self.cert_hash_alg = cert_id.getChild(0).value
+        self.cert_issuer_name_hash = cert_id.getChild(1).value
+        self.cert_issuer_key_hash = cert_id.getChild(2).value
+        self.cert_serial_num = cert_id.getChild(3).value
         self.cert_status = value.getChild(1).value
         self.this_update = value.getChild(2).value
         # next_update is optional
@@ -55,7 +55,7 @@ class OCSPResponse(object):
         self.resp_status = None
         self.resp_type = None
         self.version = None
-        self.resp_ID = None
+        self.resp_id = None
         self.produced_at = None
         self.responses = []
         self.signature_alg = None
@@ -85,7 +85,7 @@ class OCSPResponse(object):
             raise SyntaxError()
         basic_resp = response.getChild(0)
         # parsing tbsResponseData fields
-        self.tbsDataParse(basic_resp.getChild(0))
+        self._tbsdataparse(basic_resp.getChild(0))
         self.signature_alg = basic_resp.getChild(1).getChild(0).value
         self.signature = basic_resp.getChild(2).value
         # test if certs field is present
@@ -97,7 +97,7 @@ class OCSPResponse(object):
                 self.certs.append(certificate)
         return self
 
-    def tbsDataParse(self, value):
+    def _tbsdataparse(self, value):
         """
         Parse to be signed data,
 
@@ -113,7 +113,7 @@ class OCSPResponse(object):
             self.version = field.value
         else:
             self.version = 1
-        self.resp_ID = value.getChild(cnt).value
+        self.resp_id = value.getChild(cnt).value
         self.produced_at = value.getChild(cnt+1).value
         responses = value.getChild(cnt+2)
         resp_cnt = responses.getChildCount()

@@ -52,8 +52,8 @@ class ASN1Parser(object):
         """
         p = Parser(bytes)
 
-        #Get Type
-        self.type = self._getASN1Type(p)
+        # Get Type
+        self.type = self._parse_type(p)
 
         #Get Length
         self.length = self._getASN1Length(p)
@@ -120,9 +120,9 @@ class ASN1Parser(object):
             return p.get(lengthLength)
 
     @staticmethod
-    def _getASN1Type(p):
+    def _parse_type(parser):
         """Decode the ASN.1 DER type field"""
-        header = p.get(1)
+        header = parser.get(1)
         tag_class = (header & 0xc0) >> 6
         tag_is_primitive = (header & 0x20) >> 5
         tag_id = header & 0x1f
@@ -130,7 +130,7 @@ class ASN1Parser(object):
         if tag_id == 0x1f:
             tag_id = 0
             while True:
-                value = p.get(1)
+                value = parser.get(1)
                 tag_id += value & 0x7f
                 if not value & 0x80:
                     break

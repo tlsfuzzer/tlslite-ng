@@ -87,11 +87,11 @@ class TestOCSP(unittest.TestCase):
         resp = OCSPResponse(resp_OK)
         self.assertEqual(bytearray([43, 6, 1, 5, 5, 7, 48, 1, 1]), resp.resp_type)
 
-    def test_resp_ID(self):
+    def test_resp_id(self):
         resp = OCSPResponse(resp_OK)
         self.assertEqual(bytearray([4, 20, 156, 77, 0, 153, 0, 14, 139, 176, 1, 129, 
                                     117, 161, 186, 240, 208, 37, 215, 160, 28, 71]), 
-                        resp.resp_ID)
+                        resp.resp_id)
     
     def test_produced_at(self):
         resp = OCSPResponse(resp_OK)
