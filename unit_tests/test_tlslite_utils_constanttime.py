@@ -16,6 +16,7 @@ from tlslite.utils.constanttime import ct_lt_u32, ct_gt_u32, ct_le_u32, \
 from hypothesis import given, example
 import hypothesis.strategies as st
 from tlslite.utils.compat import compatHMAC
+from tlslite.utils.cryptomath import getRandomBytes
 from tlslite.recordlayer import RecordLayer
 import tlslite.utils.tlshashlib as hashlib
 import hmac
@@ -263,6 +264,26 @@ class TestContanttimeCBCCheck(unittest.TestCase):
 
         h = hmac.new(key, digestmod=mac)
         h.block_size = mac().block_size # python2 workaround
+        self.assertFalse(ct_check_cbc_mac_and_pad(data, h, seqnum_bytes,
+                                                  content_type, version))
+
+    @given(i=st.integers(1, 20))
+    def test_with_invalid_random_hash(self, i):
+        key = compatHMAC(getRandomBytes(20))
+        seqnum_bytes = bytearray(16)
+        content_type = 0x15
+        version = (3, 3)
+        application_data = getRandomBytes(63)
+        mac = hashlib.sha1
+
+        data = self.data_prepare(application_data, seqnum_bytes, content_type,
+                                 version, mac, key)
+        data[-i] ^= 0xff
+        padding = bytearray(b'\x00')
+        data += padding
+
+        h = hmac.new(key, digestmod=mac)
+        h.block_size = mac().block_size
         self.assertFalse(ct_check_cbc_mac_and_pad(data, h, seqnum_bytes,
                                                   content_type, version))
 
