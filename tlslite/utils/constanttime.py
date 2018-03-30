@@ -170,7 +170,7 @@ def ct_check_cbc_mac_and_pad(data, mac, seqnumBytes, contentType, version):
     data_mac.update(compatHMAC(data[:start_pos]))
 
     # don't check past the array end (already checked to be >= zero)
-    end_pos = data_len - 1 - mac.digest_size
+    end_pos = data_len - mac.digest_size
 
     # calculate all possible
     for i in range(start_pos, end_pos): # constant for given overall length
