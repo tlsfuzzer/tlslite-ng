@@ -1104,16 +1104,17 @@ class Certificate(HandshakeMsg):
 
     @property
     def cert_chain(self):
+        """Getter for the cert_chain property."""
         if self._cert_chain:
             return self._cert_chain
         elif self.certificate_list is None:
             return None
-        else:
-            return X509CertChain([i.certificate
-                                  for i in self.certificate_list])
+        return X509CertChain([i.certificate
+                              for i in self.certificate_list])
 
     @cert_chain.setter
     def cert_chain(self, cert_chain):
+        """Setter for the cert_chain property."""
         if isinstance(cert_chain, X509CertChain):
             self._cert_chain = cert_chain
             self.certificate_list = [CertificateEntry(self.certificateType)
@@ -1124,6 +1125,7 @@ class Certificate(HandshakeMsg):
 
     @deprecated_params({"cert_chain": "certChain"})
     def create(self, cert_chain, context=None):
+        """Initialise fields of the class."""
         self.cert_chain = cert_chain
         self.certificate_request_context = context
         return self
@@ -1206,13 +1208,12 @@ class Certificate(HandshakeMsg):
 
     def __repr__(self):
         if self.version <= (3, 3):
-            return "Certificate(cert_chain={0!r})".format(
-                    self.cert_chain.x509List)
-        else:
-            return "Certificate(request_context={0!r}, "\
-                   "certificate_list={1!r})"\
-                    .format(self.certificate_request_context,
-                            self.certificate_list)
+            return "Certificate(cert_chain={0!r})"\
+                   .format(self.cert_chain.x509List)
+        return "Certificate(request_context={0!r}, "\
+               "certificate_list={1!r})"\
+               .format(self.certificate_request_context,
+                       self.certificate_list)
 
 
 class CertificateRequest(HandshakeMsg):
