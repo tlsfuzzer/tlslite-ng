@@ -29,6 +29,11 @@ PY_VER = sys.version_info
 class Test3DES_components(unittest.TestCase):
     # component functions NOT tested from test vectors
 
+    def test_new(self):
+        des = new(b"\xaa"*24, b"\xbb"*8)
+
+        self.assertIsInstance(des, Python_TripleDES)
+
     def test_no_iv(self):
         with self.assertRaises(ValueError):
             Python_TripleDES(
@@ -48,41 +53,97 @@ class Test3DES_components(unittest.TestCase):
         with self.assertRaises(ValueError):
             Python_TripleDES(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57',
                              b'\x55\xfe\x07\x2a\x73\x51\xa5\x00')
-    if PY_VER > (3, ):
-        # DeprecationWarning check should apply only on python3
 
-        def test_str_instance(self):
-            key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                             b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                             b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
-            iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
+    @unittest.skipIf(PY_VER < (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test1_py3_str_instance(self):
 
-            with self.assertWarns(DeprecationWarning):
-                Python_TripleDES('asdfdasdfdsasdfdsasgdfds', iv)
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES('asdfdasdfdsasdfdsasgdfds', b"\xbb"*8)
 
-            with self.assertWarns(DeprecationWarning):
-                Python_TripleDES(key, 'asdfdasd')
+    @unittest.skipIf(PY_VER < (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test2_py3_str_instance(self):
 
-            with self.assertWarns(DeprecationWarning):
-                Python_TripleDES(key, iv).encrypt('161514131211109876543210')
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(b"\xaa"*24, 'asdfdasd')
 
-            with self.assertWarns(DeprecationWarning):
-                Python_TripleDES(key, iv).decrypt('161514131211109876543210')
+    @unittest.skipIf(PY_VER < (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test3_py3_str_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
 
-    def test_unicode_instance(self):
-        key =  bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
-                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
-        iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\x00'
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(key, iv).encrypt('161514131211109876543210')
 
+    @unittest.skipIf(PY_VER < (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test4_py3_str_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
+
+        with self.assertWarns(DeprecationWarning):
+            Python_TripleDES(key, iv).decrypt('161514131211109876543210')
+
+    @unittest.skipIf(PY_VER > (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test1_py2_str_instance(self):
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Python_TripleDES('asdfdasdfdsasdfdsasgdfds', b"\xbb"*8)
+            self.assertEqual(len(w), 0)
+
+    @unittest.skipIf(PY_VER > (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test2_py2_str_instance(self):
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Python_TripleDES(b"\xaa"*24, 'asdfdasd')
+            self.assertEqual(len(w), 0)
+
+    @unittest.skipIf(PY_VER > (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test3_py2_str_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Python_TripleDES(key, iv).encrypt('161514131211109876543210')
+            self.assertEqual(len(w), 0)
+
+    @unittest.skipIf(PY_VER > (3, ),
+        "DeprecationWarning check should apply only on python3")
+    def test4_py2_str_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            Python_TripleDES(key, iv).decrypt('161514131211109876543210')
+            self.assertEqual(len(w), 0)
+
+    def test1_unicode_instance(self):
         with self.assertRaises(ValueError):
-            Python_TripleDES(u'aáäbcčdďeéfghiíjklĺľmnňo', iv)
+            Python_TripleDES(u'aáäbcčdďeéfghiíjklĺľmnňo', b"\xbb"*8)
 
+    def test2_unicode_instance(self):
         with self.assertRaises(ValueError):
-            Python_TripleDES(key, u'aáäbcčdď')
+            Python_TripleDES(b"\xaa"*24, u'aáäbcčdď')
+
+    def test3_unicode_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
 
         with self.assertRaises(ValueError):
             Python_TripleDES(key, iv).encrypt(u'aáäbcčdďeéfghiíjklĺľmnňo')
+
+    def test4_unicode_instance(self):
+        key =  b"\xaa"*24
+        iv = b"\xbb"*8
 
         with self.assertRaises(ValueError):
             Python_TripleDES(key, iv).decrypt(u'aáäbcčdďeéfghiíjklĺľmnňo')

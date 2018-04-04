@@ -14,7 +14,7 @@ from tlslite.utils import python_tripledes
 from tlslite.utils import cryptomath
 
 tripleDESPresent = True
-# 3DES cipher usage for backwards compatibility with older openSSL versions
+"""Inform if the 3DES algorithm is supported."""
 
 if cryptomath.m2cryptoLoaded:
     from tlslite.utils import openssl_aes
