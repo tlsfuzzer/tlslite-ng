@@ -92,7 +92,7 @@ def clientTestCmd(argv):
 
     #open synchronisation FIFO
     synchro = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    synchro.settimeout(15)
+    synchro.settimeout(60)
     synchro.connect((address[0], address[1]-1))
 
     def connect():
@@ -253,7 +253,11 @@ def clientTestCmd(argv):
 
     print("Test {0} - good SRP (db)".format(test_no))
     print("client {0} - waiting for synchro".format(time.time()))
-    synchro.recv(1)
+    try:
+        synchro.recv(1)
+    except Exception:
+        print("client {0} - wait abort".format(time.time()))
+        raise
     print("client {0} - synchro received".format(time.time()))
     connection = connect()
     settings = HandshakeSettings()
