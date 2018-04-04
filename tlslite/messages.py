@@ -1112,8 +1112,8 @@ class Certificate(HandshakeMsg):
             return X509CertChain([i.certificate
                                   for i in self.certificate_list])
 
-    @deprecated_params({"cert_chain": "certChain"})
-    def create(self, cert_chain, context=None):
+    @cert_chain.setter
+    def cert_chain(self, cert_chain):
         if isinstance(cert_chain, X509CertChain):
             self._cert_chain = cert_chain
             self.certificate_list = [CertificateEntry(self.certificateType)
@@ -1121,6 +1121,10 @@ class Certificate(HandshakeMsg):
                                      in cert_chain.x509List]
         else:
             self.certificate_list = cert_chain
+
+    @deprecated_params({"cert_chain": "certChain"})
+    def create(self, cert_chain, context=None):
+        self.cert_chain = cert_chain
         self.certificate_request_context = context
         return self
 
