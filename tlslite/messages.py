@@ -18,6 +18,7 @@ from .constants import *
 from .x509 import X509
 from .x509certchain import X509CertChain
 from .utils.tackwrapper import *
+from .utils.deprecations import deprecated_attrs, deprecated_params
 from .extensions import *
 
 
@@ -1091,33 +1092,35 @@ class CertificateEntry(object):
                 self.certificate, self.extensions)
 
 
+@deprecated_attrs({"cert_chain": "certChain"})
 class Certificate(HandshakeMsg):
     def __init__(self, certificateType, version=(3, 2)):
         HandshakeMsg.__init__(self, HandshakeType.certificate)
         self.certificateType = certificateType
-        self._certChain = None
+        self._cert_chain = None
         self.version = version
         self.certificate_list = None
         self.certificate_request_context = None
 
     @property
-    def certChain(self):
-        if self._certChain:
-            return self._certChain
+    def cert_chain(self):
+        if self._cert_chain:
+            return self._cert_chain
         elif self.certificate_list is None:
             return None
         else:
             return X509CertChain([i.certificate
                                   for i in self.certificate_list])
 
-    def create(self, certChain, context=None):
-        if isinstance(certChain, X509CertChain):
-            self._certChain = certChain
+    @deprecated_params({"cert_chain": "certChain"})
+    def create(self, cert_chain, context=None):
+        if isinstance(cert_chain, X509CertChain):
+            self._cert_chain = cert_chain
             self.certificate_list = [CertificateEntry(self.certificateType)
                                      .create(i, []) for i
-                                     in certChain.x509List]
+                                     in cert_chain.x509List]
         else:
-            self.certificate_list = certChain
+            self.certificate_list = cert_chain
         self.certificate_request_context = context
         return self
 
@@ -1147,7 +1150,7 @@ class Certificate(HandshakeMsg):
                 certificate_list.append(x509)
                 index += len(certBytes)+3
             if certificate_list:
-                self._certChain = X509CertChain(certificate_list)
+                self._cert_chain = X509CertChain(certificate_list)
         else:
             raise AssertionError()
 
@@ -1173,8 +1176,8 @@ class Certificate(HandshakeMsg):
         w = Writer()
         if self.certificateType == CertificateType.x509:
             chainLength = 0
-            if self._certChain:
-                certificate_list = self._certChain.x509List
+            if self._cert_chain:
+                certificate_list = self._cert_chain.x509List
             else:
                 certificate_list = []
             # determine length
@@ -1199,8 +1202,8 @@ class Certificate(HandshakeMsg):
 
     def __repr__(self):
         if self.version <= (3, 3):
-            return "Certificate(certChain={0!r})".format(
-                    self.certChain.x509List)
+            return "Certificate(cert_chain={0!r})".format(
+                    self.cert_chain.x509List)
         else:
             return "Certificate(request_context={0!r}, "\
                    "certificate_list={1!r})"\
