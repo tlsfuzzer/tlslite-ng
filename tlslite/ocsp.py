@@ -1,6 +1,8 @@
 """Class for handling primary OCSP responses"""
 
 from .utils.asn1parser import ASN1Parser
+from .utils.cryptomath import bytesToNumber, numBytes
+from .x509 import X509
 
 
 class OCSPRespStatus(object):
@@ -48,7 +50,40 @@ class SingleResponse(object):
             self.next_update = None
 
 
-class OCSPResponse(object):
+class SignedObject(object):
+    """ Base class that represents a signable object """
+    def __init__(self):
+        self.tbs_data = None
+        self.signature = None
+        self.signature_alg = None
+
+    _hashAlgsOIDs = {
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0x4])):'md5',
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0x5])):'sha1',
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0xe])):'sha224',
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0xc])):'sha384',
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0xb])):'sha256',
+        bytesToNumber(bytearray([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd,
+                                0x1, 0x1, 0xd])):'sha512'
+    }
+
+    def verify_signature(self, cert):
+        """ Verify signature in OCSP reponse """
+        offset = 0
+        if (self.signature[0] == 0 and
+            numBytes(cert.publicKey.n) + 1 == len(self.signature)):
+            offset = 1
+        alg = self._hashAlgsOIDs[bytesToNumber(self.signature_alg)]
+        return cert.publicKey.hashAndVerify(self.signature[offset:],
+                                            self.tbs_data, hAlg=alg)
+
+
+class OCSPResponse(SignedObject):
     """ This class represents an OCSP response. """
     def __init__(self, value):
         self.bytes = None
@@ -86,6 +121,7 @@ class OCSPResponse(object):
         basic_resp = response.getChild(0)
         # parsing tbsResponseData fields
         self._tbsdataparse(basic_resp.getChild(0))
+        self.tbs_data = basic_resp.getChildBytes(0)
         self.signature_alg = basic_resp.getChild(1).getChild(0).value
         self.signature = basic_resp.getChild(2).value
         # test if certs field is present
@@ -93,7 +129,11 @@ class OCSPResponse(object):
             certs = basic_resp.getChild(3)
             cnt = certs.getChildCount()
             for i in range(cnt):
-                certificate = certs.getChild(i).value
+                certificate = X509()
+                certificate.parseBinary(certs.getChild(i).value)
+                # if signature can't be verified, abort parsing
+                if not self.verify_signature(certificate):
+                    raise SyntaxError("Couldn't verify certificate signature")
                 self.certs.append(certificate)
         return self
 
