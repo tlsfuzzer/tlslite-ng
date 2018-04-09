@@ -2926,7 +2926,7 @@ class TestCertificate(unittest.TestCase):
         cert = cert.create(X509CertChain([bytearray(b'one'),
                                           bytearray(b'two')]))
         self.assertEqual(repr(cert),
-                "Certificate(certChain=[bytearray(b'one'), "
+                "Certificate(cert_chain=[bytearray(b'one'), "
                 "bytearray(b'two')])")
 
     def test___repr___tls_1_3(self):
