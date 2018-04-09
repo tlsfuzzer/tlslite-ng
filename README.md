@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.8.0-alpha2                                    2018-03-16
+tlslite-ng version 0.8.0-alpha3                                    2018-04-09
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -597,6 +597,8 @@ encrypt-then-MAC mode for CBC ciphers.
   follow this new style and new deprecations will be introduced as time goes
   on. Please run your test suite with `-Wd` to see where the depracated calls
   are being made, the python standard DeprecationWarning will be emited there)
+* fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
+  mode
 * Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
 * Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
@@ -617,6 +619,7 @@ encrypt-then-MAC mode for CBC ciphers.
 * `__eq__` supported on all Handshake messages
 * fix minor bugs in message objects, extend test coverage for tlslite.messages
 * repr() for Certificate and few extensions
+* OCSP response parsing (Anna Khaitovich)
 
 0.7.0 - 2017-07-31
 
