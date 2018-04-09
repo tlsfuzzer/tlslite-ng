@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.7.3                                           2018-03-19
+tlslite-ng version 0.7.4                                           2018-04-09
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -585,6 +585,10 @@ encrypt-then-MAC mode for CBC ciphers.
 
 12 History
 ===========
+
+0.7.4 - 2018-04-09
+* Fix CVE-2018-1000159 - the ct_check_cbc_mac_and_pad() did fail to verify the
+  MAC properly when last byte of data was byte 0
 
 0.7.3 - 2018-03-19
 * M2Crypto - fix test suite compatibility with 0.27.0 for real this time
