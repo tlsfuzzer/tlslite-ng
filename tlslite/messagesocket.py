@@ -72,7 +72,7 @@ class MessageSocket(RecordLayer):
         """
         while True:
             while True:
-                ret = self.defragmenter.getMessage()
+                ret = self.defragmenter.get_message()
                 if ret is None:
                     break
                 header = RecordHeader3().create(self._lastRecordVersion,
@@ -93,7 +93,7 @@ class MessageSocket(RecordLayer):
             if header.ssl2:
                 yield ret
 
-            self.defragmenter.addData(header.type, parser.bytes)
+            self.defragmenter.add_data(header.type, parser.bytes)
             self._lastRecordVersion = header.version
 
     def recvMessageBlocking(self):

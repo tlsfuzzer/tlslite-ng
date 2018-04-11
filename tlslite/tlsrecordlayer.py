@@ -120,9 +120,9 @@ class TLSRecordLayer(object):
 
         #Buffers for processing messages
         self._defragmenter = Defragmenter()
-        self._defragmenter.addStaticSize(ContentType.change_cipher_spec, 1)
-        self._defragmenter.addStaticSize(ContentType.alert, 2)
-        self._defragmenter.addDynamicSize(ContentType.handshake, 1, 3)
+        self._defragmenter.add_static_size(ContentType.change_cipher_spec, 1)
+        self._defragmenter.add_static_size(ContentType.alert, 2)
+        self._defragmenter.add_dynamic_size(ContentType.handshake, 1, 3)
         self.clearReadBuffer()
         self.clearWriteBuffer()
 
@@ -865,7 +865,7 @@ class TLSRecordLayer(object):
             # record.
             while True:
                 # empty message buffer
-                ret = self._defragmenter.getMessage()
+                ret = self._defragmenter.get_message()
                 if ret is None:
                     break
                 header = RecordHeader3().create(self.version, ret[0], 0)
@@ -892,7 +892,7 @@ class TLSRecordLayer(object):
                 yield (header, parser)
             else:
                 # other types need to be put into buffers
-                self._defragmenter.addData(header.type, parser.bytes)
+                self._defragmenter.add_data(header.type, parser.bytes)
 
     def _getNextRecordFromSocket(self):
         """Read a record, handle errors"""
@@ -951,7 +951,7 @@ class TLSRecordLayer(object):
         self._handshake_hash = HandshakeHashes()
         self._certificate_verify_handshake_hash = None
         self._pre_client_hello_handshake_hash = None
-        self._defragmenter.clearBuffers()
+        self._defragmenter.clear_buffers()
         self.allegedSrpUsername = None
         self._refCount = 1
 
