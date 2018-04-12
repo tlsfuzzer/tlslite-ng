@@ -2121,6 +2121,12 @@ class TLSConnection(TLSRecordLayer):
             sh_extensions.append(SrvPreSharedKeyExtension()
                                  .create(selected_psk))
 
+        if selected_psk is None:
+            scheme = self._pickServerKeyExchangeSig(settings,
+                                                    clientHello,
+                                                    serverCertChain,
+                                                    self.version)
+
         serverHello = ServerHello()
         # in TLS1.3 the version selected is sent in extension, (3, 3) is
         # just dummy value to workaround broken middleboxes
@@ -2188,10 +2194,6 @@ class TLSConnection(TLSRecordLayer):
 
             certificate_verify = CertificateVerify(self.version)
 
-            scheme = self._pickServerKeyExchangeSig(settings,
-                                                    clientHello,
-                                                    serverCertChain,
-                                                    self.version)
             signature_scheme = getattr(SignatureScheme, scheme)
             keyType = SignatureScheme.getKeyType(scheme)
             padType = SignatureScheme.getPadding(scheme)
