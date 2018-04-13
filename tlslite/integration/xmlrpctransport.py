@@ -30,7 +30,7 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
 
     def __init__(self, use_datetime=0,
                  username=None, password=None,
-                 certChain=None, privateKey=None,
+                 cert_chain=None, privateKey=None,
                  checker=None,
                  settings=None,
                  ignoreAbruptClose=False):
@@ -51,7 +51,7 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
         combinations:
 
          - username, password (SRP)
-         - certChain, privateKey (certificate)
+         - cert_chain, privateKey (certificate)
 
         For server authentication, you can either rely on the
         implicit mutual authentication performed by SRP or
@@ -81,13 +81,13 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
         :param password: SRP password for mutual authentication.
             Requires the 'username' argument.
 
-        :type certChain: ~tlslite.x509certchain.X509CertChain
-        :param certChain: Certificate chain for client authentication.
+        :type cert_chain: ~tlslite.x509certchain.X509CertChain
+        :param cert_chain: Certificate chain for client authentication.
             Requires the 'privateKey' argument.  Excludes the SRP arguments.
 
         :type privateKey: ~tlslite.utils.rsakey.RSAKey
         :param privateKey: Private key for client authentication.
-            Requires the 'certChain' argument.  Excludes the SRP arguments.
+            Requires the 'cert_chain' argument.  Excludes the SRP arguments.
 
         :type checker: ~tlslite.checker.Checker
         :param checker: Callable object called after handshaking to
@@ -109,7 +109,7 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
         self.ignoreAbruptClose = ignoreAbruptClose
         ClientHelper.__init__(self,
                  username, password, 
-                 certChain, privateKey,
+                 cert_chain, privateKey,
                  checker,
                  settings)
 
@@ -125,7 +125,7 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
 
             http = HTTPTLSConnection(chost, None,
                                      username=self.username, password=self.password,
-                                     certChain=self.certChain, privateKey=self.privateKey,
+                                     cert_chain=self.cert_chain, privateKey=self.privateKey,
                                      checker=self.checker,
                                      settings=self.settings,
                                      ignoreAbruptClose=self.ignoreAbruptClose)

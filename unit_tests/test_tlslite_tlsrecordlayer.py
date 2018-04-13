@@ -705,7 +705,7 @@ class TestTLSRecordLayer(unittest.TestCase):
         server_hello_done = result
         self.assertEqual(ServerHelloDone, type(server_hello_done))
 
-        public_key = server_certificate.certChain.getEndEntityPublicKey()
+        public_key = server_certificate.cert_chain.getEndEntityPublicKey()
 
         premasterSecret = bytearray(48)
         premasterSecret[0] = 3 # 'cause we negotiatied TLSv1.2
@@ -927,7 +927,7 @@ class TestTLSRecordLayer(unittest.TestCase):
         server_hello_done = result
         self.assertEqual(ServerHelloDone, type(server_hello_done))
 
-        public_key = server_certificate.certChain.getEndEntityPublicKey()
+        public_key = server_certificate.cert_chain.getEndEntityPublicKey()
 
         premasterSecret = bytearray(48)
         premasterSecret[0] = 3 # 'cause we negotiatied TLSv1.2

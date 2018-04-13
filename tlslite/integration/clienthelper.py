@@ -18,7 +18,7 @@ class ClientHelper(object):
 
     def __init__(self,
                  username=None, password=None,
-                 certChain=None, privateKey=None,
+                 cert_chain=None, privateKey=None,
                  checker=None,
                  settings=None,
                  anon=False,
@@ -28,7 +28,7 @@ class ClientHelper(object):
         combinations:
 
          - username, password (SRP)
-         - certChain, privateKey (certificate)
+         - cert_chain, privateKey (certificate)
 
         For server authentication, you can either rely on the
         implicit mutual authentication performed by SRP,
@@ -54,12 +54,12 @@ class ClientHelper(object):
         :param str password: SRP password for mutual authentication.
             Requires the 'username' argument.
 
-        :param X509CertChain certChain: Certificate chain for client
+        :param X509Cert_chain cert_chain: Certificate chain for client
             authentication.
             Requires the 'privateKey' argument.  Excludes the SRP arguments.
 
         :param RSAKey privateKey: Private key for client authentication.
-            Requires the 'certChain' argument.  Excludes the SRP arguments.
+            Requires the 'cert_chain' argument.  Excludes the SRP arguments.
 
         :param Checker checker: Callable object called after handshaking to
             evaluate the connection and raise an Exception if necessary.
@@ -83,26 +83,26 @@ class ClientHelper(object):
 
         self.username = None
         self.password = None
-        self.certChain = None
+        self.cert_chain = None
         self.privateKey = None
         self.checker = None
         self.anon = anon
 
         #SRP Authentication
         if username and password and not \
-                (certChain or privateKey):
+                (cert_chain or privateKey):
             self.username = username
             self.password = password
 
         #Certificate Chain Authentication
-        elif certChain and privateKey and not \
+        elif cert_chain and privateKey and not \
                 (username or password):
-            self.certChain = certChain
+            self.cert_chain = cert_chain
             self.privateKey = privateKey
 
         #No Authentication
         elif not password and not username and not \
-                certChain and not privateKey:
+                cert_chain and not privateKey:
             pass
 
         else:
@@ -154,7 +154,7 @@ class ClientHelper(object):
                                                    checker=self.checker,
                                                    serverName=self.serverName)
         else:
-            tlsConnection.handshakeClientCert(certChain=self.certChain,
+            tlsConnection.handshakeClientCert(cert_chain=self.cert_chain,
                                               privateKey=self.privateKey,
                                               checker=self.checker,
                                               settings=self.settings,

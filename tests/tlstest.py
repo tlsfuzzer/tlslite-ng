@@ -904,7 +904,7 @@ def serverTestCmd(argv):
     print("Test {0} - good X.509 (plus SNI)".format(test_no))
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key)
     assert(connection.session.serverName == address[0])    
     assert(connection.extendedMasterSecret)
     testConnServer(connection)    
@@ -915,7 +915,7 @@ def serverTestCmd(argv):
     print("Test {0} - good X.509/w RSA-PSS sig".format(test_no))
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509ChainRSAPSSSig,
+    connection.handshakeServer(cert_chain=x509ChainRSAPSSSig,
                                privateKey=x509KeyRSAPSSSig)
     assert(connection.extendedMasterSecret)
     testConnServer(connection)
@@ -926,7 +926,7 @@ def serverTestCmd(argv):
     print("Test {0} - good X.509/w RSA-PSS cert".format(test_no))
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509ChainRSAPSS,
+    connection.handshakeServer(cert_chain=x509ChainRSAPSS,
                                privateKey=x509KeyRSAPSS)
     assert(connection.session.serverName == address[0])
     assert(connection.extendedMasterSecret)
@@ -941,7 +941,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.minVersion = (3,0)
     settings.maxVersion = (3,0)
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, settings=settings)
     assert(not connection.extendedMasterSecret)
     testConnServer(connection)
     connection.close()
@@ -954,7 +954,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.eccCurves = ["secp256r1", "secp384r1", "secp521r1"]
     settings.keyShares = ["secp256r1"]
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, settings=settings)
     testConnServer(connection)
     connection.close()
 
@@ -966,7 +966,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.macNames = ["sha", "md5"]
     settings.cipherNames = ["rc4"]
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, settings=settings)
     testConnServer(connection)
     connection.close()
 
@@ -982,7 +982,7 @@ def serverTestCmd(argv):
         print("Test {0} - good X.509, TACK".format(test_no))
         synchro.send(b'R')
         connection = connect()
-        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+        connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
             tacks=[tack], activationFlags=1, settings=settings)
         testConnServer(connection)
         connection.close()
@@ -994,7 +994,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         try:
-            connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+            connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                 tacks=[tackUnrelated], settings=settings)
             assert(False)
         except TLSRemoteAlert as alert:
@@ -1018,7 +1018,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                settings=settings)
     testConnServer(connection)
     connection.close()
@@ -1089,7 +1089,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, \
-                               certChain=x509Chain, privateKey=x509Key)
+                               cert_chain=x509Chain, privateKey=x509Key)
     testConnServer(connection)    
     connection.close()
 
@@ -1101,7 +1101,7 @@ def serverTestCmd(argv):
         connection = connect()
         connection.fault = fault
         connection.handshakeServer(verifierDB=verifierDB, \
-                                   certChain=x509Chain, privateKey=x509Key)
+                                   cert_chain=x509Chain, privateKey=x509Key)
         connection.close()
 
     test_no += 1
@@ -1111,7 +1111,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
+        connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key)
         connection.close()
 
     test_no += 1
@@ -1119,7 +1119,7 @@ def serverTestCmd(argv):
     print("Test {0} - good mutual X.509".format(test_no))
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, reqCert=True)
     testConnServer(connection)
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
     connection.close()
@@ -1132,7 +1132,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.minVersion = (3,2)
     settings.maxVersion = (3,2)
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
     testConnServer(connection)
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
     connection.close()
@@ -1145,7 +1145,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.minVersion = (3,0)
     settings.maxVersion = (3,0)
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
     testConnServer(connection)
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
     connection.close()
@@ -1157,7 +1157,7 @@ def serverTestCmd(argv):
         synchro.send(b'R')
         connection = connect()
         connection.fault = fault
-        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True)
+        connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, reqCert=True)
         connection.close()
 
     test_no += 1
@@ -1210,7 +1210,7 @@ def serverTestCmd(argv):
     class MyHTTPServer(TLSSocketServerMixIn,
                        HTTPServer):
         def handshake(self, tlsConnection):
-                tlsConnection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
+                tlsConnection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key)
                 return True
         def server_bind(self):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1255,7 +1255,7 @@ def serverTestCmd(argv):
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
 
-            connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+            connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                         settings=settings)
             print(connection.getCipherName(), connection.getCipherImplementation())
             testConnServer(connection)
@@ -1290,7 +1290,7 @@ def serverTestCmd(argv):
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
 
-            connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+            connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                         settings=settings)
             print(connection.getCipherName(), connection.getCipherImplementation())
             h = connection.read(min=50000, max=50000)
@@ -1304,7 +1304,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -1315,7 +1315,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"spdy/2", b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -1326,7 +1326,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"http/1.1", b"spdy/2"])
     testConnServer(connection)
     connection.close()
@@ -1337,7 +1337,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"spdy/2", b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -1348,7 +1348,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"http/1.1", b"spdy/2", b"spdy/3"])
     testConnServer(connection)
     connection.close()
@@ -1359,7 +1359,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[b"spdy/3", b"spdy/2"])
     testConnServer(connection)
     connection.close()
@@ -1370,7 +1370,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key, 
                                settings=settings, nextProtos=[])
     testConnServer(connection)
     connection.close()
@@ -1383,7 +1383,7 @@ def serverTestCmd(argv):
     settings = HandshakeSettings()
     settings.maxVersion = (3, 3)
     # TODO fix FALLBACK with TLS1.3
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                settings=settings)
     testConnServer(connection)
     connection.close()
@@ -1397,7 +1397,7 @@ def serverTestCmd(argv):
     # TODO fix FALLBACK with TLS1.3
     settings.maxVersion = (3, 3)
     try:
-        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+        connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                    settings=settings)
         assert()
     except TLSLocalAlert as alert:
@@ -1412,7 +1412,7 @@ def serverTestCmd(argv):
     connection = connect()
     settings = HandshakeSettings()
     settings.useEncryptThenMAC = False
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                settings=settings)
     testConnServer(connection)
     connection.close()
@@ -1422,7 +1422,7 @@ def serverTestCmd(argv):
     print("Test {0} - no EtM client side".format(test_no))
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key)
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key)
     testConnServer(connection)
     connection.close()
 
@@ -1432,7 +1432,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     sessionCache = SessionCache()
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                sessionCache=sessionCache)
     testConnServer(connection)
     connection.close()
@@ -1440,7 +1440,7 @@ def serverTestCmd(argv):
     # resume
     synchro.send(b'R')
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                sessionCache=sessionCache)
     testConnServer(connection)
     connection.close()
@@ -1451,7 +1451,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     sessionCache = SessionCache()
     connection = connect()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+    connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                sessionCache=sessionCache)
     testConnServer(connection)
     connection.close()
@@ -1460,7 +1460,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     try:
-        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+        connection.handshakeServer(cert_chain=x509Chain, privateKey=x509Key,
                                    sessionCache=sessionCache)
     except TLSLocalAlert as e:
         assert(str(e) == "handshake_failure")
@@ -1478,7 +1478,7 @@ def serverTestCmd(argv):
 
         def handshake(self, tlsConnection):
           try:
-              tlsConnection.handshakeServer(certChain=x509Chain,
+              tlsConnection.handshakeServer(cert_chain=x509Chain,
                                             privateKey=x509Key,
                                             sessionCache=sessionCache)
               tlsConnection.ignoreAbruptClose = True

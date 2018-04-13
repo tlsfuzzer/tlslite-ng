@@ -124,7 +124,7 @@ class TestTLSConnection(unittest.TestCase):
         srv_private_key = parsePEMKey(srv_raw_key, private=True)
         srv_cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])
         with self.assertRaises(TLSLocalAlert) as err:
-            conn.handshakeServer(certChain=srv_cert_chain,
+            conn.handshakeServer(cert_chain=srv_cert_chain,
                                  privateKey=srv_private_key)
 
         self.assertEqual(err.exception.description,
@@ -198,7 +198,7 @@ class TestTLSConnection(unittest.TestCase):
         srv_private_key = parsePEMKey(srv_raw_key, private=True)
         srv_cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])
         with self.assertRaises(TLSLocalAlert) as err:
-            conn.handshakeServer(certChain=srv_cert_chain,
+            conn.handshakeServer(cert_chain=srv_cert_chain,
                                  privateKey=srv_private_key,
                                  settings=hs)
 
@@ -329,7 +329,7 @@ class TestTLSConnection(unittest.TestCase):
 class TestRealConnection(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.certChain = X509CertChain([X509().parse(srv_raw_certificate)])
+        cls.cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])
         cls.certKey = parsePEMKey(srv_raw_key, private=True)
 
     def setUp(self):
@@ -341,7 +341,7 @@ class TestRealConnection(unittest.TestCase):
         def server_process(server):
             settings = HandshakeSettings()
             settings.maxVersion = (3, 3)
-            server.handshakeServer(certChain=self.certChain,
+            server.handshakeServer(cert_chain=self.cert_chain,
                                    privateKey=self.certKey)
             ret = server.read(min=len("client hello"))
             if ret != bytearray(b"client hello"):

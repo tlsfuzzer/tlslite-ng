@@ -2971,7 +2971,7 @@ class TestCertificate(unittest.TestCase):
                       b'\x00\x00\x00'))  # length of the list of certs
         cert = cert.parse(parser)
 
-        self.assertIsNone(cert.certChain)
+        self.assertIsNone(cert.cert_chain)
 
     def test_parse_empty_with_leftover_byte(self):
         cert = Certificate(CertificateType.x509)
@@ -3026,10 +3026,10 @@ class TestCertificate(unittest.TestCase):
                       self.der_cert))
 
         cert = cert.parse(parser)
-        self.assertIsNotNone(cert.certChain)
-        self.assertIsInstance(cert.certChain, X509CertChain)
-        self.assertEqual(len(cert.certChain.x509List), 1)
-        self.assertEqual(cert.certChain.x509List[0].writeBytes(),
+        self.assertIsNotNone(cert.cert_chain)
+        self.assertIsInstance(cert.cert_chain, X509CertChain)
+        self.assertEqual(len(cert.cert_chain.x509List), 1)
+        self.assertEqual(cert.cert_chain.x509List[0].writeBytes(),
                 self.der_cert)
 
     def test_parse_tls1_3_with_cert(self):
@@ -3058,10 +3058,10 @@ class TestCertificate(unittest.TestCase):
         self.assertEqual(entry.certificate.writeBytes(), self.der_cert)
         self.assertEqual(len(entry.extensions), 1)
         self.assertEqual(entry.extensions[0].extData, bytearray(b'\xde\xad'))
-        self.assertIsNotNone(cert.certChain)
-        self.assertIsInstance(cert.certChain, X509CertChain)
-        self.assertEqual(len(cert.certChain.x509List), 1)
-        self.assertEqual(cert.certChain.x509List[0].writeBytes(),
+        self.assertIsNotNone(cert.cert_chain)
+        self.assertIsInstance(cert.cert_chain, X509CertChain)
+        self.assertEqual(len(cert.cert_chain.x509List), 1)
+        self.assertEqual(cert.cert_chain.x509List[0].writeBytes(),
                 self.der_cert)
 
     def test_parse_with_openpgp_type(self):

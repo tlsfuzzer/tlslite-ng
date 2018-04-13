@@ -12,7 +12,7 @@ class SMTP_TLS(SMTP):
 
     def starttls(self,
                  username=None, password=None,
-                 certChain=None, privateKey=None,
+                 cert_chain=None, privateKey=None,
                  checker=None,
                  settings=None):
         """Puts the connection to the SMTP server into TLS mode.
@@ -24,7 +24,7 @@ class SMTP_TLS(SMTP):
         combinations:
 
          - username, password (SRP)
-         - certChain, privateKey (certificate)
+         - cert_chain, privateKey (certificate)
 
         For server authentication, you can either rely on the
         implicit mutual authentication performed by SRP or
@@ -49,13 +49,13 @@ class SMTP_TLS(SMTP):
         :param password: SRP password for mutual authentication.
             Requires the 'username' argument.
 
-        :type certChain: ~tlslite.x509certchain.X509CertChain
-        :param certChain: Certificate chain for client authentication.
+        :type cert_chain: ~tlslite.x509certchain.X509CertChain
+        :param cert_chain: Certificate chain for client authentication.
             Requires the 'privateKey' argument.  Excludes the SRP arguments.
 
         :type privateKey: ~tlslite.utils.rsakey.RSAKey
         :param privateKey: Private key for client authentication.
-            Requires the 'certChain' argument.  Excludes the SRP arguments.
+            Requires the 'cert_chain' argument.  Excludes the SRP arguments.
 
         :type checker: ~tlslite.checker.Checker
         :param checker: Callable object called after handshaking to
@@ -70,7 +70,7 @@ class SMTP_TLS(SMTP):
         if resp == 220:
             helper = ClientHelper(
                      username, password, 
-                     certChain, privateKey,
+                     cert_chain, privateKey,
                      checker,
                      settings)
             conn = TLSConnection(self.sock)

@@ -14,7 +14,7 @@ class POP3_TLS(POP3, ClientHelper):
     def __init__(self, host, port = POP3_SSL_PORT,
                  timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
                  username=None, password=None,
-                 certChain=None, privateKey=None,
+                 cert_chain=None, privateKey=None,
                  checker=None,
                  settings=None):
         """Create a new POP3_TLS.
@@ -23,7 +23,7 @@ class POP3_TLS(POP3, ClientHelper):
         combinations:
 
          - username, password (SRP)
-         - certChain, privateKey (certificate)
+         - cert_chain, privateKey (certificate)
 
         For server authentication, you can either rely on the
         implicit mutual authentication performed by SRP or
@@ -54,13 +54,13 @@ class POP3_TLS(POP3, ClientHelper):
         :param password: SRP password for mutual authentication.
             Requires the 'username' argument.
 
-        :type certChain: ~tlslite.x509certchain.X509CertChain
-        :param certChain: Certificate chain for client authentication.
+        :type cert_chain: ~tlslite.x509certchain.X509CertChain
+        :param cert_chain: Certificate chain for client authentication.
             Requires the 'privateKey' argument.  Excludes the SRP argument.
 
         :type privateKey: ~tlslite.utils.rsakey.RSAKey
         :param privateKey: Private key for client authentication.
-            Requires the 'certChain' argument.  Excludes the SRP argument.
+            Requires the 'cert_chain' argument.  Excludes the SRP argument.
 
         :type checker: ~tlslite.checker.Checker
         :param checker: Callable object called after handshaking to
@@ -76,7 +76,7 @@ class POP3_TLS(POP3, ClientHelper):
         sock = socket.create_connection((host, port), timeout)
         ClientHelper.__init__(self,
                  username, password,
-                 certChain, privateKey,
+                 cert_chain, privateKey,
                  checker,
                  settings)
         connection = TLSConnection(sock) 
