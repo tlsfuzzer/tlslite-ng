@@ -123,12 +123,12 @@ class XMLRPCTransport(xmlrpclib.Transport, ClientHelper):
             # create a HTTPS connection object from a host descriptor
             chost, extra_headers, x509 = self.get_host_info(host)
 
-            http = HTTPTLSConnection(chost, None,
-                                     username=self.username, password=self.password,
-                                     certChain=self.certChain, privateKey=self.privateKey,
-                                     checker=self.checker,
-                                     settings=self.settings,
-                                     ignoreAbruptClose=self.ignoreAbruptClose)
+            http = HTTPTLSConnection(
+                chost, None, username=self.username, password=self.password,
+                certChain=self.certChain, privateKey=self.privateKey,
+                checker=self.checker,
+                settings=self.settings,
+                ignoreAbruptClose=self.ignoreAbruptClose)
             # store the host argument along with the connection object
             self._connection = host, http
         if not self.conn_class_is_http:
