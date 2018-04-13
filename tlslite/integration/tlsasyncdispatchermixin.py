@@ -54,7 +54,7 @@ class TLSAsyncDispatcherMixIn(AsyncStateMachine):
         s = open("./serverX509Cert.pem").read()
         x509 = X509()
         x509.parse(s)
-        certChain = X509CertChain([x509])
+        cert_chain = X509CertChain([x509])
 
         s = open("./serverX509Key.pem").read()
         privateKey = parsePEMKey(s, private=True)
@@ -67,7 +67,7 @@ class TLSAsyncDispatcherMixIn(AsyncStateMachine):
                 http_server.http_channel.__init__(self, server, conn, addr)
                 TLSAsyncDispatcherMixIn.__init__(self, conn)
                 self.tlsConnection.ignoreAbruptClose = True
-                self.setServerHandshakeOp(certChain=certChain,
+                self.setServerHandshakeOp(certChain=cert_chain,
                                           privateKey=privateKey)
 
         hs.channel_class = http_tls_channel

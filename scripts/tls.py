@@ -111,7 +111,7 @@ def handleArgs(argv, argString, flagsList=[]):
         printError(e) 
     # Default values if arg not present  
     privateKey = None
-    certChain = None
+    cert_chain = None
     username = None
     password = None
     tacks = None
@@ -141,7 +141,7 @@ def handleArgs(argv, argString, flagsList=[]):
                 s = str(s, 'utf-8')
             x509 = X509()
             x509.parse(s)
-            certChain = X509CertChain([x509])
+            cert_chain = X509CertChain([x509])
         elif opt == "-u":
             username = arg
         elif opt == "-p":
@@ -200,7 +200,7 @@ def handleArgs(argv, argString, flagsList=[]):
     if "k" in argString:
         retList.append(privateKey)
     if "c" in argString:
-        retList.append(certChain)
+        retList.append(cert_chain)
     if "u" in argString:
         retList.append(username)
     if "p" in argString:
@@ -289,16 +289,16 @@ def printExporter(connection, expLabel, expLength):
     print("  Keying material: {0}".format(exp))
 
 def clientCmd(argv):
-    (address, privateKey, certChain, username, password, expLabel,
+    (address, privateKey, cert_chain, username, password, expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
                                      "resumption"])
         
-    if (certChain and not privateKey) or (not certChain and privateKey):
+    if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
     if (username and not password) or (not username and password):
         raise SyntaxError("Must specify USER with PASS")
-    if certChain and username:
+    if cert_chain and username:
         raise SyntaxError("Can use SRP or client cert for auth, not both")
     if expLabel is not None and not expLabel:
         raise ValueError("Label must be non-empty")
@@ -321,7 +321,7 @@ def clientCmd(argv):
             connection.handshakeClientSRP(username, password, 
                 settings=settings, serverName=address[0])
         else:
-            connection.handshakeClientCert(certChain, privateKey,
+            connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
         stop = time.clock()        
         print("Handshake success")        
@@ -416,16 +416,16 @@ def clientCmd(argv):
 
 
 def serverCmd(argv):
-    (address, privateKey, certChain, tacks, verifierDB, directory, reqCert,
+    (address, privateKey, cert_chain, tacks, verifierDB, directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384"])
 
 
-    if (certChain and not privateKey) or (not certChain and privateKey):
+    if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
-    if tacks and not certChain:
+    if tacks and not cert_chain:
         raise SyntaxError("Must specify CERT with Tacks")
     
     print("I am an HTTPS test server, I will listen on %s:%d" % 
@@ -434,7 +434,7 @@ def serverCmd(argv):
         os.chdir(directory)
     print("Serving files from %s" % os.getcwd())
     
-    if certChain and privateKey:
+    if cert_chain and privateKey:
         print("Using certificate and private key...")
     if verifierDB:
         print("Using verifier DB...")
@@ -470,7 +470,7 @@ def serverCmd(argv):
                 start = time.clock()
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
-                connection.handshakeServer(certChain=certChain,
+                connection.handshakeServer(certChain=cert_chain,
                                               privateKey=privateKey,
                                               verifierDB=verifierDB,
                                               tacks=tacks,
