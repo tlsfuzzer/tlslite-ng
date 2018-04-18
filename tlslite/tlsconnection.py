@@ -1750,7 +1750,7 @@ class TLSConnection(TLSRecordLayer):
                 self._handshakeDone(resumed=True)                
                 return # Handshake was resumed, we're done 
             else: break
-        (clientHello, cipherSuite, version) = result
+        (clientHello, cipherSuite, version, scheme) = result
 
         # in TLS 1.3 the handshake is completely different
         # (extensions go into different messages, format of messages is
@@ -1759,7 +1759,7 @@ class TLSConnection(TLSRecordLayer):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
                                                      privateKey, certChain,
-                                                     version):
+                                                     version, scheme):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2050,7 +2050,7 @@ class TLSConnection(TLSRecordLayer):
             return (identity.identity, psk, prf)
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
-                              privateKey, serverCertChain, version):
+                              privateKey, serverCertChain, version, scheme):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
 
@@ -2120,12 +2120,6 @@ class TLSConnection(TLSRecordLayer):
         if selected_psk is not None:
             sh_extensions.append(SrvPreSharedKeyExtension()
                                  .create(selected_psk))
-
-        if selected_psk is None:
-            scheme = self._pickServerKeyExchangeSig(settings,
-                                                    clientHello,
-                                                    serverCertChain,
-                                                    self.version)
 
         serverHello = ServerHello()
         # in TLS1.3 the version selected is sent in extension, (3, 3) is
@@ -2429,7 +2423,7 @@ class TLSConnection(TLSRecordLayer):
 
         # sanity check the TLS 1.3 extensions
         ext = clientHello.getExtension(ExtensionType.supported_versions)
-        if ext and (0x7f, 21) in ext.versions:
+        if ext and TLS_1_3_DRAFT in ext.versions:
             ext = clientHello.getExtension(ExtensionType.signature_algorithms)
             if not ext:
                 for result in self._sendError(AlertDescription
@@ -2528,6 +2522,11 @@ class TLSConnection(TLSRecordLayer):
 
         # TODO when TLS 1.3 is final, check the client hello random for
         # downgrade too
+
+        scheme = self._pickServerKeyExchangeSig(settings,
+                                                clientHello,
+                                                certChain,
+                                                version)
 
         #Check if there's intersection between supported curves by client and
         #server
@@ -2942,7 +2941,7 @@ class TLSConnection(TLSRecordLayer):
         # If resumption was not requested, or
         # we have no session cache, or
         # the client's session_id was not found in cache:
-        yield (clientHello, cipherSuite, version)
+        yield (clientHello, cipherSuite, version, scheme)
 
     def _serverSRPKeyExchange(self, clientHello, serverHello, verifierDB,
                               cipherSuite, privateKey, serverCertChain,
