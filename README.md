@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.8.0-alpha3                                    2018-04-09
+tlslite-ng version 0.8.0-alpha4                                    2018-04-19
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -597,6 +597,7 @@ encrypt-then-MAC mode for CBC ciphers.
   follow this new style and new deprecations will be introduced as time goes
   on. Please run your test suite with `-Wd` to see where the depracated calls
   are being made, the python standard DeprecationWarning will be emited there)
+* fix compatibility issue with 8192 bit SRP group from RFC 5054
 * fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
   mode
 * Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
