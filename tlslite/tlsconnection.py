@@ -2941,7 +2941,9 @@ class TLSConnection(TLSRecordLayer):
         # If resumption was not requested, or
         # we have no session cache, or
         # the client's session_id was not found in cache:
+#pylint: disable = undefined-loop-variable
         yield (clientHello, cipherSuite, version, scheme)
+#pylint: enable = undefined-loop-variable
 
     def _serverSRPKeyExchange(self, clientHello, serverHello, verifierDB,
                               cipherSuite, privateKey, serverCertChain,
