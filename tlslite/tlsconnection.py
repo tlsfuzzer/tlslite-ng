@@ -2524,7 +2524,7 @@ class TLSConnection(TLSRecordLayer):
         # downgrade too
 
         scheme = None
-        if (version == TLS_1_3_DRAFT):
+        if version == TLS_1_3_DRAFT:
             scheme = self._pickServerKeyExchangeSig(settings,
                                                     clientHello,
                                                     certChain,
