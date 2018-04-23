@@ -2525,10 +2525,16 @@ class TLSConnection(TLSRecordLayer):
 
         scheme = None
         if version >= (3, 4):
-            scheme = self._pickServerKeyExchangeSig(settings,
-                                                    clientHello,
-                                                    certChain,
-                                                    version)
+            try:
+                scheme = self._pickServerKeyExchangeSig(settings,
+                                                        clientHello,
+                                                        certChain,
+                                                        version)
+            except TLSHandshakeFailure as alert:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        str(alert)):
+                    yield result
 
         #Check if there's intersection between supported curves by client and
         #server
