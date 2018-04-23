@@ -2523,10 +2523,12 @@ class TLSConnection(TLSRecordLayer):
         # TODO when TLS 1.3 is final, check the client hello random for
         # downgrade too
 
-        scheme = self._pickServerKeyExchangeSig(settings,
-                                                clientHello,
-                                                certChain,
-                                                version)
+        scheme = None
+        if (version == TLS_1_3_DRAFT):
+            scheme = self._pickServerKeyExchangeSig(settings,
+                                                    clientHello,
+                                                    certChain,
+                                                    version)
 
         #Check if there's intersection between supported curves by client and
         #server
