@@ -1,13 +1,12 @@
-```
-tlslite-ng version 0.8.0-alpha5                                    2018-04-23
-Hubert Kario <hkario at redhat.com>
-https://github.com/tomato42/tlslite-ng/
-```
+tlslite-ng version 0.8.0-alpha5 (2018-04-23)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
 [![Code Health](https://landscape.io/github/tomato42/tlslite-ng/master/landscape.svg?style=flat)](https://landscape.io/github/tomato42/tlslite-ng/master)
 [![Code Climate](https://codeclimate.com/github/tomato42/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tomato42/tlslite-ng)
+
+[![Build history](https://buildstats.info/travisci/chart/tomato42/tlslite-ng?branch=master&includeBuildsFromPullRequest=false)](https://travis-ci.org/tomato42/tlslite-ng/builds)
+
 
 Table of Contents
 ==================
@@ -39,8 +38,10 @@ API documentation is available in the `docs/_build/html` directory of the PyPI
 package
 or can be automatically generated using `make docs` with Sphinx installed.
 
-If you have questions or feedback, feel free to contact me. Issues and pull
-requests can also be submitted through github issue tracking system, see
+If you have questions or feedback, feel free to contact me (Hubert Kario
+&lt;hkario at redhat.com>). Issues and pull
+requests can also be submitted through github issue tracking system, at the
+project's main page at [GitHub](https://github.com/tomato42/tlslite-ng), see
 CONTRIBUTING.md file for more information.
 
 tlslite-ng aims to be a drop in replacement for the original TLS Lite.
