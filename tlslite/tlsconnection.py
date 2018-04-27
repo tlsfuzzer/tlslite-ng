@@ -431,9 +431,9 @@ class TLSConnection(TLSRecordLayer):
         if password and not srpUsername:
             raise ValueError("Caller passed a password but no username")
         if clientCertChain and not privateKey:
-            raise ValueError("Caller passed a certChain but no privateKey")
+            raise ValueError("Caller passed a cert_chain but no privateKey")
         if privateKey and not clientCertChain:
-            raise ValueError("Caller passed a privateKey but no certChain")
+            raise ValueError("Caller passed a privateKey but no cert_chain")
         if reqTack:
             if not tackpyLoaded:
                 reqTack = False
@@ -1152,7 +1152,7 @@ class TLSConnection(TLSRecordLayer):
 
             signature_context = secureHash(signature_context, hashName)
 
-            publicKey = certificate.certChain.getEndEntityPublicKey()
+            publicKey = certificate.cert_chain.getEndEntityPublicKey()
 
             if not publicKey.verify(certificate_verify.signature,
                                     signature_context,
@@ -1249,7 +1249,7 @@ class TLSConnection(TLSRecordLayer):
                             serverHello.cipher_suite,
                             None,  # no SRP
                             None,  # no client cert chain
-                            certificate.certChain if certificate else None,
+                            certificate.cert_chain if certificate else None,
                             None,  # no TACK
                             False,  # no TACK in hello
                             serverName,
@@ -1538,15 +1538,15 @@ class TLSConnection(TLSRecordLayer):
 
     def _clientGetKeyFromChain(self, certificate, settings, tackExt=None):
         #Get and check cert chain from the Certificate message
-        certChain = certificate.certChain
-        if not certChain or certChain.getNumCerts() == 0:
+        cert_chain = certificate.cert_chain
+        if not cert_chain or cert_chain.getNumCerts() == 0:
             for result in self._sendError(AlertDescription.illegal_parameter,
                     "Other party sent a Certificate message without "\
                     "certificates"):
                 yield result
 
         #Get and check public key from the cert chain
-        publicKey = certChain.getEndEntityPublicKey()
+        publicKey = cert_chain.getEndEntityPublicKey()
         if len(publicKey) < settings.minKeySize:
             for result in self._sendError(AlertDescription.handshake_failure,
                     "Other party's public key too small: %d" % len(publicKey)):
@@ -1559,19 +1559,19 @@ class TLSConnection(TLSRecordLayer):
         # If there's no TLS Extension, look for a TACK cert
         if tackpyLoaded:
             if not tackExt:
-                tackExt = certChain.getTackExt()
+                tackExt = cert_chain.getTackExt()
          
             # If there's a TACK (whether via TLS or TACK Cert), check that it
             # matches the cert chain   
             if tackExt and tackExt.tacks:
                 for tack in tackExt.tacks: 
-                    if not certChain.checkTack(tack):
+                    if not cert_chain.checkTack(tack):
                         for result in self._sendError(  
                                 AlertDescription.illegal_parameter,
                                 "Other party's TACK doesn't match their public key"):
                                 yield result
 
-        yield publicKey, certChain, tackExt
+        yield publicKey, cert_chain, tackExt
 
 
     #*********************************************************
@@ -1695,7 +1695,7 @@ class TLSConnection(TLSRecordLayer):
         :returns: A generator; see above for details.
         """
         handshaker = self._handshakeServerAsyncHelper(\
-            verifierDB=verifierDB, certChain=certChain,
+            verifierDB=verifierDB, cert_chain=certChain,
             privateKey=privateKey, reqCert=reqCert,
             sessionCache=sessionCache, settings=settings, 
             reqCAs=reqCAs, 
@@ -1706,22 +1706,22 @@ class TLSConnection(TLSRecordLayer):
 
 
     def _handshakeServerAsyncHelper(self, verifierDB,
-                             certChain, privateKey, reqCert, sessionCache,
+                             cert_chain, privateKey, reqCert, sessionCache,
                              settings, reqCAs, 
                              tacks, activationFlags, 
                              nextProtos, anon, alpn, sni):
 
         self._handshakeStart(client=False)
 
-        if (not verifierDB) and (not certChain) and not anon:
+        if (not verifierDB) and (not cert_chain) and not anon:
             raise ValueError("Caller passed no authentication credentials")
-        if certChain and not privateKey:
-            raise ValueError("Caller passed a certChain but no privateKey")
-        if privateKey and not certChain:
-            raise ValueError("Caller passed a privateKey but no certChain")
+        if cert_chain and not privateKey:
+            raise ValueError("Caller passed a cert_chain but no privateKey")
+        if privateKey and not cert_chain:
+            raise ValueError("Caller passed a privateKey but no cert_chain")
         if reqCAs and not reqCert:
             raise ValueError("Caller passed reqCAs but not reqCert")            
-        if certChain and not isinstance(certChain, X509CertChain):
+        if cert_chain and not isinstance(cert_chain, X509CertChain):
             raise ValueError("Unrecognized certificate type")
         if activationFlags and not tacks:
             raise ValueError("Nonzero activationFlags requires tacks")
@@ -1742,7 +1742,7 @@ class TLSConnection(TLSRecordLayer):
         # ******************************
         
         # Handle ClientHello and resumption
-        for result in self._serverGetClientHello(settings, certChain,
+        for result in self._serverGetClientHello(settings, cert_chain,
                                                  verifierDB, sessionCache,
                                                  anon, alpn, sni):
             if result in (0,1): yield result
@@ -1758,7 +1758,7 @@ class TLSConnection(TLSRecordLayer):
         if version > (3, 3):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
-                                                     privateKey, certChain,
+                                                     privateKey, cert_chain,
                                                      version, scheme):
                 if result in (0, 1):
                     yield result
@@ -1870,7 +1870,7 @@ class TLSConnection(TLSRecordLayer):
         if cipherSuite in CipherSuite.srpAllSuites:
             for result in self._serverSRPKeyExchange(clientHello, serverHello,
                                                      verifierDB, cipherSuite,
-                                                     privateKey, certChain,
+                                                     privateKey, cert_chain,
                                                      settings):
                 if result in (0, 1):
                     yield result
@@ -1906,7 +1906,7 @@ class TLSConnection(TLSRecordLayer):
             else:
                 assert(False)
             for result in self._serverCertKeyExchange(clientHello, serverHello, 
-                                        certChain, keyExchange,
+                                        cert_chain, keyExchange,
                                         reqCert, reqCAs, cipherSuite,
                                         settings):
                 if result in (0,1): yield result
@@ -1948,7 +1948,7 @@ class TLSConnection(TLSRecordLayer):
         #Create the session object
         self.session = Session()
         if cipherSuite in CipherSuite.certAllSuites:        
-            serverCertChain = certChain
+            serverCertChain = cert_chain
         else:
             serverCertChain = None
         srpUsername = None
@@ -2310,7 +2310,7 @@ class TLSConnection(TLSRecordLayer):
 
         yield "finished"
 
-    def _serverGetClientHello(self, settings, certChain, verifierDB,
+    def _serverGetClientHello(self, settings, cert_chain, verifierDB,
                               sessionCache, anon, alpn, sni):
         # Tentatively set version to most-desirable version, so if an error
         # occurs parsing the ClientHello, this will be the version we'll use
@@ -2528,7 +2528,7 @@ class TLSConnection(TLSRecordLayer):
             try:
                 scheme = self._pickServerKeyExchangeSig(settings,
                                                         clientHello,
-                                                        certChain,
+                                                        cert_chain,
                                                         version)
             except TLSHandshakeFailure as alert:
                 for result in self._sendError(
@@ -2569,11 +2569,11 @@ class TLSConnection(TLSRecordLayer):
         #that version and client capabilities.
         cipherSuites = []
         if verifierDB:
-            if certChain:
+            if cert_chain:
                 cipherSuites += \
                     CipherSuite.getSrpCertSuites(settings, version)
             cipherSuites += CipherSuite.getSrpSuites(settings, version)
-        elif certChain:
+        elif cert_chain:
             if ecGroupIntersect or ffGroupIntersect:
                 cipherSuites += CipherSuite.getTLS13Suites(settings,
                                                            version)
@@ -3069,9 +3069,9 @@ class TLSConnection(TLSRecordLayer):
                         raise TLSRemoteAlert(alert)
                 elif isinstance(msg, Certificate):
                     clientCertificate = msg
-                    if clientCertificate.certChain and \
-                            clientCertificate.certChain.getNumCerts()!=0:
-                        clientCertChain = clientCertificate.certChain
+                    if clientCertificate.cert_chain and \
+                            clientCertificate.cert_chain.getNumCerts() != 0:
+                        clientCertChain = clientCertificate.cert_chain
                 else:
                     raise AssertionError()
             elif self.version in ((3,1), (3,2), (3,3)):
@@ -3081,9 +3081,9 @@ class TLSConnection(TLSRecordLayer):
                     if result in (0,1): yield result
                     else: break
                 clientCertificate = result
-                if clientCertificate.certChain and \
-                        clientCertificate.certChain.getNumCerts()!=0:
-                    clientCertChain = clientCertificate.certChain
+                if clientCertificate.cert_chain and \
+                        clientCertificate.cert_chain.getNumCerts() != 0:
+                    clientCertChain = clientCertificate.cert_chain
             else:
                 raise AssertionError()
 

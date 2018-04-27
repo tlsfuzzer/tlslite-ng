@@ -23,7 +23,7 @@ class TestMessageSocket(unittest.TestCase):
 
     def test_recvMessage(self):
         defragmenter = Defragmenter()
-        defragmenter.addStaticSize(21, 2)
+        defragmenter.add_static_size(21, 2)
 
         sock = MockSocket(bytearray(
             b'\x15' +           # message type
@@ -69,7 +69,7 @@ class TestMessageSocket(unittest.TestCase):
 
     def test_recvMessage_with_unfragmentable_type(self):
         defragmenter = Defragmenter()
-        defragmenter.addStaticSize(21, 2)
+        defragmenter.add_static_size(21, 2)
 
         sock = MockSocket(bytearray(
             b'\x17' +       # message type
@@ -98,7 +98,7 @@ class TestMessageSocket(unittest.TestCase):
 
     def test_recvMessage_with_blocking_socket(self):
         defragmenter = Defragmenter()
-        defragmenter.addStaticSize(21, 2)
+        defragmenter.add_static_size(21, 2)
 
         sock = MockSocket(bytearray(
             b'\x15' +           # message type
@@ -129,7 +129,7 @@ class TestMessageSocket(unittest.TestCase):
 
     def test_recvMessageBlocking(self):
         defragmenter = Defragmenter()
-        defragmenter.addStaticSize(21, 2)
+        defragmenter.add_static_size(21, 2)
 
         sock = MockSocket(bytearray(
             b'\x15' +           # message type
