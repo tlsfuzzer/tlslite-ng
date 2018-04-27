@@ -13,7 +13,7 @@ import socket
 import math
 
 if __name__ != "__main__":
-    raise "This must be run as a command, not used as a module!"
+    raise Exception("This must be run as a command, not used as a module!")
 
 
 from tlslite import *

@@ -27,7 +27,7 @@ except ImportError:
     from http.server import SimpleHTTPRequestHandler
 
 if __name__ != "__main__":
-    raise "This must be run as a command, not used as a module!"
+    raise Exception("This must be run as a command, not used as a module!")
 
 from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
