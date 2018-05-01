@@ -17,7 +17,7 @@
 To be able to work on the code you will need few pieces of software installed.
 The most important is `python` interpreter. Some development dependencies have
 additional restrictions on the versions used, so I recommend Python 2.7 or
-Python 3.4 as the lowest versions (see .travis.yml if you want details).
+Python 3.4 as the lowest versions (see `.travis.yml` if you want details).
 Git client, make, text editor and ability to
 install local python packages (ability to run pip).
 
@@ -117,16 +117,18 @@ dnf install m2crypto python-crypto python3-crypto python-gmpy2 python3-gmpy2
   but may require explanation. Going to codeclimate and quantified code
   (see README.md for links) and checking the branch and pull request is also
   a good idea.
-  * if you are not sure if the pull will pass the checks it is OK to submit
+  * if you are not sure if the pull request will pass the checks it is OK to
+    submit
     a test pull request, but please mark it as such ('[WIP]' in title is
     enough)
-* Once you recieve feedback from reviewers or from the automated systems,
+* Once you receive feedback from reviewers or from the automated systems,
   modify your local patches (that usually means that you need to prepare
-  "fixup" patches or interactively
+  "fixup" patches and/or interactively
   [rebase](https://help.github.com/articles/about-git-rebase/)) and push
   updated branch to github (that usually will require to perform a
   [force push](http://movingfast.io/articles/git-force-pushing/))
-* Wait again for review or automated checks.
+* Wait again for automated checks, once they're finished, @mention the previous
+  reviewer or @tomato42 if there were none.
 
 ## Additional Resources
 
