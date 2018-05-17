@@ -2507,7 +2507,7 @@ class TLSConnection(TLSRecordLayer):
             # it as well as that also switches it to a mode where the
             # content type is encrypted
             # use the backwards compatible TLS 1.2 version instead
-            self.version = (3, 3)
+            self.version = min((3, 3), high_ver)
             version = high_ver
         elif clientHello.client_version > settings.maxVersion:
             # in TLS 1.3 the version is negotiatied with extension,
