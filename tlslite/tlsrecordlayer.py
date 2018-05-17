@@ -926,13 +926,13 @@ class TLSRecordLayer(object):
 
         header, parser = result
 
-        # RFC5246 section 5.2.1: Implementations MUST NOT send
+        # RFC5246 section 6.2.1: Implementations MUST NOT send
         # zero-length fragments of content types other than Application
         # Data.
         if header.type != ContentType.application_data \
                 and parser.getRemainingLength() == 0:
-            for result in self._sendError(\
-                    AlertDescription.decode_error, \
+            for result in self._sendError(
+                    AlertDescription.unexpected_message,
                     "Received empty non-application data record"):
                 yield result
 
