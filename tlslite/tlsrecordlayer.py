@@ -685,11 +685,6 @@ class TLSRecordLayer(object):
                         break
                 recordHeader, p = result
 
-                #If this is an empty application-data fragment, try again
-                if recordHeader.type == ContentType.application_data:
-                    if p.index == len(p.bytes):
-                        continue
-
                 # if this is a CCS message in TLS 1.3, sanity check and
                 # continue
                 if self.version > (3, 3) and \
@@ -770,6 +765,11 @@ class TLSRecordLayer(object):
                             AlertDescription.unexpected_message,
                             "received type=%d" % recordHeader.type):
                         yield result
+
+                #If this is an empty application-data fragment, try again
+                if recordHeader.type == ContentType.application_data:
+                    if p.index == len(p.bytes):
+                        continue
 
                 break
 
