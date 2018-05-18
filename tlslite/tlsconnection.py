@@ -2496,12 +2496,18 @@ class TLSConnection(TLSRecordLayer):
         if versionsExt:
             high_ver = getFirstMatching(settings.versions,
                                         versionsExt.versions)
+            if not high_ver:
+                for result in self._sendError(
+                        AlertDescription.protocol_version,
+                        "supported_versions did not include version we "
+                        "support"):
+                    yield result
         if high_ver:
             # when we selected TLS 1.3, we cannot set the record layer to
             # it as well as that also switches it to a mode where the
             # content type is encrypted
             # use the backwards compatible TLS 1.2 version instead
-            self.version = (3, 3)
+            self.version = min((3, 3), high_ver)
             version = high_ver
         elif clientHello.client_version > settings.maxVersion:
             # in TLS 1.3 the version is negotiatied with extension,
