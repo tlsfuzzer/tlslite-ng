@@ -456,6 +456,9 @@ def serverCmd(argv):
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.ticketKeys = [getRandomBytes(32)]
 
+    class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
+        wbufsize = -1
+
     class MyHTTPServer(ThreadingMixIn, TLSSocketServerMixIn, HTTPServer):
         def handshake(self, connection):
             print("About to handshake...")
@@ -514,7 +517,7 @@ def serverCmd(argv):
             printExporter(connection, expLabel, expLength)
             return True
 
-    httpd = MyHTTPServer(address, SimpleHTTPRequestHandler)
+    httpd = MyHTTPServer(address, MySimpleHTTPHandler)
     httpd.serve_forever()
 
 
