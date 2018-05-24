@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha6 (2018-05-18)
+tlslite-ng version 0.8.0-alpha7 (2018-05-24)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -622,6 +622,7 @@ encrypt-then-MAC mode for CBC ciphers.
 * fix minor bugs in message objects, extend test coverage for tlslite.messages
 * repr() for Certificate and few extensions
 * OCSP response parsing (Anna Khaitovich)
+* fix HTTP header length leak in the test server (`tls.py`) (Róbert Kolcún)
 
 0.7.0 - 2017-07-31
 
