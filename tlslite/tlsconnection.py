@@ -2128,10 +2128,12 @@ class TLSConnection(TLSRecordLayer):
                            clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
-        ccs = ChangeCipherSpec().create()
-
-        for result in self._sendMsgs([serverHello, ccs]):
+        for result in self._sendMsg(serverHello):
             yield result
+        if not self._ccs_sent:
+            ccs = ChangeCipherSpec().create()
+            for result in self._sendMsg(ccs):
+                yield result
 
         Z = kex.calc_shared_key(key_share.private, cl_key_share.key_exchange)
 
