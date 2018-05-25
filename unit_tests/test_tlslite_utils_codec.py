@@ -198,6 +198,7 @@ class TestParser(unittest.TestCase):
         with self.assertRaises(SyntaxError):
             p.getVarTupleList(1, 2, 2)
 
+
 class TestWriter(unittest.TestCase):
     def test___init__(self):
         w = Writer()
@@ -411,6 +412,15 @@ class TestWriter(unittest.TestCase):
         w = Writer()
         with self.assertRaises(ValueError):
             w.addVarTupleSeq([(1, 2), (3, 0x10000)], 2, 2)
+
+    def test_add_var_bytes(self):
+        w = Writer()
+        w.add_var_bytes(b'test', 3)
+
+        self.assertEqual(bytearray(
+            b'\x00\x00\x04'
+            b'test'),
+            w.bytes)
 
 if __name__ == '__main__':
     unittest.main()

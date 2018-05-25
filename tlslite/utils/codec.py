@@ -229,6 +229,22 @@ class Writer(object):
             if startPos + dataLength + lengthLength != len(self.bytes):
                 raise ValueError("Tuples of different lengths")
 
+    def add_var_bytes(self, data, length_length):
+        """
+        Add a variable length array of bytes.
+
+        Inverse of Parser.getVarBytes()
+
+        :type data: bytes
+        :param data: bytes to add to the buffer
+
+        :param int length_length: size of the field to represent the length
+            of the data string
+        """
+        length = len(data)
+        self.add(length, length_length)
+        self.bytes += data
+
 
 class Parser(object):
     """
@@ -306,6 +322,8 @@ class Parser(object):
     def getVarBytes(self, lengthLength):
         """
         Read a variable length string with a fixed length.
+
+        see Writer.add_var_bytes() for an inverse of this method
 
         :type lengthLength: int
         :param lengthLength: number of bytes in which the length of the string
