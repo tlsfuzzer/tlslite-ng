@@ -2013,6 +2013,61 @@ class PskKeyExchangeModesExtension(VarListExtension):
             PskKeyExchangeMode)
 
 
+class CookieExtension(TLSExtension):
+    """Handling of the TLS 1.3 cookie extension."""
+
+    def __init__(self):
+        """Create instance."""
+        ext_type = ExtensionType.cookie
+        super(CookieExtension, self).__init__(extType=ext_type)
+        self.cookie = None
+
+    @property
+    def extData(self):
+        """Return raw encoding of the extension.
+
+        :rtype: bytearray
+        """
+        if self.cookie is None:
+            return bytearray(0)
+        writer = Writer()
+        writer.add(len(self.cookie), 2)
+        writer.bytes += self.cookie
+        return writer.bytes
+
+    def create(self, cookie):
+        """
+        Set the cookie value received from server.
+
+        :param bytearray cookie: opaque data
+        """
+        self.cookie = cookie
+        return self
+
+    def parse(self, parser):
+        """
+        Deserialise extension from on the wire data.
+
+        :param Parser parser: data to be parsed
+
+        :rtype: CookieExtension
+        """
+        if not parser.getRemainingLength():
+            self.cookie = None
+        else:
+            self.cookie = parser.getVarBytes(2)
+
+        if parser.getRemainingLength():
+            raise SyntaxError("Extra data at end of extension")
+        return self
+
+    def __repr__(self):
+        """Return human readable representation of the object."""
+        if self.cookie is not None:
+            return "CookieExtension(len(cookie)={0})".format(len(self.cookie))
+        return "CookieExtension(cookie=None)"
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -2031,7 +2086,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.signature_algorithms_cert:
             SignatureAlgorithmsCertExtension,
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
-        ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension}
+        ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
+        ExtensionType.cookie: CookieExtension}
 
 TLSExtension._serverExtensions = \
     {

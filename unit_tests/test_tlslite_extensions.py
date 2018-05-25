@@ -25,7 +25,7 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         CertificateStatusExtension, HRRKeyShareExtension, \
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
-        PskKeyExchangeModesExtension
+        PskKeyExchangeModesExtension, CookieExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -2552,6 +2552,82 @@ class TestPskKeyExchangeModesExtension(unittest.TestCase):
         self.assertEqual(
             repr(ext),
             "PskKeyExchangeModesExtension(modes=[psk_ke, psk_dhe_ke, 40])")
+
+
+class TestCookieExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = CookieExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.cookie)
+        self.assertEqual(ext.extType, 44)
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_create(self):
+        ext = CookieExtension()
+        ext = ext.create(bytearray(b'test payload'))
+
+        self.assertIsInstance(ext, CookieExtension)
+        self.assertEqual(ext.cookie, bytearray(b'test payload'))
+
+    def test_write(self):
+        ext = CookieExtension().create(b"test")
+
+        self.assertEqual(bytearray(
+            b'\x00\x2c' +  # type
+            b'\x00\x06' +  # overall length
+            b'\x00\x04' +  # cookie length
+            b'test'), ext.write())
+
+    def test_parse(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2c' +  # type
+            b'\x00\x06' +  # overall length
+            b'\x00\x04' +  # cookie length
+            b'test'))
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, CookieExtension)
+        self.assertEqual(ext.cookie, bytearray(b'test'))
+
+    def test_parse_empty(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2c' +  # type
+            b'\x00\x00'))  # ext length
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, CookieExtension)
+        self.assertIsNone(ext.cookie)
+
+    def test_parse_with_extra_data(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x2c' +  # type
+            b'\x00\x08' +  # overall length
+            b'\x00\x04' +  # cookie length
+            b'test' +  # cookie
+            b'XX'))  # extra data
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+    def test___repr__(self):
+        ext = CookieExtension().create(b'test')
+
+        self.assertEqual(
+            repr(ext),
+            "CookieExtension(len(cookie)=4)")
+
+    def test___repr___with_none(self):
+        ext = CookieExtension()
+        self.assertEqual(repr(ext), "CookieExtension(cookie=None)")
 
 
 if __name__ == '__main__':
