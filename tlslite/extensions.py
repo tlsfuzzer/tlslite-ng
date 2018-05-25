@@ -283,6 +283,95 @@ class TLSExtension(object):
                                                               self.serverType,
                                                               self.encExtType)
 
+class VarBytesExtension(TLSExtension):
+    """
+    Abstract class for extension that deal with single byte array payload.
+
+    Extension for handling arbitrary extensions that comprise of just
+    a single bytearray of variable size.
+    """
+
+    def __init__(self, field_name, length_length, ext_type):
+        """
+        Crate instance of the class.
+
+        :param str field_name: name of the field to store the bytearray
+            that is the payload
+        :param int length_length: number of bytes needed to encode the length
+            field of the string
+        :param int ext_type: numerical ID of the extension
+        """
+        super(VarBytesExtension, self).__init__(extType=ext_type)
+        self._field_name = field_name
+        self._length_length = length_length
+        self._internal_value = None
+
+    @property
+    def extData(self):
+        """
+        Return raw data encoding of the extension.
+
+        :rtype: bytearray
+        """
+        if self._internal_value is None:
+            return bytearray(0)
+
+        writer = Writer()
+        writer.add_var_bytes(self._internal_value, self._length_length)
+        return writer.bytes
+
+    def create(self, value):
+        """
+        Set the payload to specified value.
+
+        :param bytearray value: bytes to set the payload to
+        """
+        self._internal_value = value
+        return self
+
+    def __getattr__(self, name):
+        """Return the special field name value."""
+        if name == '_field_name':
+            raise AttributeError("type object '{0}' has no attribute '{1}'"\
+                    .format(self.__class__.__name__, name))
+        if name == self._field_name:
+            return self._internal_value
+        raise AttributeError("type object '{0}' has no attribute '{1}'"\
+                .format(self.__class__.__name__, name))
+
+    def __setattr__(self, name, value):
+        """Set the special field value."""
+        if hasattr(self, '_field_name') and name == self._field_name:
+            self._internal_value = value
+            return
+        super(VarBytesExtension, self).__setattr__(name, value)
+
+    def parse(self, parser):
+        """Deserialise extension from on-the-wire data.
+
+        :param tlslite.utils.codec.Parser parser: data
+        :rtype TLSExtension
+        """
+        if not parser.getRemainingLength():
+            self._internal_value = None
+            return self
+
+        self._internal_value = parser.getVarBytes(self._length_length)
+
+        if parser.getRemainingLength():
+            raise SyntaxError("Extra data after extension payload")
+
+        return self
+
+    def __repr__(self):
+        """Return human readable representation of the extension."""
+        if self._internal_value is not None:
+            return "{0}(len({1})={2})".format(self.__class__.__name__,
+                                              self._field_name,
+                                              len(self._internal_value))
+        return "{0}({1}=None)".format(self.__class__.__name__,
+                                      self._field_name)
+
 
 class ListExtension(TLSExtension):
     """

@@ -25,7 +25,7 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         CertificateStatusExtension, HRRKeyShareExtension, \
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
-        PskKeyExchangeModesExtension, CookieExtension
+        PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -383,6 +383,59 @@ class TestTLSExtension(unittest.TestCase):
                 "extData=bytearray(b'\\x00\\x00'), serverType=False, "
                 "encExtType=False)",
                 repr(ext))
+
+
+class TestVarBytesExtension(unittest.TestCase):
+    def setUp(self):
+        self.ext = VarBytesExtension('opaque', 3, 0)
+
+    def test_extData(self):
+        self.assertEqual(bytearray(), self.ext.extData)
+
+    def test_extData_with_data(self):
+        self.ext = self.ext.create(bytearray(b'test'))
+
+        self.assertEqual(bytearray(b'\x00\x00\x04test'), self.ext.extData)
+
+    def test_get_non_existant_attribute(self):
+        with self.assertRaises(AttributeError) as e:
+            val = self.ext.example
+
+        self.assertIn("no attribute 'example'", str(e.exception))
+
+    def test_parse(self):
+        p = Parser(bytearray())
+
+        ext = self.ext.parse(p)
+
+        self.assertIsInstance(ext, VarBytesExtension)
+        self.assertIsNone(ext.opaque)
+
+    def test_parse_with_data(self):
+        p = Parser(bytearray(
+            b'\x00\x00\x04'
+            b'test'))
+
+        ext = self.ext.parse(p)
+
+        self.assertIsInstance(ext, VarBytesExtension)
+        self.assertEqual(ext.opaque, bytearray(b'test'))
+
+    def test_parse_with_extra_data(self):
+        p = Parser(bytearray(
+            b'\x00\x00\x02'
+            b'test'))
+
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(p)
+
+    def test___repr__(self):
+        self.assertEqual(repr(self.ext), "VarBytesExtension(opaque=None)")
+
+    def test___repr___with_data(self):
+        self.ext.opaque = bytearray(b'data')
+
+        self.assertEqual(repr(self.ext), "VarBytesExtension(len(opaque)=4)")
 
 
 class TestListExtension(unittest.TestCase):
