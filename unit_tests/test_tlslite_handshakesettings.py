@@ -369,6 +369,15 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("Ticket lifetime", str(e.exception))
 
+    def test_invalid_psk_mode(self):
+        hs = HandshakeSettings()
+        hs.psk_modes = ["psk_pqe_ke"]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("psk_pqe_ke", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

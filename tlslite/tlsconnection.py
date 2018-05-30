@@ -717,7 +717,7 @@ class TLSConnection(TLSRecordLayer):
             # add info on types of PSKs supported (also used for
             # NewSessionTicket so send basically always)
             ext = PskKeyExchangeModesExtension().create(
-                [PskKeyExchangeMode.psk_ke, PskKeyExchangeMode.psk_dhe_ke])
+                [getattr(PskKeyExchangeMode, i) for i in settings.psk_modes])
             extensions.append(ext)
 
         # don't send empty list of extensions or extensions in SSLv3
@@ -1043,23 +1043,31 @@ class TLSConnection(TLSRecordLayer):
     def _clientTLS13Handshake(self, settings, session, clientHello,
                               serverHello):
         """Perform TLS 1.3 handshake as a client."""
-        # we have client and server hello in TLS 1.3 so we have the necessary
-        # key shares to derive the handshake receive key
-        srKex = serverHello.getExtension(ExtensionType.key_share).server_share
-        cl_key_share_ex = clientHello.getExtension(ExtensionType.key_share)
-        cl_kex = next((i for i in cl_key_share_ex.client_shares
-                       if i.group == srKex.group), None)
-        if cl_kex is None:
-            raise TLSIllegalParameterException("Server selected not advertised"
-                                               " group.")
-        kex = self._getKEX(srKex.group, self.version)
-
-        Z = kex.calc_shared_key(cl_kex.private, srKex.key_exchange)
-
         prfName, prf_size = self._getPRFParams(serverHello.cipher_suite)
 
-        # if server agreed to perform resumption, find the matching secret key
+        # we have client and server hello in TLS 1.3 so we have the necessary
+        # key shares to derive the handshake receive key
+        srKex = serverHello.getExtension(ExtensionType.key_share)
         srPSK = serverHello.getExtension(ExtensionType.pre_shared_key)
+        if not srKex and not srPSK:
+            raise TLSIllegalParameterException("Server did not select PSK nor "
+                                               "an (EC)DH group")
+        if srKex:
+            srKex = srKex.server_share
+            self.ecdhCurve = srKex.group
+            cl_key_share_ex = clientHello.getExtension(ExtensionType.key_share)
+            cl_kex = next((i for i in cl_key_share_ex.client_shares
+                           if i.group == srKex.group), None)
+            if cl_kex is None:
+                raise TLSIllegalParameterException("Server selected not "
+                                                   "advertised group.")
+            kex = self._getKEX(srKex.group, self.version)
+
+            Z = kex.calc_shared_key(cl_kex.private, srKex.key_exchange)
+        else:
+            Z = bytearray(prf_size)
+
+        # if server agreed to perform resumption, find the matching secret key
         resuming = False
         if srPSK:
             clPSK = clientHello.getExtension(ExtensionType.pre_shared_key)
@@ -1713,7 +1721,8 @@ class TLSConnection(TLSRecordLayer):
 
         self._handshakeStart(client=False)
 
-        if (not verifierDB) and (not cert_chain) and not anon:
+        if (not verifierDB) and (not cert_chain) and not anon and \
+                not settings.pskConfigs:
             raise ValueError("Caller passed no authentication credentials")
         if cert_chain and not privateKey:
             raise ValueError("Caller passed a cert_chain but no privateKey")
@@ -2074,7 +2083,8 @@ class TLSConnection(TLSRecordLayer):
         psks = clientHello.getExtension(ExtensionType.pre_shared_key)
         psk_types = clientHello.getExtension(
             ExtensionType.psk_key_exchange_modes)
-        if psks and PskKeyExchangeMode.psk_dhe_ke in psk_types.modes and \
+        if psks and (PskKeyExchangeMode.psk_dhe_ke in psk_types.modes or
+                     PskKeyExchangeMode.psk_ke in psk_types.modes) and \
                 (settings.pskConfigs or settings.ticketKeys):
             for i, ident in enumerate(psks.identities):
                 external = True
@@ -2109,14 +2119,35 @@ class TLSConnection(TLSRecordLayer):
                         yield result
                 break
 
+        sh_extensions = []
+
+        # we need to gen key share either when we selected psk_dhe_ke or
+        # regular certificate authenticated key exchange (the default)
+        if (psk and
+                PskKeyExchangeMode.psk_dhe_ke in psk_types.modes and
+                "psk_dhe_ke" in settings.psk_modes) or\
+                (psk is None and privateKey):
+            self.ecdhCurve = selected_group
+            kex = self._getKEX(selected_group, version)
+            key_share = self._genKeyShareEntry(selected_group, version)
+
+            Z = kex.calc_shared_key(key_share.private,
+                                    cl_key_share.key_exchange)
+
+            sh_extensions.append(ServerKeyShareExtension().create(key_share))
+        elif (psk is not None and
+              PskKeyExchangeMode.psk_ke in psk_types.modes and
+              "psk_ke" in settings.psk_modes):
+            Z = bytearray(prf_size)
+        else:
+            for result in self._sendError(
+                    AlertDescription.handshake_failure,
+                    "Could not find acceptable PSK identity nor certificate"):
+                yield result
+
         if psk is None:
             psk = bytearray(prf_size)
 
-        kex = self._getKEX(selected_group, version)
-        key_share = self._genKeyShareEntry(selected_group, version)
-
-        sh_extensions = []
-        sh_extensions.append(ServerKeyShareExtension().create(key_share))
         sh_extensions.append(SrvSupportedVersionsExtension().create(version))
         if selected_psk is not None:
             sh_extensions.append(SrvPreSharedKeyExtension()
@@ -2135,8 +2166,6 @@ class TLSConnection(TLSRecordLayer):
             ccs = ChangeCipherSpec().create()
             for result in self._sendMsg(ccs):
                 yield result
-
-        Z = kex.calc_shared_key(key_share.private, cl_key_share.key_exchange)
 
         # Early secret
         secret = secureHMAC(secret, psk, prf_name)
@@ -2605,8 +2634,11 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getAnonSuites(settings, version)
             cipherSuites += CipherSuite.getEcdhAnonSuites(settings,
                                                           version)
+        elif settings.pskConfigs:
+            cipherSuites += CipherSuite.getTLS13Suites(settings,
+                                                       version)
         else:
-            assert(False)
+            assert False
         cipherSuites = CipherSuite.filterForVersion(cipherSuites,
                                                     minVersion=version,
                                                     maxVersion=version)
