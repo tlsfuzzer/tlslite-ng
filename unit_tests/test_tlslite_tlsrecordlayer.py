@@ -22,7 +22,7 @@ from tlslite.messages import Message, ClientHello, ServerHello, Certificate, \
         ServerHelloDone, ClientKeyExchange, ChangeCipherSpec, Finished, \
         RecordHeader3
 from tlslite.errors import TLSAbruptCloseError, TLSLocalAlert, \
-        TLSAbruptCloseError
+        TLSAbruptCloseError, TLSInternalError, TLSClosedConnectionError
 from tlslite.extensions import TLSExtension
 from tlslite.constants import ContentType, HandshakeType, CipherSuite, \
         CertificateType
@@ -871,6 +871,32 @@ class TestTLSRecordLayer(unittest.TestCase):
 
         record_layer.close()
         srv_record_layer.close()
+
+    def test_write_heartbeat_to_closed(self):
+        mock_sock = MockSocket(bytearray(0))
+        record_layer = TLSRecordLayer(mock_sock)
+
+        record_layer.closed = True
+
+        with self.assertRaises(TLSClosedConnectionError):
+            record_layer.send_heartbeat_request(b'0', 1)
+
+    def test_write_heartbeat_with_incorrect_settings(self):
+        mock_sock = MockSocket(bytearray(0))
+        record_layer = TLSRecordLayer(mock_sock)
+
+        record_layer.closed = False
+        record_layer.heartbeat_supported = False
+        record_layer.heartbeat_can_send = True
+
+        with self.assertRaises(TLSInternalError):
+            record_layer.send_heartbeat_request(b'0', 1)
+
+        record_layer.heartbeat_supported = True
+        record_layer.heartbeat_can_send = False
+
+        with self.assertRaises(TLSInternalError):
+             record_layer.send_heartbeat_request(b'0', 1)
 
     @unittest.skip("needs external TLS server")
     def test_full_connection_with_external_server(self):
