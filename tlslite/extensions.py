@@ -392,8 +392,8 @@ class ListExtension(TLSExtension):
             items in the list
         """
         super(ListExtension, self).__init__(extType=extType)
-        self._fieldName = fieldName
-        self._internalList = None
+        self._field_name = fieldName
+        self._internal_value = None
         self._item_enum = item_enum
 
     @property
@@ -411,7 +411,7 @@ class ListExtension(TLSExtension):
 
         :param list values: list of values to save
         """
-        self._internalList = values
+        self._internal_value = values
         return self
 
     def parse(self, parser):
@@ -425,36 +425,36 @@ class ListExtension(TLSExtension):
 
     def __getattr__(self, name):
         """Return the special field name value."""
-        if name == '_fieldName':
+        if name == '_field_name':
             raise AttributeError("type object '{0}' has no attribute '{1}'"\
                     .format(self.__class__.__name__, name))
-        if name == self._fieldName:
-            return self._internalList
+        if name == self._field_name:
+            return self._internal_value
         raise AttributeError("type object '{0}' has no attribute '{1}'"\
                 .format(self.__class__.__name__, name))
 
     def __setattr__(self, name, value):
         """Set the special field value."""
-        if name == '_fieldName':
+        if name == '_field_name':
             super(ListExtension, self).__setattr__(name, value)
             return
-        if hasattr(self, '_fieldName') and name == self._fieldName:
-            self._internalList = value
+        if hasattr(self, '_field_name') and name == self._field_name:
+            self._internal_value = value
             return
         super(ListExtension, self).__setattr__(name, value)
 
     def _list_to_repr(self):
         """Return human redable representation of the item list"""
-        if not self._internalList or not self._item_enum:
-            return "{0!r}".format(self._internalList)
+        if not self._internal_value or not self._item_enum:
+            return "{0!r}".format(self._internal_value)
 
         return "[{0}]".format(
-            ", ".join(self._item_enum.toStr(i) for i in self._internalList))
+            ", ".join(self._item_enum.toStr(i) for i in self._internal_value))
 
     def __repr__(self):
         """Return human readable representation of the extension."""
         return "{0}({1}={2})".format(self.__class__.__name__,
-                                     self._fieldName,
+                                     self._field_name,
                                      self._list_to_repr())
 
 
@@ -488,11 +488,11 @@ class VarListExtension(ListExtension):
 
         :rtype: bytearray
         """
-        if self._internalList is None:
+        if self._internal_value is None:
             return bytearray(0)
 
         writer = Writer()
-        writer.addVarSeq(self._internalList,
+        writer.addVarSeq(self._internal_value,
                          self._elemLength,
                          self._lengthLength)
         return writer.bytes
@@ -505,11 +505,11 @@ class VarListExtension(ListExtension):
         :rtype: Extension
         """
         if parser.getRemainingLength() == 0:
-            self._internalList = None
+            self._internal_value = None
             return self
 
-        self._internalList = parser.getVarList(self._elemLength,
-                                               self._lengthLength)
+        self._internal_value = parser.getVarList(self._elemLength,
+                                                 self._lengthLength)
 
         if parser.getRemainingLength():
             raise SyntaxError()
@@ -552,11 +552,11 @@ class VarSeqListExtension(ListExtension):
 
         :rtype: bytearray
         """
-        if self._internalList is None:
+        if self._internal_value is None:
             return bytearray(0)
 
         writer = Writer()
-        writer.addVarTupleSeq(self._internalList,
+        writer.addVarTupleSeq(self._internal_value,
                               self._elemLength,
                               self._lengthLength)
         return writer.bytes
@@ -569,12 +569,12 @@ class VarSeqListExtension(ListExtension):
         :rtype: Extension
         """
         if parser.getRemainingLength() == 0:
-            self._internalList = None
+            self._internal_value = None
             return self
 
-        self._internalList = parser.getVarTupleList(self._elemLength,
-                                                    self._elemNum,
-                                                    self._lengthLength)
+        self._internal_value = parser.getVarTupleList(self._elemLength,
+                                                      self._elemNum,
+                                                      self._lengthLength)
         if parser.getRemainingLength():
             raise SyntaxError()
 
