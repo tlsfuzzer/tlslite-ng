@@ -199,6 +199,14 @@ class HandshakeSettings(object):
 
     :vartype psk_modes: list
     :ivar psk_modes: acceptable modes for the PSK key exchange in TLS 1.3
+
+    :vartype useHeartbeatExtension: bool
+    :ivar useHeartbeatExtension: whether to support heartbeat extension from
+        RFC 6520. True by default.
+
+    :vartype heartbeatResponseCallback: func
+    :ivar heartbeatResponseCallback: Callback to function when Heartbeat
+        response is received
     """
 
     def _init_key_settings(self):
@@ -214,6 +222,8 @@ class HandshakeSettings(object):
         self.defaultCurve = "secp256r1"
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
+        self.useHeartbeatExtension = True
+        self.heartbeatResponseCallback = None
 
     def _init_misc_extensions(self):
         """Default variables for assorted extensions."""
@@ -393,6 +403,13 @@ class HandshakeSettings(object):
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+        if other.useHeartbeatExtension not in (True, False):
+            raise ValueError("useHeartbeatExtension must be True or False")
+
+        if other.heartbeatResponseCallback and not other.useHeartbeatExtension:
+            raise ValueError("heartbeatResponseCallback requires "
+                             "useHeartbeatExtension")
+
         HandshakeSettings._sanityCheckEMSExtension(other)
 
     @staticmethod
@@ -495,6 +512,8 @@ class HandshakeSettings(object):
         other.dhGroups = self.dhGroups
         other.defaultCurve = self.defaultCurve
         other.keyShares = self.keyShares
+        other.useHeartbeatExtension = self.useHeartbeatExtension
+        other.heartbeatResponseCallback = self.heartbeatResponseCallback
 
     def validate(self):
         """
