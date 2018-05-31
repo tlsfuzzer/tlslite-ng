@@ -857,6 +857,21 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - Heartbeat extension response callback".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    heartbeat_payload = os.urandom(100)
+    def heartbeat_response_check(message):
+        assert heartbeat_payload == message.payload
+    settings.heartbeat_response_callback = heartbeat_response_check
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    connection.send_heartbeat_request(heartbeat_payload, 16)
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
     synchro.recv(1)
@@ -1633,6 +1648,22 @@ def serverTestCmd(argv):
     connection = connect()
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - Heartbeat extension response callback".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    heartbeat_payload = os.urandom(100)
+    def heartbeat_response_check(message):
+        assert heartbeat_payload == message.payload
+    settings.heartbeat_response_callback = heartbeat_response_check
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    connection.send_heartbeat_request(heartbeat_payload, 16)
     testConnServer(connection)
     connection.close()
 
