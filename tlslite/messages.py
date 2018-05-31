@@ -20,6 +20,7 @@ from .x509certchain import X509CertChain
 from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_attrs, deprecated_params
 from .extensions import *
+from .utils.format_output import none_as_unknown
 
 
 class RecordHeader(object):
@@ -193,22 +194,15 @@ class Alert(object):
         w.add(self.description, 1)
         return w.bytes
 
-    @staticmethod
-    def _noneAsUnknown(text, number):
-        """if text is None or empty, format number as 'unknown(number)'"""
-        if not text:
-            text = "unknown({0})".format(number)
-        return text
-
     @property
     def levelName(self):
-        return self._noneAsUnknown(AlertLevel.toRepr(self.level),
-                                   self.level)
+        return none_as_unknown(AlertLevel.toRepr(self.level),
+                             self.level)
 
     @property
     def descriptionName(self):
-        return self._noneAsUnknown(AlertDescription.toRepr(self.description),
-                                   self.description)
+        return none_as_unknown(AlertDescription.toRepr(self.description),
+                             self.description)
 
     def __str__(self):
         return "Alert, level:{0}, description:{1}".format(self.levelName,
@@ -2133,3 +2127,69 @@ class ApplicationData(object):
 
     def write(self):
         return self.bytes
+
+
+class Heartbeat(object):
+    """
+    Handling Heartbeat messages from RFC 6520
+
+    @type message_type: int
+    @ivar message_type: type of message (response or request)
+
+    @type payload: bytearray
+    @ivar payload: payload
+
+    @type padding: bytearray
+    @ivar padding: random padding of selected length
+    """
+
+    def __init__(self):
+        self.contentType = ContentType.heartbeat
+        self.message_type = 0
+        self.payload = bytearray(0)
+        self.padding = bytearray(0)
+
+    def create(self, message_type, payload, padding_length):
+        """Create heartbeat request or response with selected parameters"""
+        self.message_type = message_type
+        self.payload = payload
+        self.padding = getRandomBytes(padding_length)
+        return self
+
+    def create_response(self):
+        """Creates heartbeat response based on request."""
+        heartbeat_response = Heartbeat().create(
+            HeartbeatMessageType.heartbeat_response,
+            self.payload,
+            16)
+        return heartbeat_response
+
+    def parse(self, p):
+        """
+        Deserialize heartbeat message from parser.
+
+        We are reading only message type and payload, ignoring
+        leftover bytes (padding).
+        """
+        self.message_type = p.get(1)
+        self.payload = p.getVarBytes(2)
+        return self
+
+    def write(self):
+        """Serialise heartbeat message."""
+        w = Writer()
+        w.add(self.message_type, 1)
+        w.add(len(self.payload), 2)
+        w.bytes += self.payload
+        w.bytes += self.padding
+        return w.bytes
+
+    @property
+    def _message_type(self):
+        """Format heartbeat message to human readable representation."""
+        return none_as_unknown(HeartbeatMessageType.toRepr(self.message_type),
+                               self.message_type)
+
+    def __str__(self):
+        """Return human readable representation of heartbeat message."""
+        return "heartbeat {0}".format(self._message_type)
