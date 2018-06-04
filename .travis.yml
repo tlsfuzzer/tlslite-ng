@@ -70,7 +70,7 @@ matrix:
     - python: 3.5
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.6
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true CC_COV=true
     - python: 3.7-dev
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
 
@@ -93,6 +93,8 @@ before_install:
   - git rev-parse HEAD
   - echo "TRAVIS_COMMIT_RANGE=$TRAVIS_COMMIT_RANGE"
   - git fetch origin master:refs/remotes/origin/master
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
 
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2 'isort<4.3' 'inflect<0.3.1'; fi
@@ -104,6 +106,7 @@ install:
   - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install 'coverage<4' 'hypothesis<1.10'; elif [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install 'coverage' 'hypothesis<3.44' ; elif [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install coverage 'hypothesis<3'; else travis_retry pip install coverage hypothesis; fi
   - travis_retry pip install -r requirements.txt
   - travis_retry pip install -r build-requirements.txt
+  - if [[ $CC_COV == 'true' ]]; then ./cc-test-reporter before-build; fi
 
 script:
   - |
@@ -143,3 +146,4 @@ sudo: false
 
 after_success:
  - coveralls
+ - if [[ $CC_COV == 'true' ]]; then coverage xml; ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT; fi
