@@ -39,45 +39,56 @@ dist: docs
 	./setup.py sdist
 
 test:
-	cd tests/ && python ./tlstest.py server localhost:4433 . & sleep 4
-	cd tests/ && python ./tlstest.py client localhost:4433 .
+	python tests/tlstest.py server localhost:4433 tests & sleep 4
+	python tests/tlstest.py client localhost:4433 tests
 
 test-local:
-	cd tests/ && PYTHONPATH=.. python ./tlstest.py server localhost:4433 . & sleep 4
-	cd tests/ && PYTHONPATH=.. python ./tlstest.py client localhost:4433 .
+	PYTHONPATH=. COVERAGE_FILE=.coverage.server coverage run --branch --source tlslite tests/tlstest.py server localhost:4433 tests & sleep 4
+	PYTHONPATH=. COVERAGE_FILE=.coverage.client coverage run --branch --source tlslite tests/tlstest.py client localhost:4433 tests
 
 test-dev:
 ifdef PYTHON2
 	@echo "Running test suite with Python 2"
+ifndef COVERAGE2
 	python2 -m unittest discover -v
-	cd tests/ && PYTHONPATH=.. python2 ./tlstest.py server localhost:4433 . & sleep 4
-	cd tests/ && PYTHONPATH=.. python2 ./tlstest.py client localhost:4433 .
+else
+	coverage2 run --branch --source tlslite -m unittest discover
+endif
+	PYTHONPATH=. COVERAGE_FILE=.coverage.2.server coverage2 run --branch --source tlslite tests/tlstest.py server localhost:4433 tests & sleep 4
+	PYTHONPATH=. COVERAGE_FILE=.coverage.2.client coverage2 run --branch --source tlslite tests/tlstest.py client localhost:4433 tests
 endif
 ifdef PYTHON3
 	@echo "Running test suite with Python 3"
+ifndef COVERAGE2
 	python3 -m unittest discover -v
-	cd tests/ && PYTHONPATH=.. python3 ./tlstest.py server localhost:4433 . & sleep 4
-	cd tests/ && PYTHONPATH=.. python3 ./tlstest.py client localhost:4433 .
+else
+	coverage3 run --append --branch --source tlslite -m unittest discover
+endif
+	PYTHONPATH=. COVERAGE_FILE=.coverage.3.server coverage3 run --branch --source tlslite tests/tlstest.py server localhost:4433 tests & sleep 4
+	PYTHONPATH=. COVERAGE_FILE=.coverage.3.client coverage3 run --branch --source tlslite tests/tlstest.py client localhost:4433 tests
 endif
 ifndef PYTHON2
 ifndef PYTHON3
 	@echo "Running test suite with default Python"
+ifndef COVERAGE
 	python -m unittest discover -v
-	cd tests/ && PYTHONPATH=.. python ./tlstest.py server localhost:4433 . & sleep 4
-	cd tests/ && PYTHONPATH=.. python ./tlstest.py client localhost:4433 .
+else
+	coverage run --branch --source tlslite -m unittest discover
+endif
+	PYTHONPATH=. COVERAGE_FILE=.coverage.server coverage run --branch --source tlslite tests/tlstest.py server localhost:4433 tests & sleep 4
+	PYTHONPATH=. COVERAGE_FILE=.coverage.client coverage run --branch --source tlslite tests/tlstest.py client localhost:4433 tests
 endif
 endif
 	$(MAKE) -C docs dummy
 	pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" tlslite > pylint_report.txt || :
 	diff-quality --violations=pylint --fail-under=90 pylint_report.txt
 ifdef COVERAGE2
-	coverage2 run --branch --source tlslite -m unittest discover
+	coverage2 combine --append
 	coverage2 report -m
 	coverage2 xml
 	diff-cover --fail-under=90 coverage.xml
 endif
 ifdef COVERAGE3
-	coverage3 run --branch --source tlslite -m unittest discover
 	coverage3 report -m
 	coverage3 xml
 	diff-cover --fail-under=90 coverage.xml
@@ -85,7 +96,7 @@ endif
 ifndef COVERAGE2
 ifndef COVERAGE3
 ifdef COVERAGE
-	coverage run --branch --source tlslite -m unittest discover
+	coverage combine --append
 	coverage report -m
 	coverage xml
 	diff-cover --fail-under=90 coverage.xml
