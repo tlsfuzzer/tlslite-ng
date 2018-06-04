@@ -1047,31 +1047,32 @@ class TLSConnection(TLSRecordLayer):
 
         # we have client and server hello in TLS 1.3 so we have the necessary
         # key shares to derive the handshake receive key
-        srKex = serverHello.getExtension(ExtensionType.key_share)
-        srPSK = serverHello.getExtension(ExtensionType.pre_shared_key)
-        if not srKex and not srPSK:
+        sr_kex = serverHello.getExtension(ExtensionType.key_share)
+        sr_psk = serverHello.getExtension(ExtensionType.pre_shared_key)
+        if not sr_kex and not sr_psk:
             raise TLSIllegalParameterException("Server did not select PSK nor "
                                                "an (EC)DH group")
-        if srKex:
-            srKex = srKex.server_share
-            self.ecdhCurve = srKex.group
+        if sr_kex:
+            sr_kex = sr_kex.server_share
+            self.ecdhCurve = sr_kex.group
             cl_key_share_ex = clientHello.getExtension(ExtensionType.key_share)
             cl_kex = next((i for i in cl_key_share_ex.client_shares
-                           if i.group == srKex.group), None)
+                           if i.group == sr_kex.group), None)
             if cl_kex is None:
                 raise TLSIllegalParameterException("Server selected not "
                                                    "advertised group.")
-            kex = self._getKEX(srKex.group, self.version)
+            kex = self._getKEX(sr_kex.group, self.version)
 
-            Z = kex.calc_shared_key(cl_kex.private, srKex.key_exchange)
+            shared_sec = kex.calc_shared_key(cl_kex.private,
+                                             sr_kex.key_exchange)
         else:
-            Z = bytearray(prf_size)
+            shared_sec = bytearray(prf_size)
 
         # if server agreed to perform resumption, find the matching secret key
         resuming = False
-        if srPSK:
+        if sr_psk:
             clPSK = clientHello.getExtension(ExtensionType.pre_shared_key)
-            ident = clPSK.identities[srPSK.selected]
+            ident = clPSK.identities[sr_psk.selected]
             psk = [i[1] for i in settings.pskConfigs if i[0] == ident.identity]
             if psk:
                 psk = psk[0]
@@ -1090,7 +1091,7 @@ class TLSConnection(TLSRecordLayer):
         # Handshake Secret
         secret = derive_secret(secret, bytearray(b'derived'),
                                None, prfName)
-        secret = secureHMAC(secret, Z, prfName)
+        secret = secureHMAC(secret, shared_sec, prfName)
 
         sr_handshake_traffic_secret = derive_secret(secret,
                                                     bytearray(b's hs traffic'),
@@ -1121,7 +1122,7 @@ class TLSConnection(TLSRecordLayer):
 
         # if we negotiated PSK then Certificate is not sent
         certificate = None
-        if not srPSK:
+        if not sr_psk:
             for result in self._getMsg(ContentType.handshake,
                                        HandshakeType.certificate,
                                        CertificateType.x509):
@@ -2131,14 +2132,14 @@ class TLSConnection(TLSRecordLayer):
             kex = self._getKEX(selected_group, version)
             key_share = self._genKeyShareEntry(selected_group, version)
 
-            Z = kex.calc_shared_key(key_share.private,
-                                    cl_key_share.key_exchange)
+            shared_sec = kex.calc_shared_key(key_share.private,
+                                             cl_key_share.key_exchange)
 
             sh_extensions.append(ServerKeyShareExtension().create(key_share))
         elif (psk is not None and
               PskKeyExchangeMode.psk_ke in psk_types.modes and
               "psk_ke" in settings.psk_modes):
-            Z = bytearray(prf_size)
+            shared_sec = bytearray(prf_size)
         else:
             for result in self._sendError(
                     AlertDescription.handshake_failure,
@@ -2172,7 +2173,7 @@ class TLSConnection(TLSRecordLayer):
 
         # Handshake Secret
         secret = derive_secret(secret, bytearray(b'derived'), None, prf_name)
-        secret = secureHMAC(secret, Z, prf_name)
+        secret = secureHMAC(secret, shared_sec, prf_name)
 
         sr_handshake_traffic_secret = derive_secret(secret,
                                                     bytearray(b's hs traffic'),
