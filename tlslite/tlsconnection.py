@@ -1759,7 +1759,8 @@ class TLSConnection(TLSRecordLayer):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
                                                      privateKey, cert_chain,
-                                                     version, scheme):
+                                                     version, scheme,
+                                                     alpn):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2050,7 +2051,8 @@ class TLSConnection(TLSRecordLayer):
             return (identity.identity, psk, prf)
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
-                              privateKey, serverCertChain, version, scheme):
+                              privateKey, serverCertChain, version, scheme,
+                              srv_alpns):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
 
@@ -2176,6 +2178,14 @@ class TLSConnection(TLSRecordLayer):
                        if i not in groups]
             if groups:
                 ext.create(groups)
+                ee_extensions.append(ext)
+
+        alpn_ext = clientHello.getExtension(ExtensionType.alpn)
+        if alpn_ext:
+            # error handling was done when receiving ClientHello
+            matched = [i for i in alpn_ext.protocol_names if i in srv_alpns]
+            if matched:
+                ext = ALPNExtension().create([matched[0]])
                 ee_extensions.append(ext)
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
