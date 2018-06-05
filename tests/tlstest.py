@@ -35,7 +35,7 @@ from tlslite import TLSConnection, Fault, HandshakeSettings, \
     Checker, __version__
 
 from tlslite.errors import *
-from tlslite.utils.cryptomath import prngName
+from tlslite.utils.cryptomath import prngName, getRandomBytes
 try:
     import xmlrpclib
 except ImportError:
@@ -800,6 +800,34 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - resumption in TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    # force HRR
+    settings.keyShares = []
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverName == address[0]
+    assert not connection.resumed
+    assert connection.session.tickets
+    connection.close()
+    session = connection.session
+
+    # resume
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    settings.keyShares = []
+    connection = connect()
+    connection.handshakeClientCert(serverName=address[0], session=session,
+                                   settings=settings)
+    testConnClient(connection)
+    assert connection.resumed
+    connection.close()
+
+    test_no += 1
+
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
     synchro.recv(1)
@@ -1532,6 +1560,26 @@ def serverTestCmd(argv):
         assert(str(e) == "handshake_failure")
     else:
         raise AssertionError("no exception raised")
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - resumption in TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.ticketKeys = [getRandomBytes(32)]
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    # resume
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
     connection.close()
 
     test_no += 1
