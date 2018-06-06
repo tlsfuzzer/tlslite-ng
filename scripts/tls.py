@@ -76,12 +76,12 @@ def printUsage(s=None):
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384] [--resumption]
+    [--psk-sha384]
     HOST:PORT
 
   client
     [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
-    [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384]
+    [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption]
     HOST:PORT
 
   LABEL - TLS exporter label

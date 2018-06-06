@@ -518,8 +518,8 @@ class TLSConnection(TLSRecordLayer):
                     yield result
                 else:
                     break
-            if result == "finished":
-                self._handshakeDone(resumed=False)
+            if result in ["finished", "resumed_and_finished"]:
+                self._handshakeDone(resumed=(result == "resumed_and_finished"))
                 self._serverRandom = serverHello.random
                 self._clientRandom = clientHello.random
                 return
@@ -1060,6 +1060,7 @@ class TLSConnection(TLSRecordLayer):
 
         # if server agreed to perform resumption, find the matching secret key
         srPSK = serverHello.getExtension(ExtensionType.pre_shared_key)
+        resuming = False
         if srPSK:
             clPSK = clientHello.getExtension(ExtensionType.pre_shared_key)
             ident = clPSK.identities[srPSK.selected]
@@ -1067,11 +1068,10 @@ class TLSConnection(TLSRecordLayer):
             if psk:
                 psk = psk[0]
             else:
+                resuming = True
                 psk = HandshakeHelpers.calc_res_binder_psk(
                     ident, session.resumptionMasterSecret,
-                    session.tickets,
-                    'sha256' if len(session.resumptionMasterSecret) == 32
-                    else 'sha384')
+                    session.tickets)
         else:
             psk = bytearray(prf_size)
 
@@ -1263,7 +1263,7 @@ class TLSConnection(TLSRecordLayer):
                             # NOTE it must be a reference, not a copy!
                             tickets=self.tickets)
 
-        yield "finished"
+        yield "finished" if not resuming else "resumed_and_finished"
 
     def _clientSelectNextProto(self, nextProtos, serverHello):
         # nextProtos is None or non-empty list of strings
@@ -1759,7 +1759,8 @@ class TLSConnection(TLSRecordLayer):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
                                                      privateKey, cert_chain,
-                                                     version, scheme):
+                                                     version, scheme,
+                                                     alpn):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2044,13 +2045,13 @@ class TLSConnection(TLSRecordLayer):
 
             psk = HandshakeHelpers.calc_res_binder_psk(identity,
                                                        ticket.master_secret,
-                                                       [new_sess_ticket],
-                                                       prf)
+                                                       [new_sess_ticket])
 
             return (identity.identity, psk, prf)
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
-                              privateKey, serverCertChain, version, scheme):
+                              privateKey, serverCertChain, version, scheme,
+                              srv_alpns):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
 
@@ -2176,6 +2177,14 @@ class TLSConnection(TLSRecordLayer):
                        if i not in groups]
             if groups:
                 ext.create(groups)
+                ee_extensions.append(ext)
+
+        alpn_ext = clientHello.getExtension(ExtensionType.alpn)
+        if alpn_ext:
+            # error handling was done when receiving ClientHello
+            matched = [i for i in alpn_ext.protocol_names if i in srv_alpns]
+            if matched:
+                ext = ALPNExtension().create([matched[0]])
                 ee_extensions.append(ext)
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
