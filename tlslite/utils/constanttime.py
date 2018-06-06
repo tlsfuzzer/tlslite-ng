@@ -93,7 +93,8 @@ def ct_eq_u32(val_a, val_b):
     """
     return 1 ^ ct_neq_u32(val_a, val_b)
 
-def ct_check_cbc_mac_and_pad(data, mac, seqnumBytes, contentType, version):
+def ct_check_cbc_mac_and_pad(data, mac, seqnumBytes, contentType, version,
+                             block_size=16):
     """
     Check CBC cipher HMAC and padding. Close to constant time.
 
@@ -133,10 +134,11 @@ def ct_check_cbc_mac_and_pad(data, mac, seqnumBytes, contentType, version):
     pad_start = max(0, pad_start)
 
     if version == (3, 0): # version is public
-        # in SSLv3 we can only check if pad is not longer than overall length
+        # in SSLv3 we can only check if pad is not longer than the cipher
+        # block size
 
         # subtract 1 for the pad length byte
-        mask = ct_lsb_prop_u8(ct_lt_u32(data_len-1, pad_length))
+        mask = ct_lsb_prop_u8(ct_lt_u32(block_size, pad_length))
         result |= mask
     else:
         start_pos = max(0, data_len - 256)

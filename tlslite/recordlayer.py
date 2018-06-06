@@ -620,11 +620,13 @@ class RecordLayer(object):
             #
             seqnumBytes = self._readState.getSeqNumBytes()
 
-            if not ct_check_cbc_mac_and_pad(data,
-                                            self._readState.macContext,
-                                            seqnumBytes,
-                                            recordType,
-                                            self.version):
+            if not ct_check_cbc_mac_and_pad(
+                    data,
+                    self._readState.macContext,
+                    seqnumBytes,
+                    recordType,
+                    self.version,
+                    self._readState.encContext.block_size):
                 raise TLSBadRecordMAC()
 
             #
