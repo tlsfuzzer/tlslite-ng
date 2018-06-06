@@ -76,12 +76,12 @@ def printUsage(s=None):
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384]
+    [--psk-sha384] [--ssl3]
     HOST:PORT
 
   client
     [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
-    [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption]
+    [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
     HOST:PORT
 
   LABEL - TLS exporter label
@@ -92,6 +92,7 @@ def printUsage(s=None):
            key exchange
   PSK - hex encoded (without starting 0x) shared key to be used for connection
   IDENTITY - name associated with the PSK key
+  --ssl3 - enable support for SSLv3
 """)
     sys.exit(-1)
 
@@ -126,6 +127,7 @@ def handleArgs(argv, argString, flagsList=[]):
     psk_ident = None
     psk_hash = 'sha256'
     resumption = False
+    ssl3 = False
 
     for opt, arg in opts:
         if opt == "-k":
@@ -176,6 +178,8 @@ def handleArgs(argv, argString, flagsList=[]):
             psk_hash = 'sha384'
         elif opt == "--resumption":
             resumption = True
+        elif opt == "--ssl3":
+            ssl3 = True
         else:
             assert(False)
 
@@ -229,6 +233,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(psk_hash)
     if "resumption" in flagsList:
         retList.append(resumption)
+    if "ssl3" in flagsList:
+        retList.append(ssl3)
     return retList
 
 
@@ -290,9 +296,9 @@ def printExporter(connection, expLabel, expLength):
 
 def clientCmd(argv):
     (address, privateKey, cert_chain, username, password, expLabel,
-            expLength, alpn, psk, psk_ident, psk_hash, resumption) = \
+            expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
-                                     "resumption"])
+                                     "resumption", "ssl3"])
         
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -314,6 +320,8 @@ def clientCmd(argv):
     if psk:
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.useExperimentalTackExtension = True
+    if ssl3:
+        settings.minVersion = (3, 0)
     
     try:
         start = time.clock()
@@ -417,10 +425,10 @@ def clientCmd(argv):
 
 def serverCmd(argv):
     (address, privateKey, cert_chain, tacks, verifierDB, directory, reqCert,
-            expLabel, expLength, dhparam, psk, psk_ident, psk_hash) = \
+            expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
-                    "psk-ident=", "psk-sha384"])
+                    "psk-ident=", "psk-sha384", "ssl3"])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -455,6 +463,8 @@ def serverCmd(argv):
     if psk:
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.ticketKeys = [getRandomBytes(32)]
+    if ssl3:
+        settings.minVersion = (3, 0)
 
     class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
         """Buffer the header and body of HTTP message."""
