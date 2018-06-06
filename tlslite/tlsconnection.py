@@ -2068,16 +2068,17 @@ class TLSConnection(TLSRecordLayer):
         secret = bytearray(prf_size)
 
         share = clientHello.getExtension(ExtensionType.key_share)
-        share_ids = [i.group for i in share.client_shares]
-        for group_name in chain(settings.keyShares, settings.eccCurves,
-                                settings.dhGroups):
-            selected_group = getattr(GroupName, group_name)
-            if selected_group in share_ids:
-                cl_key_share = next(i for i in share.client_shares
-                                    if i.group == selected_group)
-                break
-        else:
-            raise TLSInternalError("HRR did not work?!")
+        if share:
+            share_ids = [i.group for i in share.client_shares]
+            for group_name in chain(settings.keyShares, settings.eccCurves,
+                                    settings.dhGroups):
+                selected_group = getattr(GroupName, group_name)
+                if selected_group in share_ids:
+                    cl_key_share = next(i for i in share.client_shares
+                                        if i.group == selected_group)
+                    break
+            else:
+                raise TLSInternalError("HRR did not work?!")
 
         psk = None
         selected_psk = None
@@ -2465,8 +2466,55 @@ class TLSConnection(TLSRecordLayer):
         # sanity check the TLS 1.3 extensions
         ext = clientHello.getExtension(ExtensionType.supported_versions)
         if ext and TLS_1_3_DRAFT in ext.versions:
+            psk = clientHello.getExtension(ExtensionType.pre_shared_key)
+            if psk:
+                psk_modes = clientHello.getExtension(
+                    ExtensionType.psk_key_exchange_modes)
+                if not psk_modes:
+                    for result in self._sendError(
+                            AlertDescription.missing_extension,
+                            "PSK extension without psk_key_exchange_modes "
+                            "extension"):
+                        yield result
+                if not psk.identities:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "No identities in PSK extension"):
+                        yield result
+                if not psk.binders:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "No binders in PSK extension"):
+                        yield result
+                if len(psk.identities) != len(psk.binders):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Number of identities does not match number of "
+                            "binders in PSK extension"):
+                        yield result
+                if any(not i.identity for i in psk.identities):
+                    for result in self._sendError(
+                            AlertDescription.decoder_error,
+                            "Empty identity in PSK extension"):
+                        yield result
+                if any(not i for i in psk.binders):
+                    for result in self._sendError(
+                            AlertDescription.decoder_error,
+                            "Empty binder in PSK extension"):
+                        yield result
+                if not psk_modes.modes:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "Empty psk_key_exchange_modes extension"):
+                        yield result
+                if psk is not clientHello.extensions[-1]:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "PSK extension not last in client hello"):
+                        yield result
+
             ext = clientHello.getExtension(ExtensionType.signature_algorithms)
-            if not ext:
+            if not ext and not psk:
                 for result in self._sendError(AlertDescription
                                               .missing_extension,
                                               "Missing signature_algorithms "
@@ -2474,61 +2522,40 @@ class TLSConnection(TLSRecordLayer):
                     yield result
 
             key_share = clientHello.getExtension(ExtensionType.key_share)
-            if not key_share:
+            if not key_share and not psk and \
+                    PskKeyExchangeMode.psk_ke not in psk_modes.modes:
                 for result in self._sendError(AlertDescription
                                               .missing_extension,
                                               "Missing key_share extension"):
                     yield result
-            # key share can be empty, supported groups can't
 
+            # key share can be empty, supported groups can't
             sup_groups = clientHello.getExtension(ExtensionType
                                                   .supported_groups)
-            if not sup_groups:
+            if not sup_groups and not psk and \
+                    PskKeyExchangeMode.psk_ke not in psk_modes.modes:
                 for result in self._sendError(AlertDescription
                                               .missing_extension,
                                               "Missing supported_groups "
                                               "extension"):
                     yield result
-            if not sup_groups.groups:
+            if sup_groups and not sup_groups.groups:
                 for result in self._sendError(AlertDescription
                                               .decode_error,
                                               "Empty supported_groups "
                                               "extension"):
                     yield result
 
-            mismatch = next((i for i in key_share.client_shares
-                             if i.group not in sup_groups.groups), None)
-            if mismatch:
-                for result in self._sendError(AlertDescription
-                                              .illegal_parameter,
-                                              "Client sent key share for "
-                                              "group it did not advertise "
-                                              "support for: {0}"
-                                              .format(GroupName
-                                                      .toStr(mismatch))):
-                    yield result
-
-            psk = clientHello.getExtension(ExtensionType.pre_shared_key)
-            if psk:
-                ext = clientHello.getExtension(
-                    ExtensionType.psk_key_exchange_modes)
-                if not ext:
-                    for result in self._sendError(
-                            AlertDescription.missing_extension,
-                            "PSK key exchange modes must be present if PSK "
-                            "ext is present"):
-                        yield result
-                if not psk.identities or not psk.binders or \
-                        len(psk.identities) != len(psk.binders):
+            if key_share:
+                mismatch = next((i for i in key_share.client_shares
+                                 if i.group not in sup_groups.groups), None)
+                if mismatch:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
-                            "Incorrectly formatted PSK extension"):
-                        yield result
-
-                if psk is not clientHello.extensions[-1]:
-                    for result in self._sendError(
-                            AlertDescription.illegal_parameter,
-                            "PSK extension not last in client hello"):
+                            "Client sent key share for "
+                            "group it did not advertise "
+                            "support for: {0}"
+                            .format(GroupName.toStr(mismatch))):
                         yield result
 
         versionsExt = clientHello.getExtension(ExtensionType
@@ -2824,31 +2851,32 @@ class TLSConnection(TLSRecordLayer):
 
             # check if we have good key share
             share = clientHello.getExtension(ExtensionType.key_share)
-            share_ids = [i.group for i in share.client_shares]
-            acceptable_ids = [getattr(GroupName, i) for i in
-                              chain(settings.keyShares, settings.eccCurves,
-                                    settings.dhGroups)]
-            for selected_group in acceptable_ids:
-                if selected_group in share_ids:
-                    cl_key_share = next(i for i in share.client_shares
-                                        if i.group == selected_group)
-                    break
-            else:
-                # if no key share is acceptable, pick one of the supported
-                # groups that we support
-                supported = clientHello.getExtension(ExtensionType
-                                                     .supported_groups)
-                supported_ids = supported.groups
-                selected_group = next((i for i in acceptable_ids
-                                       if i in supported_ids), None)
-                if not selected_group:
-                    for result in self._sendError(AlertDescription
-                                                  .handshake_failure,
-                                                  "No acceptable group "
-                                                  "advertised by client"):
-                        yield result
-                hrr_ks = HRRKeyShareExtension().create(selected_group)
-                hrr_ext.append(hrr_ks)
+            if share:
+                share_ids = [i.group for i in share.client_shares]
+                acceptable_ids = [getattr(GroupName, i) for i in
+                                  chain(settings.keyShares, settings.eccCurves,
+                                        settings.dhGroups)]
+                for selected_group in acceptable_ids:
+                    if selected_group in share_ids:
+                        cl_key_share = next(i for i in share.client_shares
+                                            if i.group == selected_group)
+                        break
+                else:
+                    # if no key share is acceptable, pick one of the supported
+                    # groups that we support
+                    supported = clientHello.getExtension(ExtensionType
+                                                         .supported_groups)
+                    supported_ids = supported.groups
+                    selected_group = next((i for i in acceptable_ids
+                                           if i in supported_ids), None)
+                    if not selected_group:
+                        for result in self._sendError(AlertDescription
+                                                      .handshake_failure,
+                                                      "No acceptable group "
+                                                      "advertised by client"):
+                            yield result
+                    hrr_ks = HRRKeyShareExtension().create(selected_group)
+                    hrr_ext.append(hrr_ks)
 
             if hrr_ext:
                 cookie = TLSExtension(extType=ExtensionType.cookie)
@@ -3414,15 +3442,14 @@ class TLSConnection(TLSRecordLayer):
     def _pickServerKeyExchangeSig(settings, clientHello, certList=None,
                                   version=(3, 3)):
         """Pick a hash that matches most closely the supported ones"""
-        hashAndAlgsExt = clientHello.getExtension(\
-                ExtensionType.signature_algorithms)
+        hashAndAlgsExt = clientHello.getExtension(
+            ExtensionType.signature_algorithms)
 
         if version > (3, 3):
             if not hashAndAlgsExt:
-                raise TLSMissingExtension("Signature algorithms extension"
-                                          "missing")
-            if not hashAndAlgsExt.sigalgs:
-                raise TLSDecodeError("Signature algorithms extension empty")
+                # the error checking was done before hand, likely we're
+                # doing PSK key exchange
+                return
 
         if hashAndAlgsExt is None or hashAndAlgsExt.sigalgs is None:
             # RFC 5246 states that if there are no hashes advertised,
