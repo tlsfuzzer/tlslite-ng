@@ -280,6 +280,35 @@ def clientTestCmd(argv):
     settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
     connection.handshakeClientCert(settings=settings)
     assert connection.session.serverCertChain is None
+    assert connection.ecdhCurve is not None
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK, no DH".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.psk_modes = ["psk_ke"]
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain is None
+    assert connection.ecdhCurve is None
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK, no DH, no cert".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.psk_modes = ["psk_ke"]
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain is None
+    assert connection.ecdhCurve is None
     testConnClient(connection)
     connection.close()
 
@@ -1114,6 +1143,31 @@ def serverTestCmd(argv):
     connection = connect()
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK, no DH".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.psk_modes = ["psk_ke"]
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK, no DH, no cert".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.psk_modes = ["psk_ke"]
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
+    connection = connect()
+    connection.handshakeServer(settings=settings)
     testConnServer(connection)
     connection.close()
 

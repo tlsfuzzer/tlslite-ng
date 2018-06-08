@@ -39,6 +39,7 @@ ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
                       "ffdhe8192"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
+PSK_MODES = ["psk_dhe_ke", "psk_ke"]
 
 
 class HandshakeSettings(object):
@@ -195,6 +196,9 @@ class HandshakeSettings(object):
     :vartype ticketLifetime: int
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
         in seconds. 1 day by default
+
+    :vartype psk_modes: list
+    :ivar psk_modes: acceptable modes for the PSK key exchange in TLS 1.3
     """
 
     def _init_key_settings(self):
@@ -222,6 +226,7 @@ class HandshakeSettings(object):
         self.requireExtendedMasterSecret = False
         # PSKs
         self.pskConfigs = []
+        self.psk_modes = list(PSK_MODES)
         # session tickets
         self.ticketKeys = []
         self.ticketCipher = "aes256gcm"
@@ -409,6 +414,12 @@ class HandshakeSettings(object):
             raise ValueError("pskConfigs include invalid hash specifications: "
                              "{0}".format(badHashes))
 
+        bad_psk_modes = [i for i in other.psk_modes if
+                         i not in PSK_MODES]
+        if bad_psk_modes:
+            raise ValueError("psk_modes includes invalid key exchange modes: "
+                             "{0}".format(bad_psk_modes))
+
     @staticmethod
     def _sanityCheckTicketSettings(other):
         """Check if the session ticket settings are sane."""
@@ -501,6 +512,7 @@ class HandshakeSettings(object):
         self._copy_key_settings(other)
 
         other.pskConfigs = self.pskConfigs
+        other.psk_modes = self.psk_modes
 
         if not other.certificateTypes:
             raise ValueError("No supported certificate types")
