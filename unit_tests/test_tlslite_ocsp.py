@@ -12,6 +12,8 @@ from tlslite.utils.compat import a2b_base64, b2a_hex
 from tlslite.utils.asn1parser import ASN1Parser
 from tlslite.x509 import X509
 from tlslite.ocsp import OCSPResponse, OCSPRespStatus, SingleResponse
+from tlslite.utils.cryptomath import numberToByteArray, bytesToNumber
+
 
 resp_OK = a2b_base64(str(
 "MIIGQwoBAKCCBjwwggY4BgkrBgEFBQcwAQEEggYpMIIGJTCBv6IWBBScTQCZAA6LsAGBdaG68NAl"
@@ -42,7 +44,8 @@ resp_OK = a2b_base64(str(
 "kGw8MYyX5Eewu1JpKy/RqkbBBUDJS6pSj1LYwQxTb0JrfQbEddRBIexRYEZ+JXtqdOqpsV1R/4E/"
 "k82y7fOo9N96hDrWZLF7h+p2Bg8og+eUD9kNNGPx2/iLfNYYUDynU4Ay3wOxRzb8MHTw7OpevlEN"
 "GNUvcGYyOSWwMQHk8P0BCJZA8RpXuEkW/ep0ZSnNVMpbjtSpSE1i0OxMdKbfJTzm+l87FMXz/8oX"
-"p+YNJ+UJfB6ALag="))
+"p+YNJ+UJfB6ALag="
+))
 resp_malformed = a2b_base64("MAMKAQE=")
 resp_internal = a2b_base64("MAMKAQI=")
 resp_trylater = a2b_base64("MAMKAQM=")
@@ -56,13 +59,72 @@ resp_nonext = a2b_base64(str(
 "9BKfYqnO9AL1LYHOJ6ZPlzJx/nEiFue8HXb+ChiwG+nEhXprug+wP/APuKSOaKH2kcQf4Jtuv9cz"
 "n/2PCaVmC+ErEThuGTZouT4eEIFMUGGDH+nZFHbl+DNm6R3+D7atOE1gDBO2LDJqIoZvaZTSpY+4"
 "djZaiTdWAdOcUnnBhlhBvjg8nv6zxJ9ERBqm5P9cffnYVAJeGqylq/WFT/Ni6MprXgYoZq9bc7tk"
-"PGGh5CnrOhcIQCUIX+ceM6ruxdraiPJALpY1gZz7SY53GQsXfg=="))
+"PGGh5CnrOhcIQCUIX+ceM6ruxdraiPJALpY1gZz7SY53GQsXfg=="
+))
+resp_sig_sha1 = a2b_base64(str(
+"MIIBxAoBAKCCAb0wggG5BgkrBgEFBQcwAQEEggGqMIIBpjCBj6IWBBTdieQsa8v7QTD1lfiA4LPa"
+"pj5zpRgPMjAxODAzMjkxMDAxMDdaMGQwYjA6MAkGBSsOAwIaBQAEFJAVJBFLEEwrmfK6f5q3ZVC2"
+"38iuBBTdieQsa8v7QTD1lfiA4LPapj5zpQIBAoAAGA8yMDE4MDMyOTEwMDEwN1qgERgPMjAxODAz"
+"MzAxMDAxMDdaMA0GCSqGSIb3DQEBBQUAA4IBAQDB1RYVVpLGIWBZLftbEBwFRunGoGq5HEfFtmfd"
+"0F3qwjIfqagtnnI8OrJuqkAt4G9/MvCWw3Hc6RHaqYGjzzJL/b2Qpwe6TuHk+pqeaJIiZctvjOhy"
+"31cEj5CEz+Zh093diRw6YDjwD+UgirkkGl4VIqRUEwLdEHWQ+l7Se9cw9DEj2uM+MGaR3oUvrVt1"
+"1a/vxtV1/Nr56kvN9lhMrNKB8rVfIwvpXJ2lQTPMi21fyNxiaY97rIeYd20TrbLQC6IblV51giTg"
+"fL24fVZt8NAnGrho/lBhkbQ2JGcW9NmXWLZaHTUgDHS+3+Q0js8/CW9Ajouu0rClFnbeu4yn+Ffi"
+))
+cert_sig_sha1 = a2b_base64(str(
+"MIIDKzCCAhOgAwIBAgIBATANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQKDApFeGFt"
+"cGxlIENBMCIYDzIwMTMwMzI5MTAwMTA1WhgPMjAyODAzMjkxMDAxMDVaMBUxEzAR"
+"BgNVBAoMCkV4YW1wbGUgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB"
+"AQDHTixwDQuDillTw6P5Q7ZtHcFXzmPL4Rnvybar2+iA73R20s37ufWWz9NMpjdv"
+"zl7OnudvFwzgzcKyUmuarUV4nN1rcQ5TsEUrZy99f+GE2tpmObCKY707ZnQwxyB6"
+"0CoKV8erXGiXe3ox5/HYVT6F1FeabrNNZK7YzhOOaJD64fDsL8LgeOZzEan30yvA"
+"flKVu4yUSNzqlG1qh37F+yL8C2G3QdTS/7AnAmTiQaLIiW7564WWhZtbVIytqTVb"
+"IpP3QfPMQr4enlpxKVq9TBMDEgDIBTrBN9crQrV7acrrp3CBcI3iYa0YAP1U0RK3"
+"1W/uK0oL4jGTuaZv+F/uNfvnAgMBAAGjgYEwfzAPBgNVHRMBAf8EBTADAQH/MA4G"
+"A1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQU3YnkLGvL+0Ew9ZX4gOCz2qY+c6UwPQYD"
+"VR0jBDYwNIAU3YnkLGvL+0Ew9ZX4gOCz2qY+c6WhGaQXMBUxEzARBgNVBAoMCkV4"
+"YW1wbGUgQ0GCAQEwDQYJKoZIhvcNAQELBQADggEBAAvGcqavDPo8s4Nm0ZRA0jvc"
+"0GbPLIpYV+XUI11D6ma6lPJOPtyJdCWY3d+sdTX8A6zbSOKbpCFRzKyLw1GyPzrg"
+"pczkoWVummukBtWCCB8ULpd28/Fn9g2I5WZoO3bXvza8Xl+LASWDuxi0EJTF64Z4"
+"xZLKGRThfzWIWf11PVI9TIuUM9dJkteJAb8tUPohApVPNUU7LL74/pquZKaqubpS"
+"8AgUY00SfS6lAQZK36yDxYDxgNZL/Wgmpxqjh6V+loh/75OvrYsuHPvdU2xHgVu4"
+"pQ/6c/pH6rAIyunpQCwE35ekwwwDdRHLCw3dSfevQd/ucpa5zdWLSwuxRINL3Sc="
+))
+resp_sig_sha256 = a2b_base64(str(
+"MIIBxAoBAKCCAb0wggG5BgkrBgEFBQcwAQEEggGqMIIBpjCBj6IWBBTLcv+aDVgOwqkCq4JTiC6f"
+"klAqrRgPMjAxODAzMjcxMjAyNTBaMGQwYjA6MAkGBSsOAwIaBQAEFJAVJBFLEEwrmfK6f5q3ZVC2"
+"38iuBBTLcv+aDVgOwqkCq4JTiC6fklAqrQIBAoAAGA8yMDE4MDMyNzEyMDI1MFqgERgPMjAxODAz"
+"MjgxMjAyNTBaMA0GCSqGSIb3DQEBCwUAA4IBAQAtGmPvwG1hFJz1sL7EHGcm8qsnrYv4no3ylQVU"
+"IMJuMgAPpRm1pKJ2hsdENc2KO/4QThLY0cxYIyr0l0aHOEtYgVKCkD9oPsn1aAYO1jhEFcAhmN5S"
+"+dj5TdFWA1OI7Z0SH3UZTlb7hEHxhJ6PhTWb7RW2KtKTOhLy4kdgdt95oGM5IPncXXCP/4QEsQv1"
+"NxTd05OT70GD15gjbx0LHYQKdqtHkrd8vLnxv3Ku4AgMWjlmu+VsbwgpDupCPZT7mVFCg7o01grV"
+"/pRaqwSastU/RoWOO/aBbbZ/SLu2benEV8A/+WvXaHx/wWCJDMaort+EROi1pI5P/Mg4UHGdwcgj"
+))
+cert_sig_sha256 = a2b_base64(str(
+"MIIDKzCCAhOgAwIBAgIBATANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQKDApFeGFt"
+"cGxlIENBMCIYDzIwMTMwMzI3MTIwMjQ3WhgPMjAyODAzMjcxMjAyNDdaMBUxEzAR"
+"BgNVBAoMCkV4YW1wbGUgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB"
+"AQDPnpQmVjVNk+AQ2DZvikBhOJFdqv7uDYTfvnKfWO+lDqAoA9wXC4/6jh4SDCgd"
+"qPSgkjFTT3AH2JadPsHWPqG+PltE0pSk6iqCW57kzh/PBQFrVSHEjggvyjGI8Qgc"
+"+0LW3zNP0rUL/OvAZhlptKIwW2wKpQPG3Pms+2qQ3Kg+uoRF5piw9KW65t1VKuOe"
+"EYSN8mEgiTOE1PGbpAAyC144PN6cScb+21a066Ftk2b40prg9xugema4VM47+9IR"
+"l+gvRmd27iq6dO+k6ZIO0YcMAF+r45UY8lMO92mL6rl3uLbDYMdMsMKKxZ9M+MA0"
+"sytqFlLaURrhHqKQ76MxJ3xXAgMBAAGjgYEwfzAPBgNVHRMBAf8EBTADAQH/MA4G"
+"A1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUy3L/mg1YDsKpAquCU4gun5JQKq0wPQYD"
+"VR0jBDYwNIAUy3L/mg1YDsKpAquCU4gun5JQKq2hGaQXMBUxEzARBgNVBAoMCkV4"
+"YW1wbGUgQ0GCAQEwDQYJKoZIhvcNAQELBQADggEBABQp8yDRKe5qoSySCwFRdelO"
+"EytE2wdgmeOXa+Krx9CZqNcsnSQSYa1KPl72p2YPWkVhp5mnHJRg8NGIRQby/yb4"
+"y2DTHkXLFl1r0eXfEvoMyGLuWkjinuqLQJrEyOjEapxGIbm9e1ZbzYeMd2SQg9Ll"
+"BAGr/JMHzjTB3gvUziGXyUG0ZYVFBqKGYyUqcTl+0LoFNPQzQOWEaLzjbHTGA27N"
+"0wjZf+jxGJN7HJNWpKE02AHGWNh+XXyJXMTCyE/osV1k1rHH9v5vEypBK6Rwj7rF"
+"97NBvMJ9xxnTXCZIFr466Ec+FBSWTOnVSb3JOTHycrzTwY7o3QBqQh/KbxwnHHw="
+))
 
 class TestOCSP(unittest.TestCase):
-    def test___init__(self):
+    def test_respOK(self):
         resp = OCSPResponse(resp_OK)
         self.assertEqual(OCSPRespStatus.successful, resp.resp_status)
-    
+
     def test_malformedrequest(self):
         resp = OCSPResponse(resp_malformed)
         self.assertEqual(OCSPRespStatus.malformedRequest, resp.resp_status)
@@ -121,18 +183,38 @@ class TestOCSP(unittest.TestCase):
             251, 188, 105, 188, 63, 223, 88, 127, 185, 246, 71, 221, 35, 100, 229, 116,
             97, 237, 208, 212, 126, 199, 12, 217, 196, 167]), 
             resp.signature)
+    
+    def test_verify_signature_sha1(self):
+        resp = OCSPResponse(resp_sig_sha1)
+        cert = X509()
+        cert.parseBinary(cert_sig_sha1)
+        self.assertTrue(resp.verify_signature(cert.publicKey))
+
+    def test_verify_signature_sha256(self):
+        resp = OCSPResponse(resp_sig_sha256)
+        cert = X509()
+        cert.parseBinary(cert_sig_sha256)
+        self.assertTrue(resp.verify_signature(cert.publicKey))
+
+    def test_invalid_signature(self):
+        resp = OCSPResponse(resp_sig_sha1)
+        cert = X509()
+        cert.parseBinary(cert_sig_sha1)
+        old_sig = resp.signature
+        resp.signature = bytearray([0])
+        self.assertNotEqual(resp.signature, old_sig)
+        with self.assertRaises(ValueError) as ctx:
+            resp.verify_signature(cert.publicKey)
+        self.assertTrue("Signature could not be verified for sha1" in str(ctx.exception))
 
     def test_certs(self):
         resp = OCSPResponse(resp_OK)
         self.assertGreater(len(resp.certs), 0)
         cert = resp.certs[0]  # checking only first certificate
-        self.assertIsInstance(cert, bytearray)
-        x509 = X509()
-        x509.parseBinary(cert)
-        self.assertIsInstance(x509, X509)
+        self.assertIsInstance(cert, X509)
 
 class TestSingleResponse(unittest.TestCase):
-    def test___init__(self):
+    def test_single_responses(self):
         resp = OCSPResponse(resp_OK)
         singleRespList = resp.responses
         singleRespCnt = len(singleRespList)

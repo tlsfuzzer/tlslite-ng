@@ -41,7 +41,7 @@ class SignatureSettings(object):
                        if alg not in ALL_RSA_SIGNATURE_HASHES]
         if len(not_allowed) > 0:
             raise ValueError("Following signature algorithms are not allowed: "
-                             "{0}".format(", ".join(str(i) for i in not_allowed)))
+                             "{0}".format(", ".join(not_allowed)))
 
     def validate(self):
         other = SignatureSettings()
