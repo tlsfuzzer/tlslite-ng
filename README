@@ -21,7 +21,7 @@ Functionality implemented include:
  - x25519 and x448 curves for ECDHE_RSA key exchage (RFC 7748. RFC 4492bis)
  - anonymous DHE key exchange
  - anonymous ECDH key exchange
- - PSK key exchange in TLS 1.3
+ - PSK and PSK-DH key exchange in TLS 1.3
  - session ticket based resumption in TLS 1.3
  - NULL encryption ciphersuites
  - FALLBACK_SCSV (RFC 7507)
