@@ -1,6 +1,9 @@
 """Class for handling primary OCSP responses"""
 
 from .utils.asn1parser import ASN1Parser
+from .utils.cryptomath import bytesToNumber, numBytes
+from .x509 import X509
+from .signed import SignedObject
 
 
 class OCSPRespStatus(object):
@@ -48,9 +51,10 @@ class SingleResponse(object):
             self.next_update = None
 
 
-class OCSPResponse(object):
+class OCSPResponse(SignedObject):
     """ This class represents an OCSP response. """
     def __init__(self, value):
+        super(OCSPResponse, self).__init__()
         self.bytes = None
         self.resp_status = None
         self.resp_type = None
@@ -58,8 +62,6 @@ class OCSPResponse(object):
         self.resp_id = None
         self.produced_at = None
         self.responses = []
-        self.signature_alg = None
-        self.signature = None
         self.certs = []
         self.parse(value)
 
@@ -86,6 +88,7 @@ class OCSPResponse(object):
         basic_resp = response.getChild(0)
         # parsing tbsResponseData fields
         self._tbsdataparse(basic_resp.getChild(0))
+        self.tbs_data = basic_resp.getChildBytes(0)
         self.signature_alg = basic_resp.getChild(1).getChild(0).value
         self.signature = basic_resp.getChild(2).value
         # test if certs field is present
@@ -93,7 +96,8 @@ class OCSPResponse(object):
             certs = basic_resp.getChild(3)
             cnt = certs.getChildCount()
             for i in range(cnt):
-                certificate = certs.getChild(i).value
+                certificate = X509()
+                certificate.parseBinary(certs.getChild(i).value)
                 self.certs.append(certificate)
         return self
 
