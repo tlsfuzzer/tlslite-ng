@@ -173,7 +173,7 @@ def handleArgs(argv, argString, flagsList=[]):
         elif opt == "--psk":
             psk = a2b_hex(arg)
         elif opt == "--psk-ident":
-            psk_ident = arg
+            psk_ident = bytearray(arg, 'utf-8')
         elif opt == "--psk-sha384":
             psk_hash = 'sha384'
         elif opt == "--resumption":
