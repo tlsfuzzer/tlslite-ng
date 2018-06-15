@@ -1197,6 +1197,28 @@ class TLSConnection(TLSRecordLayer):
         # now send client set of messages
         self._changeWriteState()
 
+        # Master secret
+        secret = derive_secret(secret, bytearray(b'derived'), None, prfName)
+        secret = secureHMAC(secret, bytearray(prf_size), prfName)
+
+        cl_app_traffic = derive_secret(secret, bytearray(b'c ap traffic'),
+                                       server_finish_hs, prfName)
+        sr_app_traffic = derive_secret(secret, bytearray(b's ap traffic'),
+                                       server_finish_hs, prfName)
+        exporter_master_secret = derive_secret(secret,
+                                               bytearray(b'exp master'),
+                                               server_finish_hs, prfName)
+
+        self._recordLayer.calcTLS1_3PendingState(
+            serverHello.cipher_suite,
+            cl_app_traffic,
+            sr_app_traffic,
+            settings.cipherImplementations)
+        # be ready to process alert messages from the server, which
+        # MUST be encrypted with ap traffic secret when they are sent after
+        # Finished
+        self._changeReadState()
+
         cl_finished_key = HKDF_expand_label(cl_handshake_traffic_secret,
                                             b"finished", b'',
                                             prf_size, prfName)
@@ -1217,24 +1239,8 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsgs(msgs):
             yield result
 
-        # Master secret
-        secret = derive_secret(secret, bytearray(b'derived'), None, prfName)
-        secret = secureHMAC(secret, bytearray(prf_size), prfName)
 
-        cl_app_traffic = derive_secret(secret, bytearray(b'c ap traffic'),
-                                       server_finish_hs, prfName)
-        sr_app_traffic = derive_secret(secret, bytearray(b's ap traffic'),
-                                       server_finish_hs, prfName)
-        exporter_master_secret = derive_secret(secret,
-                                               bytearray(b'exp master'),
-                                               server_finish_hs, prfName)
-
-        self._recordLayer.calcTLS1_3PendingState(
-            serverHello.cipher_suite,
-            cl_app_traffic,
-            sr_app_traffic,
-            settings.cipherImplementations)
-        self._changeReadState()
+        # fully switch to application data
         self._changeWriteState()
 
         resumption_master_secret = derive_secret(secret,
@@ -2284,6 +2290,12 @@ class TLSConnection(TLSRecordLayer):
                                                  settings
                                                  .cipherImplementations)
 
+        # all the messages sent by the server after the Finished message
+        # MUST be encrypted with ap traffic secret, even if they regard
+        # problems in processing client Certificate, CertificateVerify or
+        # Finished messages
+        self._changeWriteState()
+
         # as both exporter and resumption master secrets include handshake
         # transcript, we need to derive them early
         exporter_master_secret = derive_secret(secret,
@@ -2343,8 +2355,7 @@ class TLSConnection(TLSRecordLayer):
                             exporterMasterSecret=exporter_master_secret,
                             resumptionMasterSecret=resumption_master_secret)
 
-        # switch to application_traffic_secret
-        self._changeWriteState()
+        # switch to application_traffic_secret for client packets
         self._changeReadState()
 
         for result in self._serverSendTickets(settings):
