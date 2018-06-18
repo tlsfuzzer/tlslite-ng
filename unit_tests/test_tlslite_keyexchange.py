@@ -1726,3 +1726,21 @@ class TestFFDHKeyExchange(unittest.TestCase):
         # verify that numbers are zero-padded on MSBs
         self.assertEqual(shared,
                 bytearray(b'\x00' * 255 + b'\x10'))
+
+    def test_calc_shared_secret_for_bytearray_input(self):
+        kex = FFDHKeyExchange(GroupName.ffdhe2048, (3, 4))
+
+        private = 2
+        key_share = bytearray(b'\x00' * 255 + b'\x04')
+        shared = kex.calc_shared_key(private, key_share)
+        # verify that numbers are zero-padded on MSBs
+        self.assertEqual(shared,
+                bytearray(b'\x00' * 255 + b'\x10'))
+
+    def test_calc_shared_secret_for_invalid_sized_input(self):
+        kex = FFDHKeyExchange(GroupName.ffdhe2048, (3, 4))
+
+        private = 2
+        key_share = bytearray(b'\x00' * 10 + b'\x04')
+        with self.assertRaises(TLSIllegalParameterException):
+            kex.calc_shared_key(private, key_share)
