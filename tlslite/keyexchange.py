@@ -4,6 +4,7 @@
 # See the LICENSE file for legal information regarding use of this file.
 """Handling of cryptographic operations for key exchange"""
 
+import ecdsa
 from .mathtls import goodGroupParameters, makeK, makeU, makeX, \
         calcMasterSecret, paramStrength, RFC7919_GROUPS
 from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
@@ -21,7 +22,8 @@ from .utils.lists import getFirstMatching
 from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
-import ecdsa
+from .utils.compat import int_types
+
 
 class KeyExchange(object):
     """
@@ -725,8 +727,19 @@ class FFDHKeyExchange(RawDHKeyExchange):
         else:
             return numberToByteArray(dh_Y, numBytes(self.prime))
 
+    def _normalise_peer_share(self, peer_share):
+        """Convert the peer_share to number if necessary."""
+        if isinstance(peer_share, (int_types)):
+            return peer_share
+
+        if numBytes(self.prime) != len(peer_share):
+            raise TLSIllegalParameterException(
+                "Key share does not match FFDH prime")
+        return bytesToNumber(peer_share)
+
     def calc_shared_key(self, private, peer_share):
         """Calculate the shared key."""
+        peer_share = self._normalise_peer_share(peer_share)
         # First half of RFC 2631, Section 2.1.5. Validate the client's public
         # key.
         # use of safe primes also means that the p-1 is invalid
