@@ -2320,7 +2320,10 @@ class TLSConnection(TLSRecordLayer):
         cl_finished = result
         assert isinstance(cl_finished, Finished)
         if cl_finished.verify_data != cl_verify_data:
-            raise TLSDecryptionFailed("Finished value is not valid")
+            for result in self._sendError(
+                    AlertDescription.decrypt_error,
+                    "Finished value is not valid"):
+                yield result
 
         resumption_master_secret = derive_secret(secret,
                                                  bytearray(b'res master'),
