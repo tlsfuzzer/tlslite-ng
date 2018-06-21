@@ -2084,7 +2084,9 @@ class TLSConnection(TLSRecordLayer):
                                         if i.group == selected_group)
                     break
             else:
-                raise TLSInternalError("HRR did not work?!")
+                for result in self._sendError(AlertDescription.internal_error,
+                                              "HRR did not work?!"):
+                    yield result
 
         psk = None
         selected_psk = None
@@ -2257,7 +2259,10 @@ class TLSConnection(TLSRecordLayer):
                                      padType,
                                      hashName,
                                      saltLen):
-                raise TLSInternalError("Certificate Verify signature failed")
+                for result in self._sendError(
+                        AlertDescription.internal_error,
+                        "Certificate Verify signature failed"):
+                    yield result
             certificate_verify.create(signature, signature_scheme)
 
             for result in self._sendMsg(certificate_verify):
