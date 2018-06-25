@@ -14,6 +14,7 @@
 # look-up table.
 
 from __future__ import division
+from .constanttime import ct_compare_digest
 from .cryptomath import bytesToNumber, numberToByteArray
 
 class AESGCM(object):
@@ -152,7 +153,7 @@ class AESGCM(object):
         counter[-1] = 1
         tagMask = self._rawAesEncrypt(counter)
 
-        if tag != self._auth(ciphertext, data, tagMask):
+        if not ct_compare_digest(tag, self._auth(ciphertext, data, tagMask)):
             return None
 
         # The counter starts at 2 for the actual decryption.
