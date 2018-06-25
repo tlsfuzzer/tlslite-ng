@@ -7,6 +7,7 @@ Implementation that follows RFC 7539 and draft-ietf-tls-chacha20-poly1305-00
 """
 
 from __future__ import division
+from .constanttime import ct_compare_digest
 from .chacha import ChaCha
 from .poly1305 import Poly1305
 import struct
@@ -87,7 +88,7 @@ class CHACHA20_POLY1305(object):
         mac_data += struct.pack('<Q', len(ciphertext))
         tag = Poly1305(otk).create_tag(mac_data)
 
-        if tag != expected_tag:
+        if not ct_compare_digest(tag, expected_tag):
             return None
 
         return ChaCha(self.key, nonce, counter=1).decrypt(ciphertext)
