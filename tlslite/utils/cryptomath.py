@@ -253,8 +253,7 @@ def numBytes(n):
 # **************************************************************************
 
 def getRandomNumber(low, high):
-    if low >= high:
-        raise AssertionError()
+    assert low < high
     howManyBits = numBits(high)
     howManyBytes = numBytes(high)
     lastBits = howManyBits % 8
@@ -354,8 +353,7 @@ def isPrime(n, iterations=5, display=False, sieve=makeSieve(1000)):
     return True
 
 def getRandomPrime(bits, display=False):
-    if bits < 10:
-        raise AssertionError()
+    assert bits >= 10
     #The 1.5 ensures the 2 MSBs are set
     #Thus, when used for p,q in RSA, n will have its MSB set
     #
@@ -376,8 +374,7 @@ def getRandomPrime(bits, display=False):
 
 #Unused at the moment...
 def getRandomSafePrime(bits, display=False):
-    if bits < 10:
-        raise AssertionError()
+    assert bits >= 10
     #The 1.5 ensures the 2 MSBs are set
     #Thus, when used for p,q in RSA, n will have its MSB set
     #
