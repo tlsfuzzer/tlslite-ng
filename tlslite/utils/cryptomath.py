@@ -352,7 +352,14 @@ def isPrime(n, iterations=5, display=False, sieve=makeSieve(1000)):
         a = getRandomNumber(2, n)
     return True
 
+
 def getRandomPrime(bits, display=False):
+    """
+    Generate a random prime number of a given size.
+
+    the number will be 'bits' bits long (i.e. generated number will be
+    larger than `(2^(bits-1) * 3 ) / 2` but smaller than 2^bits.
+    """
     assert bits >= 10
     #The 1.5 ensures the 2 MSBs are set
     #Thus, when used for p,q in RSA, n will have its MSB set
@@ -372,8 +379,14 @@ def getRandomPrime(bits, display=False):
         if isPrime(p, display=display):
             return p
 
+
 #Unused at the moment...
 def getRandomSafePrime(bits, display=False):
+    """Generate a random safe prime.
+
+    Will generate a prime `bits` bits long (see getRandomPrime) such that
+    the (p-1)/2 will also be prime.
+    """
     assert bits >= 10
     #The 1.5 ensures the 2 MSBs are set
     #Thus, when used for p,q in RSA, n will have its MSB set
