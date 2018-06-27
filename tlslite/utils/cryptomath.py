@@ -295,15 +295,8 @@ if gmpyLoaded:
         modulus = gmpy.mpz(modulus)
         result = pow(base, power, modulus)
         return compatLong(result)
-
 else:
-    def powMod(base, power, modulus):
-        if power < 0:
-            result = pow(base, power*-1, modulus)
-            result = invMod(result, modulus)
-            return result
-        else:
-            return pow(base, power, modulus)
+    powMod = pow
 
 
 def divceil(divident, divisor):

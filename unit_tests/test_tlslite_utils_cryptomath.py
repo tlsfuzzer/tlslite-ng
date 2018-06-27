@@ -17,7 +17,7 @@ from tlslite.utils.cryptomath import isPrime, numBits, numBytes, \
         numberToByteArray, MD5, SHA1, secureHash, HMAC_MD5, HMAC_SHA1, \
         HMAC_SHA256, HMAC_SHA384, HKDF_expand, bytesToNumber, \
         HKDF_expand_label, derive_secret, numberToMPI, mpiToNumber, \
-        getRandomPrime, getRandomSafePrime
+        getRandomPrime, getRandomSafePrime, powMod
 from tlslite.handshakehashes import HandshakeHashes
 
 class TestIsPrime(unittest.TestCase):
@@ -193,6 +193,16 @@ class TestNumBits(unittest.TestCase):
     @example((1<<8192)-1)
     def test_numBytes(self, number):
         self.assertEqual(numBytes(number), self.num_bytes(number))
+
+
+class TestPowMod(unittest.TestCase):
+    def test_with_small_numbers(self):
+        self.assertEqual(2**10, powMod(2, 10, 10**6))
+
+    def test_with_mod(self):
+        self.assertEqual(4, powMod(3, 10, 5))
+        self.assertEqual(2, powMod(3, 11, 5))
+
 
 class TestHMACMethods(unittest.TestCase):
     def test_HMAC_MD5(self):
