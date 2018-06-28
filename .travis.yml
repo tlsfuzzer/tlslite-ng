@@ -23,7 +23,12 @@ python:
   - 3.4
   - 3.5
   - 3.6
-  - 3.7-dev
+  - 3.7
+
+# workaround for 3.7 not available in default configuration
+# travis-ci/travis-ci#9815
+dist: trusty
+sudo: false
 
 env:
   - TACKPY=true
@@ -32,6 +37,9 @@ env:
 matrix:
   exclude:
     - env: TACKPY=true
+# workaround for 3.7 not available in default configuration
+# travis-ci/travis-ci#9815
+    - python: 3.7
   include:
     - python: 2.7
       env: TACKPY=true
@@ -45,6 +53,12 @@ matrix:
       env: M2CRYPTO=true
     - python: 3.6
       env: M2CRYPTO=true
+# workaround for 3.7 not available in default configuration
+# travis-ci/travis-ci#9815
+    - python: 3.7
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true
     - python: 2.7
       env: PYCRYPTO=true
     - python: 3.4
@@ -53,7 +67,9 @@ matrix:
       env: PYCRYPTO=true
     - python: 3.6
       env: PYCRYPTO=true
-    - python: 3.7-dev
+    - python: 3.7
+      dist: xenial
+      sudo: true
       env: PYCRYPTO=true
     - python: 2.7
       env: GMPY=true
@@ -63,6 +79,10 @@ matrix:
       env: GMPY=true
     - python: 3.6
       env: GMPY=true
+    - python: 3.7
+      dist: xenial
+      sudo: true
+      env: GMPY=true
     - python: 2.7
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.4
@@ -70,9 +90,11 @@ matrix:
     - python: 3.5
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.6
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
+    - python: 3.7
+      dist: xenial
+      sudo: true
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true CC_COV=true
-    - python: 3.7-dev
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
 
 before_install:
   - |
