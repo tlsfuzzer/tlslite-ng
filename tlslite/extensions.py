@@ -224,32 +224,20 @@ class TLSExtension(object):
         extType = p.get(2)
         extLength = p.get(2)
 
-        # check if we shouldn't use Certificate extensions parser
-        if self.cert and extType in self._certificateExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._certificateExtensions)
+        for handler_t, handlers in (
+                (self.cert, self._certificateExtensions),
+                #(self.encExtType, self._encryptedExtensions),
+                (self.serverType, self._serverExtensions),
+                (self.hrr, self._hrrExtensions),
+                (True, self._universalExtensions)):
+            if handler_t and extType in handlers:
+                return self._parseExt(p, extType, extLength, handlers)
 
-        # Check if we shouldn't use Encrypted Extensions parser
-        #if self.encExtType and extType in self._encryptedExtensions:
-        #    return self._parseExt(p, extType, extLength,
-        #                          self._encryptedExtensions)
-
-        # then check if we shouldn't use server side parser
-        if self.serverType and extType in self._serverExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._serverExtensions)
-
-        if self.hrr and extType in self._hrrExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._hrrExtensions)
-
-        # fallback to universal/ClientHello-specific parsers
-        if extType in self._universalExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._universalExtensions)
-
-        # finally, just save the extension data as there are extensions which
+        # if there is no custom handler for the extension, just save the
+        # extension data as there are extensions which
         # don't require specific handlers and indicate option by mere presence
+        # also, we need to be able to handle unrecognised extensions in
+        # ClientHello and CertificateRequest
         self.extType = extType
         self._extData = p.getFixBytes(extLength)
         assert len(self._extData) == extLength
