@@ -7,12 +7,13 @@ and ServerHello messages.
 """
 
 from __future__ import generators
-from .utils.codec import Writer, Parser
 from collections import namedtuple
+from .utils.codec import Writer, Parser
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat
 from .errors import TLSInternalError
+
 
 class TLSExtension(object):
     """
@@ -90,7 +91,7 @@ class TLSExtension(object):
     # actual definition at the end of file, after definitions of all classes
     _universalExtensions = {}
     _serverExtensions = {}
-    #_encryptedExtensions = {}
+    # _encryptedExtensions = {}
     _certificateExtensions = {}
     _hrrExtensions = {}
 
@@ -224,32 +225,20 @@ class TLSExtension(object):
         extType = p.get(2)
         extLength = p.get(2)
 
-        # check if we shouldn't use Certificate extensions parser
-        if self.cert and extType in self._certificateExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._certificateExtensions)
+        for handler_t, handlers in (
+                (self.cert, self._certificateExtensions),
+                # (self.encExtType, self._encryptedExtensions),
+                (self.serverType, self._serverExtensions),
+                (self.hrr, self._hrrExtensions),
+                (True, self._universalExtensions)):
+            if handler_t and extType in handlers:
+                return self._parseExt(p, extType, extLength, handlers)
 
-        # Check if we shouldn't use Encrypted Extensions parser
-        #if self.encExtType and extType in self._encryptedExtensions:
-        #    return self._parseExt(p, extType, extLength,
-        #                          self._encryptedExtensions)
-
-        # then check if we shouldn't use server side parser
-        if self.serverType and extType in self._serverExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._serverExtensions)
-
-        if self.hrr and extType in self._hrrExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._hrrExtensions)
-
-        # fallback to universal/ClientHello-specific parsers
-        if extType in self._universalExtensions:
-            return self._parseExt(p, extType, extLength,
-                                  self._universalExtensions)
-
-        # finally, just save the extension data as there are extensions which
+        # if there is no custom handler for the extension, just save the
+        # extension data as there are extensions which
         # don't require specific handlers and indicate option by mere presence
+        # also, we need to be able to handle unrecognised extensions in
+        # ClientHello and CertificateRequest
         self.extType = extType
         self._extData = p.getFixBytes(extLength)
         assert len(self._extData) == extLength
@@ -266,8 +255,7 @@ class TLSExtension(object):
         if hasattr(that, 'extType') and hasattr(that, 'extData'):
             return self.extType == that.extType and \
                     self.extData == that.extData
-        else:
-            return False
+        return False
 
     def __repr__(self):
         """Output human readable representation of object
@@ -278,10 +266,10 @@ class TLSExtension(object):
         :rtype: str
         """
         return "TLSExtension(extType={0!r}, extData={1!r},"\
-                " serverType={2!r}, encExtType={3!r})".format(self.extType,
-                                                              self.extData,
-                                                              self.serverType,
-                                                              self.encExtType)
+               " serverType={2!r}, encExtType={3!r})".format(self.extType,
+                                                             self.extData,
+                                                             self.serverType,
+                                                             self.encExtType)
 
 
 class CustomNameExtension(TLSExtension):
@@ -663,13 +651,13 @@ class SNIExtension(TLSExtension):
             self.serverNames = []
 
         if hostname:
-            self.serverNames += [SNIExtension.ServerName(NameType.host_name,\
-                    hostname)]
+            self.serverNames += \
+                [SNIExtension.ServerName(NameType.host_name, hostname)]
 
         if hostNames:
-            self.serverNames +=\
-                    [SNIExtension.ServerName(NameType.host_name, x) for x in\
-                    hostNames]
+            self.serverNames += \
+                [SNIExtension.ServerName(NameType.host_name, x) for x in
+                 hostNames]
 
         if serverNames:
             self.serverNames += serverNames
@@ -686,9 +674,8 @@ class SNIExtension(TLSExtension):
         # an immutable type
         if self.serverNames is None:
             return tuple()
-        else:
-            return tuple([x.name for x in self.serverNames if \
-                x.name_type == NameType.host_name])
+        return tuple([x.name for x in self.serverNames if
+                      x.name_type == NameType.host_name])
 
     @hostNames.setter
     def hostNames(self, hostNames):
@@ -703,10 +690,9 @@ class SNIExtension(TLSExtension):
         """
 
         self.serverNames = \
-                [SNIExtension.ServerName(NameType.host_name, x) for x in \
-                    hostNames] + \
-                [x for x in self.serverNames if \
-                    x.name_type != NameType.host_name]
+            [SNIExtension.ServerName(NameType.host_name, x) for x in
+             hostNames] + \
+            [x for x in self.serverNames if x.name_type != NameType.host_name]
 
     @hostNames.deleter
     def hostNames(self):
@@ -714,8 +700,8 @@ class SNIExtension(TLSExtension):
         Remove all host names from extension, leaves other name types
         unmodified.
         """
-        self.serverNames = [x for x in self.serverNames if \
-                x.name_type != NameType.host_name]
+        self.serverNames = [x for x in self.serverNames if
+                            x.name_type != NameType.host_name]
 
     @property
     def extData(self):
@@ -807,11 +793,10 @@ class SupportedVersionsExtension(VarSeqListExtension):
 
     def __init__(self):
         """Create an instance of SupportedVersionsExtension."""
-        super(SupportedVersionsExtension, self).__init__(1, 2, 1,
-                                                         "versions",
-                                                         extType=
-                                                         ExtensionType.
-                                                         supported_versions)
+        super(SupportedVersionsExtension, self).__init__(
+            1, 2, 1,
+            "versions",
+            extType=ExtensionType.supported_versions)
 
 
 class SrvSupportedVersionsExtension(TLSExtension):
@@ -913,6 +898,7 @@ class ClientCertTypeExtension(VarListExtension):
             ExtensionType.cert_type,
             CertificateType)
 
+
 class ServerCertTypeExtension(TLSExtension):
     """
     This class handles the Certificate Type extension (variant sent by server)
@@ -934,8 +920,9 @@ class ServerCertTypeExtension(TLSExtension):
 
         See also: :py:meth:`create` and :py:meth:`parse`
         """
-        super(ServerCertTypeExtension, self).__init__(server=True, \
-                                               extType=ExtensionType.cert_type)
+        super(ServerCertTypeExtension, self).__init__(
+            server=True,
+            extType=ExtensionType.cert_type)
         self.cert_type = None
 
     def __repr__(self):
@@ -943,7 +930,8 @@ class ServerCertTypeExtension(TLSExtension):
 
         :rtype: str
         """
-        return "ServerCertTypeExtension(cert_type={0!r})".format(self.cert_type)
+        return "ServerCertTypeExtension(cert_type={0!r})"\
+               .format(self.cert_type)
 
     @property
     def extData(self):
@@ -978,6 +966,7 @@ class ServerCertTypeExtension(TLSExtension):
             raise SyntaxError()
 
         return self
+
 
 class SRPExtension(TLSExtension):
     """
@@ -1063,6 +1052,7 @@ class SRPExtension(TLSExtension):
 
         return self
 
+
 class NPNExtension(TLSExtension):
     """
     This class handles the unofficial Next Protocol Negotiation TLS extension.
@@ -1136,6 +1126,7 @@ class NPNExtension(TLSExtension):
 
         return self
 
+
 class TACKExtension(TLSExtension):
     """
     This class handles the server side TACK extension (see
@@ -1170,14 +1161,14 @@ class TACKExtension(TLSExtension):
             :rtype: str
             """
             return "TACK(public_key={0!r}, min_generation={1!r}, "\
-                    "generation={2!r}, expiration={3!r}, target_hash={4!r}, "\
-                    "signature={5!r})".format(
-                            self.public_key, self.min_generation,
-                            self.generation, self.expiration, self.target_hash,
-                            self.signature)
+                   "generation={2!r}, expiration={3!r}, target_hash={4!r}, "\
+                   "signature={5!r})"\
+                   .format(self.public_key, self.min_generation,
+                           self.generation, self.expiration, self.target_hash,
+                           self.signature)
 
         def create(self, public_key, min_generation, generation, expiration,
-                target_hash, signature):
+                   target_hash, signature):
             """
             Initialise the TACK with data
             """
@@ -1270,8 +1261,8 @@ class TACKExtension(TLSExtension):
 
         :rtype: str
         """
-        return "TACKExtension(activation_flags={0!r}, tacks={1!r})".format(
-                self.activation_flags, self.tacks)
+        return "TACKExtension(activation_flags={0!r}, tacks={1!r})"\
+               .format(self.activation_flags, self.tacks)
 
     @property
     def extData(self):
@@ -1319,6 +1310,7 @@ class TACKExtension(TLSExtension):
         self.activation_flags = p.get(1)
 
         return self
+
 
 class SupportedGroupsExtension(VarListExtension):
     """
@@ -1517,7 +1509,8 @@ class ALPNExtension(TLSExtension):
 
         :rtype: str
         """
-        return "ALPNExtension(protocol_names={0!r})".format(self.protocol_names)
+        return "ALPNExtension(protocol_names={0!r})"\
+               .format(self.protocol_names)
 
     @property
     def extData(self):
@@ -1588,9 +1581,9 @@ class StatusRequestExtension(TLSExtension):
     """
 
     def __init__(self):
-        super(StatusRequestExtension, self).__init__(
-                extType=ExtensionType.status_request)
         """Create instance of StatusRequestExtension."""
+        super(StatusRequestExtension, self).__init__(
+            extType=ExtensionType.status_request)
         self.status_type = None
         self.responder_id_list = []
         self.request_extensions = bytearray()
@@ -1683,7 +1676,7 @@ class CertificateStatusExtension(TLSExtension):
     def __init__(self):
         """Create instance of CertificateStatusExtension."""
         super(CertificateStatusExtension, self).__init__(
-                extType=ExtensionType.status_request)
+            extType=ExtensionType.status_request)
         self.status_type = None
         self.response = None
 
