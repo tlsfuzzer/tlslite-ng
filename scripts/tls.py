@@ -11,6 +11,7 @@ import sys
 import os
 import os.path
 import socket
+import struct
 import time
 import getopt
 import binascii
@@ -484,6 +485,8 @@ def serverCmd(argv):
                 start = time.clock()
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
+                connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                                      struct.pack('ii', 1, 1))
                 connection.handshakeServer(certChain=cert_chain,
                                               privateKey=privateKey,
                                               verifierDB=verifierDB,

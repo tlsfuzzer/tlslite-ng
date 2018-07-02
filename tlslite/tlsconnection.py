@@ -2211,9 +2211,9 @@ class TLSConnection(TLSRecordLayer):
             ext = SupportedGroupsExtension()
             groups = [getattr(GroupName, i) for i in settings.keyShares]
             groups += [getattr(GroupName, i) for i in settings.eccCurves
-                       if i not in groups]
+                       if getattr(GroupName, i) not in groups]
             groups += [getattr(GroupName, i) for i in settings.dhGroups
-                       if i not in groups]
+                       if getattr(GroupName, i) not in groups]
             if groups:
                 ext.create(groups)
                 ee_extensions.append(ext)
