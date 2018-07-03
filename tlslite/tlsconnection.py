@@ -2241,7 +2241,8 @@ class TLSConnection(TLSRecordLayer):
                           iv + encrypted_ticket,
                           [])
 
-        for result in self._sendMsg(new_ticket):
+        self._queue_message(new_ticket)
+        for result in self._queue_flush():
             yield result
 
     def _tryDecrypt(self, settings, identity):
@@ -2400,12 +2401,13 @@ class TLSConnection(TLSRecordLayer):
                            clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
-        for result in self._sendMsg(serverHello):
-            yield result
+        msgs = []
+        msgs.append(serverHello)
         if not self._ccs_sent:
             ccs = ChangeCipherSpec().create()
-            for result in self._sendMsg(ccs):
-                yield result
+            msgs.append(ccs)
+        for result in self._sendMsgs(msgs):
+            yield result
 
         # Early secret
         secret = secureHMAC(secret, psk, prf_name)
@@ -2467,8 +2469,7 @@ class TLSConnection(TLSRecordLayer):
                     HeartbeatMode.PEER_ALLOWED_TO_SEND))
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
-        for result in self._sendMsg(encryptedExtensions):
-            yield result
+        self._queue_message(encryptedExtensions)
 
         if selected_psk is None:
 
@@ -2484,13 +2485,11 @@ class TLSConnection(TLSRecordLayer):
 
                 certificate_request = CertificateRequest(self.version)
                 certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
-                for result in self._sendMsg(certificate_request):
-                    yield result
+                self._queue_message(certificate_request)
 
             certificate = Certificate(CertificateType.x509, self.version)
             certificate.create(serverCertChain, bytearray())
-            for result in self._sendMsg(certificate):
-                yield result
+            self._queue_message(certificate)
 
             certificate_verify = CertificateVerify(self.version)
 
@@ -2519,8 +2518,7 @@ class TLSConnection(TLSRecordLayer):
                     yield result
             certificate_verify.create(signature, signature_scheme)
 
-            for result in self._sendMsg(certificate_verify):
-                yield result
+            self._queue_message(certificate_verify)
 
         finished_key = HKDF_expand_label(sr_handshake_traffic_secret,
                                          b"finished", b'', prf_size, prf_name)
@@ -2530,7 +2528,8 @@ class TLSConnection(TLSRecordLayer):
 
         finished = Finished(self.version, prf_size).create(verify_data)
 
-        for result in self._sendMsg(finished):
+        self._queue_message(finished)
+        for result in self._queue_flush():
             yield result
 
         self._changeReadState()
