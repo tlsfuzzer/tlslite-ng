@@ -76,7 +76,7 @@ def printUsage(s=None):
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384] [--ssl3] [--max-ver VER]
+    [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT]
     HOST:PORT
 
   client
@@ -96,6 +96,8 @@ def printUsage(s=None):
   --ssl3 - enable support for SSLv3
   VER - TLS version as a string, "ssl3", "tls1.0", "tls1.1", "tls1.2" or
         "tls1.3"
+  --tickets COUNT - how many tickets should server send after handshake is
+                    finished
 """)
     sys.exit(-1)
 
@@ -145,6 +147,7 @@ def handleArgs(argv, argString, flagsList=[]):
     resumption = False
     ssl3 = False
     max_ver = None
+    tickets = None
 
     for opt, arg in opts:
         if opt == "-k":
@@ -198,6 +201,8 @@ def handleArgs(argv, argString, flagsList=[]):
             ssl3 = True
         elif opt == "--max-ver":
             max_ver = ver_to_tuple(arg)
+        elif opt == "--tickets":
+            tickets = int(arg)
         else:
             assert(False)
 
@@ -255,6 +260,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(ssl3)
     if "max-ver=" in flagsList:
         retList.append(max_ver)
+    if "tickets=" in flagsList:
+        retList.append(tickets)
     return retList
 
 
@@ -450,10 +457,11 @@ def clientCmd(argv):
 def serverCmd(argv):
     (address, privateKey, cert_chain, tacks, verifierDB, directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver) = \
+            max_ver, tickets) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
-                    "psk-ident=", "psk-sha384", "ssl3", "max-ver="])
+                    "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
+                    "tickets="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -485,6 +493,7 @@ def serverCmd(argv):
     settings = HandshakeSettings()
     settings.useExperimentalTackExtension=True
     settings.dhParams = dhparam
+    settings.ticket_count = tickets or settings.ticket_count
     if psk:
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.ticketKeys = [getRandomBytes(32)]
