@@ -95,15 +95,12 @@ before_install:
   - git fetch origin master:refs/remotes/origin/master
 
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2 'isort<4.3'; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then travis_retry pip install unittest2; fi
+  - if [[ -e build-requirements-${TRAVIS_PYTHON_VERSION}.txt ]]; then travis_retry pip install -r build-requirements-${TRAVIS_PYTHON_VERSION}.txt; else travis_retry pip install -r build-requirements.txt; fi
   - if [[ $TACKPY == 'true' ]]; then travis_retry pip install tackpy; fi
   - if [[ $M2CRYPTO == 'true' ]]; then travis_retry pip install --pre m2crypto; fi
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install 'coverage<4' 'hypothesis<1.10'; elif [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install 'coverage' 'hypothesis<3.44' ; elif [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install coverage 'hypothesis<3'; else travis_retry pip install coverage hypothesis; fi
   - travis_retry pip install -r requirements.txt
-  - travis_retry pip install -r build-requirements.txt
 
 script:
   - |
@@ -112,8 +109,12 @@ script:
       else
           coverage run --branch --source tlslite -m unittest discover;
       fi
+  - make test-local
+  # --appends is supported only in the new coverage (>4)
+  - if [[ $TRAVIS_PYTHON_VERSION != '3.2' ]]; then coverage combine --append; fi
   - coverage report -m
-  - ./setup.py install && make test
+  - ./setup.py install
+  - make test
   # pylint doesn't work on 2.6: https://bitbucket.org/logilab/pylint/issue/390/py26-compatiblity-broken
   # diff-quality doesn't work on 3.2: https://github.com/edx/diff-cover/issues/94
   - |
