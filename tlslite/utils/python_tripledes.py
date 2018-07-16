@@ -428,7 +428,7 @@ class Python_TripleDES(_baseDes):
         DECRYPT = Des.DECRYPT
 
         if not data:
-            return b''
+            return bytearray(b'')
 
         data = self._guard_against_unicode(data)
         if len(data) % self.block_size:
@@ -450,7 +450,7 @@ class Python_TripleDES(_baseDes):
             result.append(block)
             i += 8
 
-        return b''.join(result)
+        return bytearray(b''.join(result))
 
     def decrypt(self, data):
         """Decrypt data and return bytes.
@@ -464,7 +464,7 @@ class Python_TripleDES(_baseDes):
         DECRYPT = Des.DECRYPT
 
         if not data:
-            return b''
+            return bytearray(b'')
 
         data = self._guard_against_unicode(data)
         if len(data) % self.block_size:
@@ -488,4 +488,4 @@ class Python_TripleDES(_baseDes):
             i += 8
         data = b''.join(result)
 
-        return data
+        return bytearray(data)

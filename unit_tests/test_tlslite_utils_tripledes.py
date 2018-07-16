@@ -215,7 +215,10 @@ class Test3DES_components(unittest.TestCase):
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
         iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
 
-        self.assertEqual(Python_TripleDES(key, iv).encrypt(b''), b'')
+        ret = Python_TripleDES(key, iv).encrypt(b'')
+
+        self.assertEqual(ret, b'')
+        self.assertIsInstance(ret, bytearray)
 
     def test2_no_data_encrypt(self):
         key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
@@ -232,7 +235,10 @@ class Test3DES_components(unittest.TestCase):
                         b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57')
         iv = b'\x55\xfe\x07\x2a\x73\x51\xa5\xc8'
 
-        self.assertEqual(Python_TripleDES(key, iv).decrypt(b''), b'')
+        ret = Python_TripleDES(key, iv).decrypt(b'')
+
+        self.assertEqual(ret, b'')
+        self.assertIsInstance(ret, bytearray)
 
     def test2_no_data_decrypt(self):
         key = bytearray(b'\x7c\xa1\x10\x45\x4a\x1a\x6e\x57'
@@ -275,9 +281,12 @@ class Test3DES_KATs_KO3(unittest.TestCase):
 
         triple_des = Python_TripleDES(key, iv)
 
+        ret = triple_des.encrypt(b'\x80\x00\x00\x00\x00\x00\x00\x00')
+
         self.assertEqual(
-            triple_des.encrypt(b'\x80\x00\x00\x00\x00\x00\x00\x00'),
+            ret,
             b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00')
+        self.assertIsInstance(ret, bytearray)
 
     def test_3des_vartext_decrypt(self):
         #Variable Plaintext Known Answer Test, decrypt one block
@@ -289,9 +298,12 @@ class Test3DES_KATs_KO3(unittest.TestCase):
 
         triple_des = Python_TripleDES(key, iv)
 
+        ret = triple_des.decrypt(b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00')
+
         self.assertEqual(
-            triple_des.decrypt(b'\x95\xf8\xa5\xe5\xdd\x31\xd9\x00'),
+            ret,
             b'\x80\x00\x00\x00\x00\x00\x00\x00')
+        self.assertIsInstance(ret, bytearray)
 
     def test_3des_invperm_encrypt(self):
         #Inverse Permutation Known Answer Test, encrypt one block.
