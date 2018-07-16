@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha13 (2018-06-25)
+tlslite-ng version 0.8.0-alpha14 (2018-07-16)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -605,7 +605,7 @@ encrypt-then-MAC mode for CBC ciphers.
 * Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
 * TLS 1.3
-  * draft-26 support
+  * draft-28 support
   * TLS 1.3 specific ciphers (AES-GCM and Chacha20)
   * TLS 1.3 specific extensions and extension code points
   * 1-RTT handshake mode
