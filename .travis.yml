@@ -97,15 +97,12 @@ before_install:
   - chmod +x ./cc-test-reporter
 
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install unittest2 'isort<4.3' 'inflect<0.3.1' 'coveralls<1.3.0' 'pyopenssl<18'; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then travis_retry pip install unittest2; fi
+  - if [[ -e build-requirements-${TRAVIS_PYTHON_VERSION}.txt ]]; then travis_retry pip install -r build-requirements-${TRAVIS_PYTHON_VERSION}.txt; else travis_retry pip install -r build-requirements.txt; fi
   - if [[ $TACKPY == 'true' ]]; then travis_retry pip install tackpy; fi
   - if [[ $M2CRYPTO == 'true' ]]; then travis_retry pip install --pre m2crypto; fi
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then travis_retry pip install 'coverage<4' 'hypothesis<1.10' 'coveralls<1' 'urllib3<1.11' 'requests<2.11'; elif [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install 'coverage' 'hypothesis<3.44' 'coveralls'; elif [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then travis_retry pip install coverage 'hypothesis<3'; else travis_retry pip install coverage hypothesis coveralls; fi
   - travis_retry pip install -r requirements.txt
-  - travis_retry pip install -r build-requirements.txt
   - if [[ $CC_COV == 'true' ]]; then ./cc-test-reporter before-build; fi
 
 script:
