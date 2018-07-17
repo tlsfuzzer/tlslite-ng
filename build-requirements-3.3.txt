@@ -1,5 +1,6 @@
+enum34
 coverage
-hypothesis
+hypothesis<3.44
 coveralls
 pylint
 diff_cover

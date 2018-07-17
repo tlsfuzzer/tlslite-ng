@@ -1,0 +1,8 @@
+PyYAML<3.13
+urllib3<1.11
+requests<2.11
+coverage<4
+hypothesis<1.10
+coveralls<1
+pylint<2.0
+diff_cover
