@@ -871,6 +871,10 @@ class TLSRecordLayer(object):
                 header = RecordHeader3().create(self.version, ret[0], 0)
                 yield header, Parser(ret[1])
 
+            # CCS can be sent before early_data but processing it will
+            # remove the flag from record layer, so reset it
+            early_data_ok = self._recordLayer.early_data_ok
+
             # when the message buffer is empty, read next record from socket
             for result in self._getNextRecordFromSocket():
                 if result in (0, 1):
@@ -885,6 +889,10 @@ class TLSRecordLayer(object):
             if header.type == ContentType.application_data or \
                     (self.version > (3, 3) and
                      header.type == ContentType.change_cipher_spec):
+                # CCS doesn't change the status of undecryptable
+                # records
+                if header.type == ContentType.change_cipher_spec:
+                    self._recordLayer.early_data_ok = early_data_ok
                 yield (header, parser)
             # If it's an SSLv2 ClientHello, we can return it as well, since
             # it's the only ssl2 type we support

@@ -2577,6 +2577,24 @@ class TLSConnection(TLSRecordLayer):
                             .format(GroupName.toStr(mismatch))):
                         yield result
 
+            early_data = clientHello.getExtension(ExtensionType.early_data)
+            if early_data:
+                if early_data.extData:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "malformed early_data extension"):
+                        yield result
+                if not psk:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "early_data without PSK extension"):
+                        yield result
+                # if early data comes from version we don't support, client
+                # MUST (section D.3 draft 28) abort the connection so we
+                # enable early data tolerance only when versions match
+                self._recordLayer.max_early_data = settings.max_early_data
+                self._recordLayer.early_data_ok = True
+
         versionsExt = clientHello.getExtension(ExtensionType
                                                .supported_versions)
         high_ver = None
@@ -3034,6 +3052,10 @@ class TLSConnection(TLSRecordLayer):
                                 AlertDescription.illegal_parameter,
                                 "PSK extension not last in client hello"):
                             yield result
+                # early_data extension MUST be dropped
+                old_ext = clientHello1.getExtension(ExtensionType.early_data)
+                if old_ext:
+                    clientHello1.extensions.remove(old_ext)
 
                 if clientHello1 != clientHello:
                     for result in self._sendError(AlertDescription

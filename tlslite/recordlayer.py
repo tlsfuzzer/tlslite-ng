@@ -894,6 +894,15 @@ class RecordLayer(object):
                     data = self._decryptThenMAC(header.type, data)
                 else:
                     data = self._decryptStreamThenMAC(header.type, data)
+                # if we don't have an encryption context established
+                # and early data is ok, that means we have received
+                # encrypted record in case the type of record is
+                # application_data (from TLS 1.3)
+                if not self._readState.encContext \
+                        and not self._readState.macContext \
+                        and self.early_data_ok and \
+                        header.type == ContentType.application_data:
+                    raise TLSBadRecordMAC("early data received")
             except TLSBadRecordMAC:
                 if self.early_data_ok and (
                         self._early_data_processed + len(data)
