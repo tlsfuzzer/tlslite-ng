@@ -378,6 +378,15 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("psk_pqe_ke", str(e.exception))
 
+    def test_invalid_max_early_data(self):
+        hs = HandshakeSettings()
+        hs.max_early_data = -1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("max_early_data", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
