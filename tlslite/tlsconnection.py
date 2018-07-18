@@ -2483,8 +2483,8 @@ class TLSConnection(TLSRecordLayer):
                 yield result
 
         # sanity check the TLS 1.3 extensions
-        ext = clientHello.getExtension(ExtensionType.supported_versions)
-        if ext and TLS_1_3_DRAFT in ext.versions:
+        ver_ext = clientHello.getExtension(ExtensionType.supported_versions)
+        if ver_ext and TLS_1_3_DRAFT in ver_ext.versions:
             psk = clientHello.getExtension(ExtensionType.pre_shared_key)
             if psk:
                 psk_modes = clientHello.getExtension(
@@ -2595,12 +2595,10 @@ class TLSConnection(TLSRecordLayer):
                 self._recordLayer.max_early_data = settings.max_early_data
                 self._recordLayer.early_data_ok = True
 
-        versionsExt = clientHello.getExtension(ExtensionType
-                                               .supported_versions)
         high_ver = None
-        if versionsExt:
+        if ver_ext:
             high_ver = getFirstMatching(settings.versions,
-                                        versionsExt.versions)
+                                        ver_ext.versions)
             if not high_ver:
                 for result in self._sendError(
                         AlertDescription.protocol_version,
