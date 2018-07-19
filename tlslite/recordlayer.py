@@ -6,6 +6,7 @@
 
 import socket
 import errno
+import copy
 try:
     # in python 3 the native zip() returns iterator
     from itertools import izip
@@ -242,6 +243,17 @@ class ConnectionState(object):
         self.seqnum += 1
         return writer.bytes
 
+    def __copy__(self):
+        """Return a copy of the object."""
+        ret = ConnectionState()
+        ret.macContext = copy.copy(self.macContext)
+        ret.encContext = copy.copy(self.encContext)
+        ret.fixedNonce = self.fixedNonce
+        ret.seqnum = self.seqnum
+        ret.encryptThenMAC = self.encryptThenMAC
+        return ret
+
+
 class RecordLayer(object):
 
     """
@@ -253,6 +265,11 @@ class RecordLayer(object):
     :ivar handshake_finished: used in SSL2, True if handshake protocol is over
     :ivar tls13record: if True, the record layer will use the TLS 1.3 version
         and content type hiding
+    :ivar bool early_data_ok: if True, it's ok to ignore undecryptable records
+        up to the size of max_early_data (sum of payloads)
+    :ivar int max_early_data: maximum number of bytes that will be processed
+        before aborting the connection on data that can not be validated,
+        works only if early_data_ok is set to True
     """
 
     def __init__(self, sock):
@@ -272,6 +289,30 @@ class RecordLayer(object):
         self.handshake_finished = False
 
         self.padding_cb = None
+
+        self._early_data_ok = False
+        self.max_early_data = 0
+        self._early_data_processed = 0
+
+    @property
+    def early_data_ok(self):
+        """
+        Set or get the state of early data acceptability.
+
+        If processing of the early_data records is to suceed, even if the
+        encryption is not correct, set this property to True. It will be
+        automatically reset to False as soon as a decryptable record is
+        processed.
+
+        Use max_early_data to set the limit of the total size of records
+        that will be processed like this.
+        """
+        return self._early_data_ok
+
+    @early_data_ok.setter
+    def early_data_ok(self, val):
+        self._early_data_processed = 0
+        self._early_data_ok = val
 
     @property
     def encryptThenMAC(self):
@@ -814,49 +855,80 @@ class RecordLayer(object):
         :raises TLSBadRecordMAC: when record has bad MAC or padding
         :raises socket.error: when reading from socket was unsuccessful
         """
-        result = None
-        for result in self._recordSocket.recv():
-            if result in (0, 1):
-                yield result
-            else: break
-        assert result is not None
+        while True:
+            result = None
+            for result in self._recordSocket.recv():
+                if result in (0, 1):
+                    yield result
+                else: break
+            assert result is not None
 
-        (header, data) = result
+            (header, data) = result
+            # as trying decryption increments sequence number, we need to
+            # keep the old one (we do copy of the whole object in case
+            # some cipher has an internal state itself)
+            read_state_copy = None
+            if self.early_data_ok:
+                # do the copy only when needed
+                read_state_copy = copy.copy(self._readState)
 
-        if isinstance(header, RecordHeader2):
-            data = self._decryptSSL2(data, header.padding)
-            if self.handshake_finished:
-                header.type = ContentType.application_data
-        # in TLS 1.3, the other party may send an unprotected CCS message
-        # at any point in connection
-        elif self._is_tls13_plus() and \
-                header.type == ContentType.change_cipher_spec:
-            pass
-        elif self._readState and \
-            self._readState.encContext and \
-            self._readState.encContext.isAEAD:
-            data = self._decryptAndUnseal(header, data)
-        elif self._readState and self._readState.encryptThenMAC:
-            data = self._macThenDecrypt(header.type, data)
-        elif self._readState and \
-                self._readState.encContext and \
-                self._readState.encContext.isBlockCipher:
-            data = self._decryptThenMAC(header.type, data)
-        else:
-            data = self._decryptStreamThenMAC(header.type, data)
+            try:
+                if isinstance(header, RecordHeader2):
+                    data = self._decryptSSL2(data, header.padding)
+                    if self.handshake_finished:
+                        header.type = ContentType.application_data
+                # in TLS 1.3, the other party may send an unprotected CCS
+                # message at any point in connection
+                elif self._is_tls13_plus() and \
+                        header.type == ContentType.change_cipher_spec:
+                    pass
+                elif self._readState and \
+                    self._readState.encContext and \
+                    self._readState.encContext.isAEAD:
+                    data = self._decryptAndUnseal(header, data)
+                elif self._readState and self._readState.encryptThenMAC:
+                    data = self._macThenDecrypt(header.type, data)
+                elif self._readState and \
+                        self._readState.encContext and \
+                        self._readState.encContext.isBlockCipher:
+                    data = self._decryptThenMAC(header.type, data)
+                else:
+                    data = self._decryptStreamThenMAC(header.type, data)
+                # if we don't have an encryption context established
+                # and early data is ok, that means we have received
+                # encrypted record in case the type of record is
+                # application_data (from TLS 1.3)
+                if not self._readState.encContext \
+                        and not self._readState.macContext \
+                        and self.early_data_ok and \
+                        header.type == ContentType.application_data:
+                    raise TLSBadRecordMAC("early data received")
+            except TLSBadRecordMAC:
+                if self.early_data_ok and (
+                        self._early_data_processed + len(data)
+                        < self.max_early_data):
+                    # ignore exception, retry reading
+                    self._early_data_processed += len(data)
+                    # reload state for decryption
+                    self._readState = read_state_copy
+                    continue
+                raise
+            # as soon as we're able to decrypt messages again, we must
+            # start checking the MACs
+            self.early_data_ok = False
 
-        # TLS 1.3 encrypts the type, CCS is not encrypted
-        if self._is_tls13_plus() and self._readState and \
-                self._readState.encContext and\
-                header.type != ContentType.change_cipher_spec:
-            data, contentType = self._tls13_de_pad(data)
-            header = RecordHeader3().create((3, 4), contentType, len(data))
+            # TLS 1.3 encrypts the type, CCS is not encrypted
+            if self._is_tls13_plus() and self._readState and \
+                    self._readState.encContext and\
+                    header.type != ContentType.change_cipher_spec:
+                data, contentType = self._tls13_de_pad(data)
+                header = RecordHeader3().create((3, 4), contentType, len(data))
 
-        # RFC 5246, section 6.2.1
-        if len(data) > 2**14:
-            raise TLSRecordOverflow()
+            # RFC 5246, section 6.2.1
+            if len(data) > 2**14:
+                raise TLSRecordOverflow()
 
-        yield (header, Parser(data))
+            yield (header, Parser(data))
 
     #
     # cryptography state methods

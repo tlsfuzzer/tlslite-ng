@@ -2483,8 +2483,8 @@ class TLSConnection(TLSRecordLayer):
                 yield result
 
         # sanity check the TLS 1.3 extensions
-        ext = clientHello.getExtension(ExtensionType.supported_versions)
-        if ext and TLS_1_3_DRAFT in ext.versions:
+        ver_ext = clientHello.getExtension(ExtensionType.supported_versions)
+        if ver_ext and TLS_1_3_DRAFT in ver_ext.versions:
             psk = clientHello.getExtension(ExtensionType.pre_shared_key)
             if psk:
                 psk_modes = clientHello.getExtension(
@@ -2577,12 +2577,28 @@ class TLSConnection(TLSRecordLayer):
                             .format(GroupName.toStr(mismatch))):
                         yield result
 
-        versionsExt = clientHello.getExtension(ExtensionType
-                                               .supported_versions)
+            early_data = clientHello.getExtension(ExtensionType.early_data)
+            if early_data:
+                if early_data.extData:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "malformed early_data extension"):
+                        yield result
+                if not psk:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "early_data without PSK extension"):
+                        yield result
+                # if early data comes from version we don't support, client
+                # MUST (section D.3 draft 28) abort the connection so we
+                # enable early data tolerance only when versions match
+                self._recordLayer.max_early_data = settings.max_early_data
+                self._recordLayer.early_data_ok = True
+
         high_ver = None
-        if versionsExt:
+        if ver_ext:
             high_ver = getFirstMatching(settings.versions,
-                                        versionsExt.versions)
+                                        ver_ext.versions)
             if not high_ver:
                 for result in self._sendError(
                         AlertDescription.protocol_version,
@@ -3034,6 +3050,10 @@ class TLSConnection(TLSRecordLayer):
                                 AlertDescription.illegal_parameter,
                                 "PSK extension not last in client hello"):
                             yield result
+                # early_data extension MUST be dropped
+                old_ext = clientHello1.getExtension(ExtensionType.early_data)
+                if old_ext:
+                    clientHello1.extensions.remove(old_ext)
 
                 if clientHello1 != clientHello:
                     for result in self._sendError(AlertDescription

@@ -645,6 +645,173 @@ class TestRecordLayer(unittest.TestCase):
         self.assertIn('Unexpected version', str(exc.exception))
         self.assertIn('(3, 1)', str(exc.exception))
 
+    def test_recvRecord_with_early_data_disallowed(self):
+        # as the early_data_ok is set to False automatically after processing
+        # check if early data can be also disabled by setting max_early_data
+        # to 0
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            # undecryptable early_data
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x20'  # length
+            b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
+            b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        # disallow early data
+        recordLayer.max_early_data = 0
+        recordLayer.early_data_ok = True
+
+        with self.assertRaises(TLSBadRecordMAC):
+            for result in recordLayer.recvRecord():
+                # check if non-blocking socket
+                self.assertNotIn(result, (0, 1))
+                break
+
+    def test_recvRecord_with_early_data_allowed_post_early_data_recv(self):
+        # check if a second instance of undecryptable data, after
+        # receiving decryptable data is rejected
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            # undecryptable early_data
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x20'  # length
+            b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
+            b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+            # first valid record
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            # second undecryptable record
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x20'  # length
+            b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
+            b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        # allow for early data
+        recordLayer.max_early_data = 2**14
+        recordLayer.early_data_ok = True
+
+        for result in recordLayer.recvRecord():
+            # check if non-blocking socket
+            self.assertNotIn(result, (0, 1))
+            break
+        head, parser = result
+
+        self.assertEqual((3, 4), head.version)
+        self.assertEqual(head.type, ContentType.application_data)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
+        # verify that receiving next record will fail, even though early
+        # data was acceptable before
+        self.assertFalse(recordLayer.early_data_ok)
+
+        with self.assertRaises(TLSBadRecordMAC):
+            for result in recordLayer.recvRecord():
+                self.assertNotIn(result, (0, 1))
+                break
+
+        self.assertFalse(recordLayer.early_data_ok)
+        self.assertEqual(recordLayer.max_early_data, 2**14)
+
+    def test_recvRecord_with_early_data_allowed(self):
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x : bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        sock = MockSocket(bytearray(
+            # undecryptable early_data
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x20'  # length
+            b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
+            b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
+            # more undecryptable early_data
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x20'  # length
+            b'\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f'
+            b'\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3a\x3b\x3c\x3d\x3e\x3f'
+            # first correct record
+            b'\x17'  # application_data
+            b'\x03\x03'  # hidden protocol version - TLS 1.x
+            b'\x00\x15'  # length
+            b"\xe1\x90\x2d\xd1\xfd"
+            b'u\xdd\xa0\xb1VYB&\xe8\x05\xb1~\xe5u\x9a\x0f'
+            ))
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 4)
+        recordLayer.tls13record = True
+
+        recordLayer.calcTLS1_3PendingState(CipherSuite.TLS_AES_128_GCM_SHA256,
+                                           bytearray(32),  # cl_traffic_sec
+                                           bytearray(32),  # sr_traffic_sec
+                                           None)  # implementations
+        recordLayer.changeReadState()
+
+        # allow for early data
+        recordLayer.max_early_data = 2**14
+        recordLayer.early_data_ok = True
+
+        app_data = ApplicationData().create(b'test')
+
+        for result in recordLayer.recvRecord():
+            # check if non-blocking socket
+            self.assertNotIn(result, (0, 1))
+            break
+        head, parser = result
+
+        self.assertEqual((3, 4), head.version)
+        self.assertEqual(head.type, ContentType.application_data)
+        self.assertEqual(bytearray(b'test'), parser.bytes)
+
     def test_recvRecord_with_encryption_tls1_3_aes_128_gcm(self):
         patcher = mock.patch.object(os,
                                     'urandom',

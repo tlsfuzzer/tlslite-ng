@@ -199,6 +199,11 @@ class HandshakeSettings(object):
 
     :vartype psk_modes: list
     :ivar psk_modes: acceptable modes for the PSK key exchange in TLS 1.3
+
+    :ivar int max_early_data: maximum number of bytes acceptable for 0-RTT
+        early_data processing. In other words, how many bytes will the server
+        try to process, but ignore, in case the Client Hello includes
+        early_data extension.
     """
 
     def _init_key_settings(self):
@@ -231,6 +236,7 @@ class HandshakeSettings(object):
         self.ticketKeys = []
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
+        self.max_early_data = 2 ** 14 + 16  # full record + tag
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -435,6 +441,10 @@ class HandshakeSettings(object):
             raise ValueError("Ticket lifetime must be a positive integer "
                              "smaller or equal 604800 (7 days)")
 
+        # while not ticket setting per-se, it is related to session tickets
+        if not 0 < other.max_early_data <= 2**64:
+            raise ValueError("max_early_data must be between 0 and 2GiB")
+
     def _copy_cipher_settings(self, other):
         """Copy values related to cipher selection."""
         other.cipherNames = self.cipherNames
@@ -457,6 +467,7 @@ class HandshakeSettings(object):
         other.ticketKeys = self.ticketKeys
         other.ticketCipher = self.ticketCipher
         other.ticketLifetime = self.ticketLifetime
+        other.max_early_data = self.max_early_data
 
     @staticmethod
     def _remove_all_matches(values, needle):
