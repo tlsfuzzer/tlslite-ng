@@ -778,8 +778,12 @@ class TLSConnection(TLSRecordLayer):
                 if session.tickets:
                     ticket = session.tickets[0]
 
-                    ticket_time = int(ticket.time + ticket.ticket_age_add) \
-                        % 2**32
+                    # ticket.time is in seconds while the obfuscated time
+                    # is in ms
+                    ticket_time = int(
+                        time.time() * 1000 -
+                        ticket.time * 1000 +
+                        ticket.ticket_age_add) % 2**32
                     idens.append(PskIdentity().create(ticket.ticket,
                                                       ticket_time))
                     binder_len = 48 if session.cipherSuite in \
