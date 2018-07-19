@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha14 (2018-07-16)
+tlslite-ng version 0.8.0-alpha15 (2018-07-19)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -614,6 +614,8 @@ encrypt-then-MAC mode for CBC ciphers.
   * pure PSK
   * session resumption in TLS 1.3 using PSK tickets
   * padding support (Stanislav Zidek)
+  * 0-RTT handshake tolerance (the early data will be ignored but handshake
+    will succeed)
 * fix minor compatibility issue with Jython2.7 (Filip Goldefus)
 * higher precision of throughput measurement on non-Linux platforms
   (Efthimis Iosifidis)
