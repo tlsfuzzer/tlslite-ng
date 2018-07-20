@@ -414,6 +414,8 @@ class Python_TripleDES(_baseDes):
 
         self.isAEAD = False
         self.isBlockCipher = True
+        self.name = "3des"
+        self.implementation = "python"
 
     def encrypt(self, data):
         """Encrypt data and return bytes.
