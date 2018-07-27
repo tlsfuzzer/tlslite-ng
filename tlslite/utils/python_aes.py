@@ -3,22 +3,25 @@
 
 """Pure-Python AES implementation."""
 
-from .cryptomath import *
-
-from .aes import *
+from .aes import AES
 from .rijndael import rijndael
+
+
+__all__ = ['new', 'Python_AES']
+
 
 def new(key, mode, IV):
     return Python_AES(key, mode, IV)
 
+
 class Python_AES(AES):
     def __init__(self, key, mode, IV):
-        AES.__init__(self, key, mode, IV, "python")
+        super(Python_AES, self).__init__(key, mode, IV, "python")
         self.rijndael = rijndael(key, 16)
         self.IV = IV
 
     def encrypt(self, plaintext):
-        AES.encrypt(self, plaintext)
+        super(Python_AES, self).encrypt(plaintext)
 
         plaintextBytes = plaintext[:]
         chainBytes = self.IV[:]
@@ -45,7 +48,7 @@ class Python_AES(AES):
         return plaintextBytes
 
     def decrypt(self, ciphertext):
-        AES.decrypt(self, ciphertext)
+        super(Python_AES, self).decrypt(ciphertext)
 
         ciphertextBytes = ciphertext[:]
         chainBytes = self.IV[:]
