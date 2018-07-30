@@ -4,7 +4,8 @@
 """Pure-Python AES-GCM implementation."""
 
 from .aesgcm import AESGCM
-from .rijndael import rijndael
+from .rijndael import Rijndael
+
 
 def new(key):
-    return AESGCM(key, "python", rijndael(key, 16).encrypt)
+    return AESGCM(key, "python", Rijndael(key, 16).encrypt)

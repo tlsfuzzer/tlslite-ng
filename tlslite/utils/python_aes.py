@@ -4,7 +4,7 @@
 """Pure-Python AES implementation."""
 
 from .aes import AES
-from .rijndael import rijndael
+from .rijndael import Rijndael
 
 
 __all__ = ['new', 'Python_AES']
@@ -17,7 +17,7 @@ def new(key, mode, IV):
 class Python_AES(AES):
     def __init__(self, key, mode, IV):
         super(Python_AES, self).__init__(key, mode, IV, "python")
-        self.rijndael = rijndael(key, 16)
+        self.rijndael = Rijndael(key, 16)
         self.IV = IV
 
     def encrypt(self, plaintext):
