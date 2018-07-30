@@ -867,8 +867,10 @@ def serverTestCmd(argv):
     connection.close()
 
     if tackpyLoaded:
-        tack = Tack.createFromPem(open("./TACK1.pem", "rU").read())
-        tackUnrelated = Tack.createFromPem(open("./TACKunrelated.pem", "rU").read())    
+        tack = Tack.createFromPem(
+            open(os.path.join(dir, "TACK1.pem"), "rU").read())
+        tackUnrelated = Tack.createFromPem(
+            open(os.path.join(dir, "TACKunrelated.pem"), "rU").read())
 
         settings = HandshakeSettings()
         settings.useExperimentalTackExtension = True
