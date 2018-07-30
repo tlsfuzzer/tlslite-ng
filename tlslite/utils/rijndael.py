@@ -899,7 +899,25 @@ rcon = (0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
         0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91)
 
 class rijndael(object):
+    """
+    Implementation of the AES (formely known as Rijndael) block cipher.
+
+    Supports key sizes of 128, 192 and 256 bits as well as the non
+    standard block sizes of 192 and 256 bits (the standard 128 bit block
+    size is the default).
+
+    Note: this is a pure python stright-forward implementation thus it is
+    vulnerable against majority, if not all possible side channel attacks.
+
+    Can process data just one block at a time, does not perform block
+    cipher chaining or plaintext padding.
+
+    :ival int block_size: the size of the encrypted blocks, in bytes
+    :ival list Ke: key schedule for encryption
+    :ival list Kd: key schedule for decryption
+    """
     def __init__(self, key, block_size = 16):
+        """Initialise the object, derive keys for encryption and decryption."""
         if block_size != 16 and block_size != 24 and block_size != 32:
             raise ValueError('Invalid block size: ' + str(block_size))
         if len(key) != 16 and len(key) != 24 and len(key) != 32:
@@ -972,6 +990,7 @@ class rijndael(object):
         self.Kd = Kd
 
     def encrypt(self, plaintext):
+        """Encrypt a single block of plaintext."""
         if len(plaintext) != self.block_size:
             raise ValueError('wrong block length, expected {0} got {1}'
                              .format(self.block_size, len(plaintext)))
@@ -1016,6 +1035,7 @@ class rijndael(object):
         return bytearray(result)
 
     def decrypt(self, ciphertext):
+        """Decrypt a block of ciphertext."""
         if len(ciphertext) != self.block_size:
             raise ValueError('wrong block length, expected {0} got {1}'
                              .format(self.block_size, len(plaintext)))
