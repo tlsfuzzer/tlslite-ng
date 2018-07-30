@@ -10,11 +10,11 @@ A pure python (slow) implementation of rijndael with a decent interface
 
 To include -
 
-from rijndael import rijndael
+from rijndael import Rijndael
 
 To do a key setup -
 
-r = rijndael(key, block_size = 16)
+r = Rijndael(key, block_size = 16)
 
 key must be a string of length 16, 24, or 32
 blocksize must be 16, 24, or 32. Default is 16
@@ -26,6 +26,8 @@ plaintext = r.decrypt(ciphertext)
 
 If any strings are of the wrong length a ValueError is thrown
 """
+
+from .deprecations import deprecated_class_name
 
 # ported from the Java reference code by Bram Cohen, bram@gawth.com, April 2001
 # this code is public domain, unless someone makes
@@ -898,7 +900,8 @@ rcon = (0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
         0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4,
         0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91)
 
-class rijndael(object):
+@deprecated_class_name('rijndael')
+class Rijndael(object):
     """
     Implementation of the AES (formely known as Rijndael) block cipher.
 
@@ -1080,15 +1083,15 @@ class rijndael(object):
         return bytearray(result)
 
 def encrypt(key, block):
-    return rijndael(key, len(block)).encrypt(block)
+    return Rijndael(key, len(block)).encrypt(block)
 
 def decrypt(key, block):
-    return rijndael(key, len(block)).decrypt(block)
+    return Rijndael(key, len(block)).decrypt(block)
 
 def test():
     def t(kl, bl):
         b = 'b' * bl
-        r = rijndael('a' * kl, bl)
+        r = Rijndael('a' * kl, bl)
         assert r.decrypt(r.encrypt(b)) == b
     t(16, 16)
     t(16, 24)
