@@ -1,5 +1,5 @@
 ```
-tlslite-ng version 0.7.4                                           2018-04-09
+tlslite-ng version 0.7.5                                           2018-07-31
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
@@ -585,6 +585,12 @@ encrypt-then-MAC mode for CBC ciphers.
 
 12 History
 ===========
+
+0.7.5 - 2018-07-31
+* Fix multithreading issue with pure python RSA implementation private key
+  opterations (either decryption using RSA private key or signing messages
+  would fail or provide malformed signatures if two threads would perform
+  those operations at the same time).
 
 0.7.4 - 2018-04-09
 * Fix CVE-2018-1000159 - the ct_check_cbc_mac_and_pad() did fail to verify the
