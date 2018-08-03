@@ -3,7 +3,67 @@
 # See the LICENSE file for legal information regarding use of this file.
 """Methods for deprecating old names for arguments or attributes."""
 import warnings
+import inspect
 from functools import wraps
+
+
+def deprecated_class_name(old_name,
+                          warn="Class name '{old_name}' is deprecated, "
+                          "please use '{new_name}'"):
+    """
+    Class decorator to deprecate a use of class.
+
+    :param str old_name: the deprecated name that will be registered, but
+       will raise warnings if used.
+
+    :param str warn: DeprecationWarning format string for informing the
+       user what is the current class name, uses 'old_name' for the deprecated
+       keyword name and the 'new_name' for the current one.
+       Example: "Old name: {old_nam}, use '{new_name}' instead".
+    """
+    def _wrap(obj):
+        assert callable(obj)
+
+        def _warn():
+            warnings.warn(warn.format(old_name=old_name,
+                                      new_name=obj.__name__),
+                          DeprecationWarning,
+                          stacklevel=3)
+
+        def _wrap_with_warn(func, is_inspect):
+            @wraps(func)
+            def _func(*args, **kwargs):
+                if is_inspect:
+                    # XXX: If use another name to call,
+                    # you will not get the warning.
+                    # we do this instead of subclassing or metaclass as
+                    # we want to isinstance(new_name(), old_name) and
+                    # isinstance(old_name(), new_name) to work
+                    frame = inspect.currentframe().f_back
+                    code = inspect.getframeinfo(frame).code_context
+                    if [line for line in code
+                            if '{0}('.format(old_name) in line]:
+                        _warn()
+                else:
+                    _warn()
+                return func(*args, **kwargs)
+            return _func
+
+        # Make old name available.
+        frame = inspect.currentframe().f_back
+        if old_name in frame.f_globals:
+            raise NameError("Name '{0}' already in use.".format(old_name))
+
+        if inspect.isclass(obj):
+            obj.__init__ = _wrap_with_warn(obj.__init__, True)
+            placeholder = obj
+        else:
+            placeholder = _wrap_with_warn(obj, False)
+
+        frame.f_globals[old_name] = placeholder
+
+        return obj
+    return _wrap
 
 
 def deprecated_params(names, warn="Param name '{old_name}' is deprecated, "

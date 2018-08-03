@@ -220,7 +220,7 @@ class TestConstants(unittest.TestCase):
 class TestSelfDecryptEncrypt(unittest.TestCase):
     def enc_dec(self, k_len, b_len):
         plaintext = bytearray(b'b' * b_len)
-        cipher = rijndael.rijndael(bytearray(b'a' * k_len), b_len)
+        cipher = rijndael.Rijndael(bytearray(b'a' * k_len), b_len)
         self.assertEqual(plaintext,
                          cipher.decrypt(cipher.encrypt(plaintext)))
 

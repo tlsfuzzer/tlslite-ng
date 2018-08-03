@@ -9,13 +9,13 @@ try:
 except ImportError:
         import unittest
 
-from tlslite.utils.rijndael import rijndael
+from tlslite.utils.rijndael import Rijndael
 from tlslite.utils.aesgcm import AESGCM
 
 class TestAESGCM(unittest.TestCase):
     def test___init__(self):
         key = bytearray(16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         self.assertIsNotNone(aesGCM)
 
@@ -23,11 +23,11 @@ class TestAESGCM(unittest.TestCase):
         key = bytearray(8)
 
         with self.assertRaises(AssertionError):
-            aesGCM = AESGCM(key, "python", rijndael(bytearray(16), 16).encrypt)
+            aesGCM = AESGCM(key, "python", Rijndael(bytearray(16), 16).encrypt)
 
     def test_seal(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*12)
 
@@ -42,7 +42,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_seal_with_invalid_nonce(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*11)
 
@@ -54,7 +54,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_open(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*12)
 
@@ -68,7 +68,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_open_with_incorrect_key(self):
         key = bytearray(b'\x01'*15 + b'\x00')
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*12)
 
@@ -82,7 +82,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_open_with_incorrect_nonce(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*11 + b'\x01')
 
@@ -96,7 +96,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_open_with_invalid_nonce(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*11)
 
@@ -109,7 +109,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_open_with_invalid_ciphertext(self):
         key = bytearray(b'\x01'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x02'*12)
 
@@ -120,7 +120,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_seal_with_test_vector_1(self):
         key = bytearray(b'\x00'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x00'*12)
 
@@ -135,7 +135,7 @@ class TestAESGCM(unittest.TestCase):
 
     def test_seal_with_test_vector_2(self):
         key = bytearray(b'\x00'*16)
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\x00'*12)
 
@@ -153,7 +153,7 @@ class TestAESGCM(unittest.TestCase):
     def test_seal_with_test_vector_3(self):
         key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
                         b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
 
@@ -187,7 +187,7 @@ class TestAESGCM(unittest.TestCase):
         key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
                         b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
 
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
 
@@ -221,7 +221,7 @@ class TestAESGCM(unittest.TestCase):
     def test_seal_with_test_vector_13(self):
         key = bytearray(32)
 
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         self.assertEqual(aesGCM.name, "aes256gcm")
 
@@ -238,7 +238,7 @@ class TestAESGCM(unittest.TestCase):
     def test_seal_with_test_vector_14(self):
         key = bytearray(32)
 
-        aesGCM = AESGCM(key, "python", rijndael(key, 16).encrypt)
+        aesGCM = AESGCM(key, "python", Rijndael(key, 16).encrypt)
 
         self.assertEqual(aesGCM.name, "aes256gcm")
 

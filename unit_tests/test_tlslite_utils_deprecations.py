@@ -17,7 +17,56 @@ except ImportError:
     from unittest.mock import call
 
 from tlslite.utils.deprecations import deprecated_params, \
-        deprecated_attrs
+        deprecated_attrs, deprecated_class_name
+
+
+class TestDeprecatedClassName(unittest.TestCase):
+    def test_check_class(self):
+        @deprecated_class_name('bad_name')
+        class Test1(object):
+            def __init__(self, param):
+                self.param = param
+
+            def method(self):
+                return self.param
+
+        instance = Test1('value')
+        self.assertEqual('value', instance.method())
+        self.assertIsInstance(instance, bad_name)
+        self.assertIsInstance(instance, Test1)
+
+        with self.assertWarns(DeprecationWarning) as e:
+            instance = bad_name('value')
+        self.assertIn('Test1', str(e.warning))
+        self.assertIn('bad_name', str(e.warning))
+
+        with self.assertWarns(DeprecationWarning) as e:
+            val = bad_name('value')
+        self.assertIn('Test1', str(e.warning))
+        self.assertIn('bad_name', str(e.warning))
+
+    def test_check_callable(self):
+        @deprecated_class_name('bad_func')
+        def good_func(param):
+            return "got '{0}'".format(param)
+
+        self.assertEqual("got 'some'", good_func('some'))
+
+        with self.assertWarns(DeprecationWarning) as e:
+            val = bad_func('other')
+        self.assertIn('good_func', str(e.warning))
+        self.assertIn('bad_func', str(e.warning))
+        self.assertEqual("got 'other'", val)
+
+    def test_check_with_duplicated_name(self):
+        @deprecated_class_name('bad_func2')
+        def good_func():
+            return None
+
+        with self.assertRaises(NameError):
+            @deprecated_class_name('bad_func2')
+            def other_func():
+                return None
 
 
 class TestDeprecatedParams(unittest.TestCase):
