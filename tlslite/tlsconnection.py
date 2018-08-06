@@ -2145,8 +2145,14 @@ class TLSConnection(TLSRecordLayer):
             kex = self._getKEX(selected_group, version)
             key_share = self._genKeyShareEntry(selected_group, version)
 
-            shared_sec = kex.calc_shared_key(key_share.private,
-                                             cl_key_share.key_exchange)
+            try:
+                shared_sec = kex.calc_shared_key(key_share.private,
+                                                 cl_key_share.key_exchange)
+            except TLSIllegalParameterException as alert:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        str(alert)):
+                    yield result
 
             sh_extensions.append(ServerKeyShareExtension().create(key_share))
         elif (psk is not None and
