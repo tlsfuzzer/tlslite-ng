@@ -612,6 +612,9 @@ calculate GCM tag, see #301)
 * fix compatibility issue with 8192 bit SRP group from RFC 5054
 * fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
   mode
+* fix Python_RSAKey multithreading support - performing private key operation
+  in two threads at the same time could make all future calls return incorrect
+  results
 * Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
 * Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
@@ -627,6 +630,7 @@ calculate GCM tag, see #301)
   * padding support (Stanislav Zidek)
   * 0-RTT handshake tolerance (the early data will be ignored but handshake
     will succeed)
+  * cookie extension
 * fix minor compatibility issue with Jython2.7 (Filip Goldefus)
 * higher precision of throughput measurement on non-Linux platforms
   (Efthimis Iosifidis)
@@ -636,7 +640,11 @@ calculate GCM tag, see #301)
 * fix minor bugs in message objects, extend test coverage for tlslite.messages
 * repr() for Certificate and few extensions
 * OCSP response parsing (Anna Khaitovich)
+* OCSP signature verification (Anna Khaitovich)
 * fix HTTP header length leak in the test server (`tls.py`) (Róbert Kolcún)
+* minor fixes with sent alerts when encountering error conditions
+* fix lack of checking if the padding in SSLv3 is minimal
+* Pure Python 3DES implementation (Adam Varga)
 
 0.7.0 - 2017-07-31
 
