@@ -42,17 +42,19 @@ If you have questions or feedback, feel free to contact me (Hubert Kario
 &lt;hkario at redhat.com>). Issues and pull
 requests can also be submitted through github issue tracking system, at the
 project's main page at [GitHub](https://github.com/tomato42/tlslite-ng), see
-CONTRIBUTING.md file for more information.
+[CONTRIBUTING.md](https://github.com/tomato42/tlslite-ng/blob/master/CONTRIBUTING.md)
+file for more information.
 
 tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 
-Implemented features of TLS include:
+Implemented TLS features include:
 
 * SSLv3, TLSv1.0, TLSv1.1, TLSv1.2 and TLSv1.3
-* ciphersuites with DHE, ADH, ECDHE, AECDH, RSA, SRP, PSK and PSK-(EC)DHE
+* ciphersuites with DHE, ADH, ECDHE, AECDH, RSA and SRP
   key exchange together
   with AES (including GCM variant), 3DES, RC4 and ChaCha20 (both the official
   standard and the IETF draft) symmetric ciphers and NULL encryption.
+* PSK and PSK-(EC)DHE key exchange in TLSv1.3
 * Secure Renegotiation
 * Encrypt Then MAC extension
 * TLS_FALLBACK_SCSV
@@ -60,10 +62,11 @@ Implemented features of TLS include:
 * padding extension
 * keying material exporter
 * RSA-PSS signatures in TLSv1.2, RSA-PSS in certificates (TLSv1.3 extension)
-* ticket based session resumption in TLS 1.3
+* ticket based session resumption in TLSv1.3
 * 1-RTT handshake, Hello Retry Request, middlebox compatibility mode and
   cookie extension
   (TLS 1.3)
+* FFDHE supported_groups extension
 * X25519 and X448 ECDHE key exchange
 * (experimental) TACK extension
 
