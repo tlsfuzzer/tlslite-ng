@@ -163,6 +163,21 @@ class TLSRecordLayer(object):
         # NewSessionTickets received from server
         self.tickets = []
 
+        # Indicator for heartbeat extension mode, if we can receive
+        # heartbeat requests
+        self.heartbeat_can_receive = False
+
+        # Indicator for heartbeat extension mode, if we can send
+        # heartbeat requests
+        self.heartbeat_can_send = False
+
+        # Indicator, that both sides want use heartbeat extension
+        self.heartbeat_supported = False
+
+        # Callback function for handling responses to heartbeat requests
+        # we sent
+        self.heartbeat_response_callback = None
+
     @property
     def _client(self):
         """Boolean stating if the endpoint acts as a client"""
@@ -759,6 +774,40 @@ class TLSRecordLayer(object):
                                 yield result
                             continue
 
+                    # If we received a heartbeat request and heartbeat
+                    # extension was negotiated
+                    if recordHeader.type == ContentType.heartbeat and \
+                            self.heartbeat_supported:
+                        try:
+                            heartbeat_message = Heartbeat().parse(p)
+                            # If we received heartbeat request, then we
+                            # response with response create from request
+                            if heartbeat_message.message_type == \
+                                    HeartbeatMessageType.heartbeat_request:
+                                if not self.heartbeat_can_receive:
+                                    for result in self._sendError(
+                                            AlertDescription.
+                                            unexpected_message,
+                                            "Received heartbeat_request to "
+                                            "peer_not_allowed_to_send mode"):
+                                        yield result
+                                else:
+                                    heartbeat_response = heartbeat_message.\
+                                        create_response()
+                                for result in self._sendMsg(
+                                        heartbeat_response):
+                                    yield result
+                            # If we received heartbeat response, then we
+                            # check, if its payload is same as payload of
+                            # request we sent
+                            elif heartbeat_message.message_type == \
+                                    HeartbeatMessageType.heartbeat_response:
+                                self.heartbeat_response_callback(
+                                    heartbeat_message)
+                        except socket.error:
+                            pass
+                        continue
+
                     #Otherwise: this is an unexpected record, but neither an
                     #alert nor renegotiation
                     for result in self._sendError(\
@@ -894,6 +943,9 @@ class TLSRecordLayer(object):
                 if header.type == ContentType.change_cipher_spec:
                     self._recordLayer.early_data_ok = early_data_ok
                 yield (header, parser)
+            # heartbeat message isn't made out of messages, too
+            elif header.type == ContentType.heartbeat:
+                yield (header, parser)
             # If it's an SSLv2 ClientHello, we can return it as well, since
             # it's the only ssl2 type we support
             elif header.ssl2:
@@ -978,3 +1030,43 @@ class TLSRecordLayer(object):
 
     def _changeReadState(self):
         self._recordLayer.changeReadState()
+
+    def write_heartbeat(self, payload, padding_length):
+        """Start a write operation of heartbeat_request.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @type padding_length: int
+        @param padding_length: Length of padding.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        if self.closed:
+            raise TLSClosedConnectionError(
+                "attempt to write to closed connection")
+        if not self.heartbeat_supported or not self.heartbeat_can_send:
+            raise TLSInternalError("attempt to send Heartbeat request when "
+                                   "we cant send it to other side")
+        heartbeat_request = Heartbeat().create(
+            HeartbeatMessageType.heartbeat_request, payload, padding_length)
+
+        for result in self._sendMsg(heartbeat_request,
+                                    randomizeFirstBlock=False):
+            yield result
+
+    def send_heartbeat_request(self, payload, padding_length):
+        """Synchronous version of write_heartbeat function.
+
+        @type payload: bytes
+        @param payload: Payload, that we want send in request and
+                        get at response.
+
+        @type padding_length: int
+        @param padding_length: Length of padding.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        for _ in self.write_heartbeat(payload, padding_length):
+            pass

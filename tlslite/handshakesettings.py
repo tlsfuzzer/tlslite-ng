@@ -204,6 +204,14 @@ class HandshakeSettings(object):
         early_data processing. In other words, how many bytes will the server
         try to process, but ignore, in case the Client Hello includes
         early_data extension.
+
+    :vartype use_heartbeat_extension: bool
+    :ivar use_heartbeat_extension: whether to support heartbeat extension from
+        RFC 6520. True by default.
+
+    :vartype heartbeat_response_callback: func
+    :ivar heartbeat_response_callback: Callback to function when Heartbeat
+        response is received
     """
 
     def _init_key_settings(self):
@@ -219,6 +227,8 @@ class HandshakeSettings(object):
         self.defaultCurve = "secp256r1"
         self.keyShares = ["secp256r1", "x25519"]
         self.padding_cb = None
+        self.use_heartbeat_extension = True
+        self.heartbeat_response_callback = None
 
     def _init_misc_extensions(self):
         """Default variables for assorted extensions."""
@@ -399,6 +409,13 @@ class HandshakeSettings(object):
         if other.usePaddingExtension not in (True, False):
             raise ValueError("usePaddingExtension must be True or False")
 
+        if other.use_heartbeat_extension not in (True, False):
+            raise ValueError("use_heartbeat_extension must be True or False")
+
+        if other.heartbeat_response_callback and not other.use_heartbeat_extension:
+            raise ValueError("heartbeat_response_callback requires "
+                             "use_heartbeat_extension")
+
         HandshakeSettings._sanityCheckEMSExtension(other)
 
     @staticmethod
@@ -506,6 +523,8 @@ class HandshakeSettings(object):
         other.dhGroups = self.dhGroups
         other.defaultCurve = self.defaultCurve
         other.keyShares = self.keyShares
+        other.use_heartbeat_extension = self.use_heartbeat_extension
+        other.heartbeat_response_callback = self.heartbeat_response_callback
 
     def validate(self):
         """

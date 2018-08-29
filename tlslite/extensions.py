@@ -1754,6 +1754,45 @@ class KeyShareEntry(object):
         writer.bytes += self.key_exchange
 
 
+class HeartbeatExtension(TLSExtension):
+    """
+    Heartbeat extension from RFC 6520
+
+    @type mode: int
+    @ivar mode: mode if peer is allowed or nor allowed to send responses
+    """
+    def __init__(self):
+        super(HeartbeatExtension, self).__init__(
+                                        extType=ExtensionType.heartbeat)
+        self.mode = None
+
+    @property
+    def extData(self):
+        """
+        Return encoded heartbeat mode
+
+        @rtype: bytearray
+        """
+        if self.mode is None:
+            return bytearray(0)
+
+        writer = Writer()
+        writer.add(self.mode, 1)
+
+        return writer.bytes
+
+    def create(self, mode):
+        self.mode = mode
+        return self
+
+    def parse(self, p):
+        self.mode = p.get(1)
+        if p.getRemainingLength() > 0:
+            raise SyntaxError()
+
+        return self
+
+
 class ClientKeyShareExtension(TLSExtension):
     """
     Class for handling the Client Hello version of the Key Share extension.
@@ -2073,6 +2112,7 @@ TLSExtension._universalExtensions = \
         ExtensionType.supports_npn: NPNExtension,
         ExtensionType.client_hello_padding: PaddingExtension,
         ExtensionType.renegotiation_info: RenegotiationInfoExtension,
+        ExtensionType.heartbeat: HeartbeatExtension,
         ExtensionType.supported_versions: SupportedVersionsExtension,
         ExtensionType.key_share: ClientKeyShareExtension,
         ExtensionType.signature_algorithms_cert:

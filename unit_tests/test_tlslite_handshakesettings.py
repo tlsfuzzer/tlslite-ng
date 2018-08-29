@@ -387,6 +387,27 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("max_early_data", str(e.exception))
 
+    def test_invalid_use_heartbeat_extension(self):
+        hs = HandshakeSettings()
+        hs.use_heartbeat_extension = None
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("use_heartbeat_extension", str(e.exception))
+
+    def test_invalid_heartbeat_extension_combination(self):
+        hs = HandshakeSettings()
+        def heartbeatResponseCallback(message):
+            return message
+        hs.heartbeat_response_callback = heartbeatResponseCallback
+        hs.use_heartbeat_extension = False
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("heartbeat_response_callback", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
