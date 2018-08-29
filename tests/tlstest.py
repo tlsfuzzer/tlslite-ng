@@ -876,6 +876,25 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - Heartbeat extension in TLSv1.3".format(test_no))
+    heartbeat_payload = os.urandom(50)
+    def heartbeat_response_check(message):
+        global received_payload
+        received_payload = message.payload
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    settings.heartbeat_response_callback = heartbeat_response_check
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    connection.send_heartbeat_request(heartbeat_payload, 16)
+    testConnClient(connection)
+    testConnClient(connection)
+    connection.close()
+    assert heartbeat_payload == received_payload
+
+    test_no += 1
+
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
     synchro.recv(1)
@@ -1666,6 +1685,26 @@ def serverTestCmd(argv):
     connection = connect()
     settings = HandshakeSettings()
     settings.maxVersion = (3, 3)
+    settings.heartbeat_response_callback = heartbeat_response_check
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    connection.send_heartbeat_request(heartbeat_payload, 16)
+    testConnServer(connection)
+    testConnServer(connection)
+    connection.close()
+    assert heartbeat_payload == received_payload
+
+    test_no += 1
+
+    print("Test {0} - Heartbeat extension in TLSv1.3".format(test_no))
+    heartbeat_payload = os.urandom(50)
+    def heartbeat_response_check(message):
+        global received_payload
+        received_payload = message.payload
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
     settings.heartbeat_response_callback = heartbeat_response_check
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings)

@@ -1291,6 +1291,30 @@ class TLSConnection(TLSRecordLayer):
         if alpnExt:
             appProto = alpnExt.protocol_names[0]
 
+        heartbeat_ext = encrypted_extensions.getExtension(ExtensionType.heartbeat)
+        if heartbeat_ext:
+            if not settings.use_heartbeat_extension:
+                for result in self._sendError(
+                        AlertDescription.unsupported_extension,
+                        "Server sent Heartbeat extension without one in "
+                        "client hello"):
+                    yield result
+            if heartbeat_ext.mode == HeartbeatMode.PEER_ALLOWED_TO_SEND and \
+                    settings.heartbeat_response_callback:
+                self.heartbeat_can_send = True
+                self.heartbeat_response_callback = settings.\
+                    heartbeat_response_callback
+            elif heartbeat_ext.mode == HeartbeatMode.\
+                    PEER_NOT_ALLOWED_TO_SEND or not settings.\
+                    heartbeat_response_callback:
+                self.heartbeat_can_send = False
+            else:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Server responded with invalid Heartbeat extension"):
+                    yield result
+            self.heartbeat_supported = True
+
         self.session.create(secret,
                             bytearray(b''),  # no session_id in TLS 1.3
                             serverHello.cipher_suite,
@@ -2270,6 +2294,11 @@ class TLSConnection(TLSRecordLayer):
             if matched:
                 ext = ALPNExtension().create([matched[0]])
                 ee_extensions.append(ext)
+
+        if clientHello.getExtension(ExtensionType.heartbeat):
+            if settings.use_heartbeat_extension:
+                ee_extensions.append(HeartbeatExtension().create(
+                    HeartbeatMode.PEER_ALLOWED_TO_SEND))
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
         for result in self._sendMsg(encryptedExtensions):
