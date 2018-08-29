@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType, TLS_1_3_DRAFT
+from .constants import CertificateType
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
@@ -244,7 +244,7 @@ class HandshakeSettings(object):
         self._init_misc_extensions()
         self.minVersion = (3, 1)
         self.maxVersion = (3, 4)
-        self.versions = [TLS_1_3_DRAFT, (3, 3), (3, 2), (3, 1)]
+        self.versions = [(3, 4), (3, 3), (3, 2), (3, 1)]
         self.cipherNames = list(CIPHER_NAMES)
         self.macNames = list(MAC_NAMES)
         self.keyExchangeNames = list(KEY_EXCHANGE_NAMES)

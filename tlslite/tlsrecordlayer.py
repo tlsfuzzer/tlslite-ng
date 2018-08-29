@@ -431,8 +431,7 @@ class TLSRecordLayer(object):
                (3, 1): "TLS 1.0",
                (3, 2): "TLS 1.1",
                (3, 3): "TLS 1.2",
-               (3, 4): "TLS 1.3",
-               TLS_1_3_DRAFT: "TLS 1.3"}
+               (3, 4): "TLS 1.3"}
         return ver.get(self.version)
 
     def getCipherName(self):

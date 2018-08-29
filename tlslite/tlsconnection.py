@@ -2494,7 +2494,7 @@ class TLSConnection(TLSRecordLayer):
 
         # sanity check the TLS 1.3 extensions
         ver_ext = clientHello.getExtension(ExtensionType.supported_versions)
-        if ver_ext and TLS_1_3_DRAFT in ver_ext.versions:
+        if ver_ext and (3, 4) in ver_ext.versions:
             psk = clientHello.getExtension(ExtensionType.pre_shared_key)
             if psk:
                 psk_modes = clientHello.getExtension(

@@ -15,7 +15,8 @@ from .utils.compat import a2b_hex
 
 # protocol version number used for negotiating TLS 1.3 between implementations
 # of the draft specification
-TLS_1_3_DRAFT = (127, 28)
+# DEPRECATED!
+TLS_1_3_DRAFT = (3, 4)
 
 
 # ServerHello.random value meaning that the message is a HelloRetryRequest
