@@ -2461,6 +2461,10 @@ class TLSConnection(TLSRecordLayer):
             else: break
         clientHello = result
 
+        # make server TLS 1.2 intolerant
+        if clientHello.client_version > (3, 2):
+            raise TLSError("TLS 1.2 intolerance")
+
         #If client's version is too low, reject it
         if clientHello.client_version < settings.minVersion:
             self.version = settings.minVersion
