@@ -6,7 +6,7 @@ operations but is not dependant upon them.
 
 Functionality implemented include:
  - all above mentioned protocols, including support for client certificates
-   (RFC 6101, RFC 2246, RFC 4346, RFC 5246)
+   (RFC 6101, RFC 2246, RFC 4346, RFC 5246, RFC 8446 - not complete)
  - RC4, 3DES-CBC, AES-CBC, AES-GCM and ChaCha20 ciphers (RFC 5246, RFC 6347,
    RFC 4492, RFC 5288, RFC 5289, RFC 7539, RFC 7905)
  - MD5, SHA1, SHA256 and SHA384 HMACs as well as AEAD mode of operation with
@@ -34,6 +34,7 @@ Functionality implemented include:
  - Next Protocol Negotiation
  - Application-Layer Protocol Negotiation Extension (RFC 7301)
  - FFDHE prime/group negotiation (RFC 7919)
+ - Heartbeat Extension (RFC 6520)
 
 
 tlslite-ng aims to be a drop-in replacement for tlslite while providing more

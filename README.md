@@ -69,6 +69,7 @@ Implemented TLS features include:
 * FFDHE supported_groups extension
 * X25519 and X448 ECDHE key exchange
 * (experimental) TACK extension
+* heartbeat extension and protocol
 
 2 Licenses/Acknowledgements
 ============================
@@ -619,7 +620,7 @@ calculate GCM tag, see #301)
 * Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
 * TLS 1.3
-  * draft-28 support
+  * final RFC 8446 support
   * TLS 1.3 specific ciphers (AES-GCM and Chacha20)
   * TLS 1.3 specific extensions and extension code points
   * 1-RTT handshake mode
@@ -645,6 +646,7 @@ calculate GCM tag, see #301)
 * minor fixes with sent alerts when encountering error conditions
 * fix lack of checking if the padding in SSLv3 is minimal
 * Pure Python 3DES implementation (Adam Varga)
+* heartbeat (RFC 6520) (Milan Lysonek)
 
 0.7.0 - 2017-07-31
 
