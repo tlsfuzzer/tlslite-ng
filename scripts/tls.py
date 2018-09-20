@@ -142,9 +142,8 @@ def handleArgs(argv, argString, flagsList=[]):
             s = open(arg, "rb").read()
             if sys.version_info[0] >= 3:
                 s = str(s, 'utf-8')
-            x509 = X509()
-            x509.parse(s)
-            cert_chain = X509CertChain([x509])
+            cert_chain = X509CertChain()
+            cert_chain.parsePemList(s)
         elif opt == "-u":
             username = arg
         elif opt == "-p":
