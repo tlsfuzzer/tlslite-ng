@@ -219,3 +219,13 @@ class TestSignatureScheme(unittest.TestCase):
         ret = SignatureScheme.getHash('rsa_pss_pss_sha384')
 
         self.assertEqual(ret, 'sha384')
+
+    def test_getKeyType_with_valid_new_name(self):
+        ret = SignatureScheme.getKeyType('rsa_pss_pss_sha384')
+
+        self.assertEqual(ret, 'rsa')
+
+    def test_getPadding_with_valid_new_name(self):
+        ret = SignatureScheme.getPadding('rsa_pss_pss_sha256')
+
+        self.assertEqual(ret, 'pss')
