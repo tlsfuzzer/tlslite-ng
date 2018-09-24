@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha18 (2018-09-11)
+tlslite-ng version 0.8.0-alpha19 (2018-09-24)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -647,6 +647,9 @@ calculate GCM tag, see #301)
 * fix lack of checking if the padding in SSLv3 is minimal
 * Pure Python 3DES implementation (Adam Varga)
 * heartbeat (RFC 6520) (Milan Lysonek)
+* support chain of certificates in the `tls.py` script
+* fix sending of RSA-PSS certificate when the client didn't advertise support
+  for `rsa_pss_pss_*` signature methods
 
 0.7.0 - 2017-07-31
 
