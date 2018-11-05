@@ -33,6 +33,8 @@ class X509(object):
     def __init__(self):
         """Create empty certificate object."""
         self.bytes = bytearray(0)
+        self.serial_number = None
+        self.subject_public_key = None
         self.publicKey = None
         self.subject = None
         self.certAlg = None
@@ -62,13 +64,17 @@ class X509(object):
 
         # Get the tbsCertificate
         tbs_certificate = parser.getChild(0)
-
         # Is the optional version field present?
         # This determines which index the key is at.
         if tbs_certificate.value[0] == 0xA0:
+            serial_number_index = 1
             subject_public_key_info_index = 6
         else:
+            serial_number_index = 0
             subject_public_key_info_index = 5
+
+        # Get serial number
+        self.serial_number = bytesToNumber(tbs_certificate.getChild(serial_number_index).value)
 
         # Get the subject
         self.subject = tbs_certificate.getChildBytes(
@@ -103,8 +109,11 @@ class X509(object):
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
 
+
         # Get the subjectPublicKey
         subject_public_key = subject_public_key_info.getChild(1)
+        self.subject_public_key = subject_public_key_info.getChildBytes(1)
+        self.subject_public_key = ASN1Parser(self.subject_public_key).value[1:]
 
         # Adjust for BIT STRING encapsulation
         if subject_public_key.value[0]:
