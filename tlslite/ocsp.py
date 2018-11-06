@@ -2,7 +2,6 @@
 
 from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import bytesToNumber, numBytes, secureHash
-from .utils.compat import b2a_hex
 from .x509 import X509
 from .signed import SignedObject
 
