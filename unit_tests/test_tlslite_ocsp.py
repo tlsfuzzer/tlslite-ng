@@ -334,6 +334,13 @@ class TestOCSP(unittest.TestCase):
         cert = resp.certs[0]  # checking only first certificate
         self.assertIsInstance(cert, X509)
 
+    def test_certs_signature(self):
+        resp = OCSPResponse(resp_OK)
+        self.assertGreater(len(resp.certs), 0)
+        cert = resp.certs[0]  # checking only first certificate
+        self.assertIsInstance(cert, X509)
+        self.assertTrue(resp.verify_signature(resp.certs[0].publicKey))
+
 class TestSingleResponse(unittest.TestCase):
     def test_single_responses(self):
         resp = OCSPResponse(resp_OK)
