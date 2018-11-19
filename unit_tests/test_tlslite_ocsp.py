@@ -161,6 +161,45 @@ issuer_cert = a2b_base64(str(
 "33XEjZrkU57nLUxVgWwJRfUG45/Svb83INf0Pf+pUyi1iIoI/aNBPSZc7vRDLaf5"
 "gMMonOW4zwZiJ8Om2V1yVDjIvmoO19MexmODf2GhtmF8MI6iy20STjugQKMOQew="
 ))
+other_issuer_cert = a2b_base64(str(
+"MIIDKzCCAhOgAwIBAgIBATANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQKDApFeGFt"
+"cGxlIENBMCIYDzIwMTMxMTE5MDkxNDEzWhgPMjAyODExMTkwOTE0MTNaMBUxEzAR"
+"BgNVBAoMCkV4YW1wbGUgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB"
+"AQCxx4BwpfsExtUYpTLA6C3bGDOOjtfqYylP2p2RuKXSNr2/YVv/GCzVuCVJ0xa3"
+"U7WHpXP4N7crqXu5M0ZzpfTm90IYX/P/Yf29P8fNWe878yRoWuRb52w79bszI+eL"
+"lho/UV3LyIrwYLw9tHIO/IGWMAB4mpXsMqfAGkFpzL5bVy2QYQ9n+5yRZishGoq7"
+"ZGS+BmzDij/eUb3yYWrA+62czhlMdeVIFudQeUSfxTPbZme7dvbhnrTCM8i70BuD"
+"SxUZEFAb4rr1tiRDlc0Aw6XCLZVzjf/M2QhusYEmrc/KdkAkrd594qhN8ZOGuEf7"
+"JtzVtMwLdCrQm5X1o9WoFLFnAgMBAAGjgYEwfzAPBgNVHRMBAf8EBTADAQH/MA4G"
+"A1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUAvaHFpmkfiiw2+rXTGRW2MBXGdYwPQYD"
+"VR0jBDYwNIAUAvaHFpmkfiiw2+rXTGRW2MBXGdahGaQXMBUxEzARBgNVBAoMCkV4"
+"YW1wbGUgQ0GCAQEwDQYJKoZIhvcNAQELBQADggEBAIrm976D4jUh596GwHqEwNBa"
+"z04qIythHJj8clBQKL6LMoF3BDi4FLJX9CfvyLa/ijIbVjOS7IDrPpPonfR60jv6"
+"7s/b6iTAuzbhaMTSoTtoBc6z1L/KdH/FfQ+QFUEUaSwJ2J2LRJq7+jF3QMbHuF6y"
+"15Yz5N+nARGVYurn0Dd6FD/wlTxsFU3iRcrd5s/uE2pXm8x9qtvDnQLGLFHpXcTM"
+"87CfM0ZAA8OxRm3yudD/p1lxVQHyNcy13bz4g7Wd4hg0mTc9LZpuXyiDxdHJHdGU"
+"QQXLWPfTf305OEp1Q6aXTVYLOJ1n45LqnsKnHHeIdibcYpFVqnPpQeQ0BYK2jxo="
+))
+other_server_cert = a2b_base64(str(
+"MIIDLzCCAhegAwIBAgIBAjANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQKDApFeGFt"
+"cGxlIENBMCIYDzIwMTgxMTE5MDkyMTM5WhgPMjAxOTExMTkwOTIxMzlaMBQxEjAQ"
+"BgNVBAMMCWxvY2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB"
+"ALVwYLImFwbUH/fR1W0Y8QXBfl1zgXmT1gHAz2+T5WELVKaB9kfPX8PE8rtCLqDa"
+"hdhKkgOaZcBAN5zx4Xdj8xxQG7TAkWsG9byPjJdPF3eqv47LHYZ9EZxWrI9KIxlW"
+"zXDMxn3TkrVwYrSmYY5mkxzMvpOBZ3OjjM4El+Se1o+faW7gxSiMTEpFjHR4FhCE"
+"VPNpGlGOKENPpk1ewv2zzEDbp6eglML36N8YPRjo4b4tAdBhzuy51kKOqMVQDbYs"
+"VHd6/38/aUiYI6pCgByuxWfWV5JK1gG2w0TFriQNDxh7dGwYq7yYUpZ54CmexT+k"
+"I/Tuvc+n0FRj1o4U/pfmgVECAwEAAaOBhjCBgzAOBgNVHQ8BAf8EBAMCA6gwEwYD"
+"VR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFOwvlnhcNb888Jm5pkXSGKcIg8e8"
+"MD0GA1UdIwQ2MDSAFAL2hxaZpH4osNvq10xkVtjAVxnWoRmkFzAVMRMwEQYDVQQK"
+"DApFeGFtcGxlIENBggEBMA0GCSqGSIb3DQEBCwUAA4IBAQCnmFeqiIT07U+ZUgcW"
+"KtGJ1FvZUJaRxNSFcu6d+DDXr8pqB16DiK6DFH1poxzKZftBY2Ofsdh25s9TKRVi"
+"CuGlPW05ieylDrmAx5jmUw68jSXxkIrftqKkg0SxAGtRQ9JRtPp54eyHPqSchB7+"
+"BjLCZOoVE+4EN6xKsro+p0X80Qomr6vrK41gxtazyyu8DHgPJ3ixIhrGdFJjhWXd"
+"xJuaPfYVOcg/R7NMCNOcpueOoeiTNVkW94tIw75rZVgeZbBUxBuVTEym8Zp5RYv4"
+"+hE1weqtEGKQFXwy7P0y+MafANf8APCqjdOVuMtCkzGUydAW4Nc07e76ECR0iC+i"
+"cSAw"
+))
 resps = a2b_base64(str(
 "MIIFHgoBAKCCBRcwggUTBgkrBgEFBQcwAQEEggUEMIIFADCBpqEbMBkxFzAVBgNVBAMMDk9DU1Ag"
 "UmVzcG9uZGVyGA8yMDE4MTEwNTEzNTMyOVowUTBPMDowCQYFKw4DAhoFAAQUkBUkEUsQTCuZ8rp/"
@@ -344,62 +383,84 @@ class TestOCSP(unittest.TestCase):
 class TestSingleResponse(unittest.TestCase):
     def test_single_responses(self):
         resp = OCSPResponse(resp_OK)
-        singleRespList = resp.responses
-        singleRespCnt = len(singleRespList)
-        for i in range(singleRespCnt):
-            singleResp = resp.responses[i]
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
+        for singleResp in resp.responses:
             self.assertEqual(bytearray(), singleResp.cert_status)
 
     def test_nonextupdate(self):
         resp = OCSPResponse(resp_nonext)
-        singleRespList = resp.responses
-        singleRespCnt = len(singleRespList)
-        for i in range(singleRespCnt):
-            singleResp = resp.responses[i]
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
+        for singleResp in resp.responses:
             self.assertEqual(bytearray(), singleResp.cert_status)
             self.assertEqual(None, singleResp.next_update)
 
     def test_verify_cert_match(self):
         resp = OCSPResponse(resps)
-        singleRespList = resp.responses
-        singleRespCnt = len(singleRespList)
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
         server_cert_x509 = X509()
         server_cert_x509.parseBinary(server_cert)
         issuer_cert_x509 = X509()
         issuer_cert_x509.parseBinary(issuer_cert)
-        self.assertGreater(singleRespCnt, 0)
-        for i in range(singleRespCnt):
-            singleResp = resp.responses[i]
+        for singleResp in resp.responses:
             verified = singleResp.verify_cert_match(server_cert_x509, issuer_cert_x509)
             self.assertTrue(verified)
 
     def test_verify_cert_match_sha256(self):
         resp = OCSPResponse(resps_sha256)
-        singleRespList = resp.responses
-        singleRespCnt = len(singleRespList)
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
         server_cert_x509 = X509()
         server_cert_x509.parseBinary(server_cert)
         issuer_cert_x509 = X509()
         issuer_cert_x509.parseBinary(issuer_cert)
-        self.assertGreater(singleRespCnt, 0)
-        for i in range(singleRespCnt):
-            singleResp = resp.responses[i]
+        for singleResp in resp.responses:
             verified = singleResp.verify_cert_match(server_cert_x509, issuer_cert_x509)
             self.assertTrue(verified)
 
     def test_verify_cert_match_sha512(self):
         resp = OCSPResponse(resps_sha512)
-        singleRespList = resp.responses
-        singleRespCnt = len(singleRespList)
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
         server_cert_x509 = X509()
         server_cert_x509.parseBinary(server_cert)
         issuer_cert_x509 = X509()
         issuer_cert_x509.parseBinary(issuer_cert)
-        self.assertGreater(singleRespCnt, 0)
-        for i in range(singleRespCnt):
-            singleResp = resp.responses[i]
+        for singleResp in resp.responses:
             verified = singleResp.verify_cert_match(server_cert_x509, issuer_cert_x509)
             self.assertTrue(verified)
+
+    def test_verify_cert_match_incorrect_issuer_cert(self):
+        resp = OCSPResponse(resps)
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
+        server_cert_x509 = X509()
+        server_cert_x509.parseBinary(server_cert)
+        issuer_cert_x509 = X509()
+        issuer_cert_x509.parseBinary(other_issuer_cert)
+        for singleResp in resp.responses:
+            with self.assertRaises(ValueError) as ctx:
+                verified = singleResp.verify_cert_match(server_cert_x509,
+                                                        issuer_cert_x509)
+            self.assertEqual("Could not verify certificate public key",
+                             str(ctx.exception))
+
+    def test_verify_cert_match_incorrect_server_cert(self):
+        resp = OCSPResponse(resps)
+        singleRespCnt = len(resp.responses)
+        self.assertGreater(singleRespCnt, 0)
+        server_cert_x509 = X509()
+        server_cert_x509.parseBinary(other_server_cert)
+        issuer_cert_x509 = X509()
+        issuer_cert_x509.parseBinary(issuer_cert)
+        for singleResp in resp.responses:
+            with self.assertRaises(ValueError) as ctx:
+                verified = singleResp.verify_cert_match(server_cert_x509,
+                                                        issuer_cert_x509)
+            self.assertEqual("Could not verify certificate serial number",
+                             str(ctx.exception))
 
 if __name__ == '__main__':
     unittest.main()
