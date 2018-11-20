@@ -56,4 +56,4 @@ class TestSignatureSettings(unittest.TestCase):
             settings.validate()
         self.assertIn("Following signature algorithms are not allowed: sha128, sha129",
                       str(ctx.exception))
-#TODO: verify_signature method testing
+    # verify_signature method testing is happening in the test_tlslite_ocsp.py
