@@ -1,10 +1,10 @@
 """Class for handling primary OCSP responses"""
 
 from .utils.asn1parser import ASN1Parser
-from .utils.cryptomath import bytesToNumber, numBytes
+from .utils.cryptomath import bytesToNumber, numBytes, secureHash
 from .x509 import X509
 from .signed import SignedObject
-
+from .errors import TLSIllegalParameterException
 
 class OCSPRespStatus(object):
     """ OCSP response status codes (RFC 2560) """
@@ -34,12 +34,21 @@ class SingleResponse(object):
         self.next_update = None
         self.parse(value)
 
+    _hash_algs_OIDs = {
+        tuple([0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd, 0x2, 0x5]): 'md5',
+        tuple([0x2b, 0xe, 0x3, 0x2, 0x1a]): 'sha1',
+        tuple([0x60, 0x86, 0x48, 0x1, 0x65, 0x3, 0x4, 0x2, 0x4]): 'sha224',
+        tuple([0x60, 0x86, 0x48, 0x1, 0x65, 0x3, 0x4, 0x2, 0x1]): 'sha256',
+        tuple([0x60, 0x86, 0x48, 0x1, 0x65, 0x3, 0x4, 0x2, 0x2]): 'sha384',
+        tuple([0x60, 0x86, 0x48, 0x1, 0x65, 0x3, 0x4, 0x2, 0x3]): 'sha512'
+    }
+
     def parse(self, value):
         cert_id = value.getChild(0)
-        self.cert_hash_alg = cert_id.getChild(0).value
+        self.cert_hash_alg = cert_id.getChild(0).getChild(0).value
         self.cert_issuer_name_hash = cert_id.getChild(1).value
         self.cert_issuer_key_hash = cert_id.getChild(2).value
-        self.cert_serial_num = cert_id.getChild(3).value
+        self.cert_serial_num = bytesToNumber(cert_id.getChild(3).value)
         self.cert_status = value.getChild(1).value
         self.this_update = value.getChild(2).value
         # next_update is optional
@@ -49,6 +58,34 @@ class SingleResponse(object):
                 self.next_update = fld.value
         except SyntaxError:
             self.next_update = None
+
+    def verify_cert_match(self, server_cert, issuer_cert):
+        # extact subject public key
+        issuer_key = issuer_cert.subject_public_key
+
+        # extract issuer DN
+        issuer_name = issuer_cert.subject
+
+        try:
+            alg = self._hash_algs_OIDs[tuple(self.cert_hash_alg)]
+        except KeyError as e:
+            raise TLSIllegalParameterException("Unknown hash algorithm: {0}".format(
+                            list(self.cert_hash_alg)))
+
+        # hash issuer key
+        hashed_key = secureHash(issuer_key, alg)
+        if hashed_key != self.cert_issuer_key_hash:
+            raise ValueError("Could not verify certificate public key")
+
+        # hash issuer name
+        hashed_name = secureHash(issuer_name, alg)
+        if hashed_name != self.cert_issuer_name_hash:
+            raise ValueError("Could not verify certificate DN")
+
+        # serial number
+        if server_cert.serial_number != self.cert_serial_num:
+            raise ValueError("Could not verify certificate serial number")
+        return True
 
 
 class OCSPResponse(SignedObject):
