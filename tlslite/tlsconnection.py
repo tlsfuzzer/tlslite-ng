@@ -629,7 +629,9 @@ class TLSConnection(TLSRecordLayer):
                             serverName,
                             encryptThenMAC=self._recordLayer.encryptThenMAC,
                             extendedMasterSecret=self.extendedMasterSecret,
-                            appProto=alpnProto)
+                            appProto=alpnProto,
+                            # NOTE it must be a reference not a copy
+                            tickets=self.tickets)
         self._handshakeDone(resumed=False)
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
@@ -2043,7 +2045,9 @@ class TLSConnection(TLSRecordLayer):
                             serverName,
                             encryptThenMAC=self._recordLayer.encryptThenMAC,
                             extendedMasterSecret=self.extendedMasterSecret,
-                            appProto=selectedALPN)
+                            appProto=selectedALPN,
+                            # NOTE it must be a reference, not a copy!
+                            tickets=self.tickets)
 
         #Add the session object to the session cache
         if sessionCache and sessionID:
@@ -2435,7 +2439,9 @@ class TLSConnection(TLSRecordLayer):
                             cl_app_secret=cl_app_traffic,
                             sr_app_secret=sr_app_traffic,
                             exporterMasterSecret=exporter_master_secret,
-                            resumptionMasterSecret=resumption_master_secret)
+                            resumptionMasterSecret=resumption_master_secret,
+                            # NOTE it must be a reference, not a copy
+                            tickets=self.tickets)
 
         # switch to application_traffic_secret for client packets
         self._changeReadState()
