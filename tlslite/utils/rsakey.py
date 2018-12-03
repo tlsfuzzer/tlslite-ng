@@ -57,7 +57,7 @@ class RSAKey(object):
         a PKCS1 or PSS signature on the passed-in data with selected hash
         algorithm.
 
-        :type bytes: str or bytearray
+        :type bytes: bytes-like object
         :param bytes: The value which will be hashed and signed.
 
         :type rsaScheme: str
@@ -88,10 +88,10 @@ class RSAKey(object):
         This verifies a PKCS1 or PSS signature on the passed-in data
         with selected hash algorithm.
 
-        :type sigBytes: bytearray
+        :type sigBytes: bytes-like object
         :param sigBytes: A PKCS1 or PSS signature.
 
-        :type bytes: str or bytearray
+        :type bytes: bytes-like object
         :param bytes: The value which will be hashed and verified.
 
         :type rsaScheme: str
@@ -178,7 +178,7 @@ class RSAKey(object):
 
         This signs the message using selected hash algorithm
 
-        :type mHash: bytearray
+        :type mHash: bytes-like object
         :param mHash: Hash of message to be signed
 
         :type hAlg: str
@@ -199,10 +199,10 @@ class RSAKey(object):
 
         This verifies the signature in encoded message
 
-        :type mHash: bytearray
+        :type mHash: bytes-like object
         :param mHash: Hash of the original not signed message
 
-        :type EM: bytearray
+        :type EM: bytes-like object
         :param EM: Encoded message
 
         :type emBits: int
@@ -252,10 +252,10 @@ class RSAKey(object):
 
         This verifies the signature in the signed message
 
-        :type mHash: bytearray
+        :type mHash: bytes-like object
         :param mHash: Hash of original message
 
-        :type S: bytearray
+        :type S: bytes-like object
         :param S: Signed message
 
         :type hAlg: str
@@ -294,7 +294,7 @@ class RSAKey(object):
         This requires the key to have a private component.  It performs
         a PKCS1 signature on the passed-in data.
 
-        :type bytes: bytearray
+        :type bytes: bytes-like object
         :param bytes: The value which will be signed.
 
         :type padding: str
@@ -342,10 +342,10 @@ class RSAKey(object):
 
         This verifies a PKCS1 signature on the passed-in data.
 
-        :type sigBytes: bytearray
+        :type sigBytes: bytes-like object
         :param sigBytes: A PKCS1 signature.
 
-        :type bytes: bytearray
+        :type bytes: bytes-like object
         :param bytes: The value which will be verified.
 
         :rtype: bool
@@ -377,7 +377,7 @@ class RSAKey(object):
 
         This performs PKCS1 encryption of the passed-in data.
 
-        :type bytes: bytearray
+        :type bytes: bytes-like object
         :param bytes: The value which will be encrypted.
 
         :rtype: bytearray
@@ -397,7 +397,7 @@ class RSAKey(object):
         This requires the key to have a private component.  It performs
         PKCS1 decryption of the passed-in data.
 
-        :type encBytes: bytearray
+        :type encBytes: bytes-like object
         :param encBytes: The value which will be decrypted.
 
         :rtype: bytearray or None
