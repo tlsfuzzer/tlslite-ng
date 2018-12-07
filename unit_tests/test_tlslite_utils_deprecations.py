@@ -9,6 +9,38 @@ try:
 except ImportError:
     import unittest
 
+# see https://github.com/pytest-dev/py/issues/110
+try:
+    import py.error  # dereference now so that loaded modules don't change
+except ImportError:
+    # ignore
+    pass
+try:
+    import py._error
+except ImportError:
+    # ignore
+    pass
+
+import sys
+while True:
+    end = True
+    for v in list(sys.modules.values()):
+        old = set(sys.modules.values())
+        _ = getattr(v, '__warningregistry__', None)
+        new = set(sys.modules.values())
+        if new - old:
+            end = False
+    if end:
+        break
+
+for v in sys.modules.values():
+    old = set(sys.modules.values())
+    if getattr(v, '__warningregistry__', None):
+        pass
+    new = set(sys.modules.values())
+    if new - old:
+        print("added module: {0}".format(new - old))
+
 try:
     import mock
     from mock import call
@@ -18,7 +50,6 @@ except ImportError:
 
 from tlslite.utils.deprecations import deprecated_params, \
         deprecated_attrs, deprecated_class_name
-
 
 class TestDeprecatedClassName(unittest.TestCase):
     def test_check_class(self):
