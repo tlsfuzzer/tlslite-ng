@@ -19,6 +19,30 @@ except ImportError:
 from tlslite.utils.deprecations import deprecated_params, \
         deprecated_attrs, deprecated_class_name
 
+# see https://github.com/pytest-dev/py/issues/110
+# preload the list until the list of loaded modules is static
+try:
+    import py.error
+except ImportError:
+    pass  # ignore
+import sys
+while True:
+    end = True
+    for v in list(sys.modules.values()):
+        old = set(sys.modules.values())
+        _ = getattr(v, '__warningregistry__', None)
+        new = set(sys.modules.values())
+        if new - old:
+            end = False
+    if end:
+        break
+for v in list(sys.modules.values()):
+    old = set(sys.modules.values())
+    _ = getattr(v, '__warningregistry__', None)
+    new = set(sys.modules.values())
+    if new - old:
+        print("changed: {0}".format(new - old))
+
 
 class TestDeprecatedClassName(unittest.TestCase):
     def test_check_class(self):
