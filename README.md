@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha19 (2018-09-24)
+tlslite-ng version 0.8.0-alpha20 (2018-12-07)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -642,6 +642,7 @@ calculate GCM tag, see #301)
 * repr() for Certificate and few extensions
 * OCSP response parsing (Anna Khaitovich)
 * OCSP signature verification (Anna Khaitovich)
+* matching OCSP response to EE and CA certificate (Anna Khaitovich)
 * fix HTTP header length leak in the test server (`tls.py`) (Róbert Kolcún)
 * minor fixes with sent alerts when encountering error conditions
 * fix lack of checking if the padding in SSLv3 is minimal
@@ -650,6 +651,8 @@ calculate GCM tag, see #301)
 * support chain of certificates in the `tls.py` script
 * fix sending of RSA-PSS certificate when the client didn't advertise support
   for `rsa_pss_pss_*` signature methods
+* clearly state in documentation that inputs to signature and verification
+  methods of RSA keys need to be bytes-like objects
 
 0.7.0 - 2017-07-31
 
