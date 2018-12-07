@@ -34,8 +34,14 @@ from .mathtls import createMAC_SSL, createHMAC, PRF_SSL, PRF, PRF_1_2, \
         PRF_1_2_SHA384
 
 class RecordSocket(object):
+    """
+    Socket wrapper for reading and writing TLS Records.
 
-    """Socket wrapper for reading and writing TLS Records"""
+    :ivar sock: wrapped socket
+    :ivar version: version for the records to be encoded on the wire
+    :ivar tls13record: flag to indicate that TLS 1.3 specific record limits
+        should be used for received records
+    """
 
     def __init__(self, sock):
         """
@@ -45,6 +51,7 @@ class RecordSocket(object):
         """
         self.sock = sock
         self.version = (0, 0)
+        self.tls13record = False
 
     def _sockSendAll(self, data):
         """
@@ -207,7 +214,9 @@ class RecordSocket(object):
         #Check the record header fields
         # 18432 = 2**14 (basic record size limit) + 1024 (maximum compression
         # overhead) + 1024 (maximum encryption overhead)
-        if record.length > 18432:
+        if record.length > 2**14 + 1024 + 1024:
+            raise TLSRecordOverflow()
+        if self.tls13record and record.length > 2**14 + 256:
             raise TLSRecordOverflow()
 
         #Read the record contents
@@ -344,6 +353,7 @@ class RecordLayer(object):
     def tls13record(self, val):
         """Change the record layer to TLS1.3-like operation, if applicable."""
         self._tls13record = val
+        self._recordSocket.tls13record = val
         self._handle_tls13_record()
 
     def _is_tls13_plus(self):
@@ -854,6 +864,8 @@ class RecordLayer(object):
         :raises TLSDecryptionFailed: when decryption of data failed
         :raises TLSBadRecordMAC: when record has bad MAC or padding
         :raises socket.error: when reading from socket was unsuccessful
+        :raises TLSRecordOverflow: when the received record was longer than
+            allowed by negotiated version of TLS
         """
         while True:
             result = None
@@ -921,6 +933,9 @@ class RecordLayer(object):
             if self._is_tls13_plus() and self._readState and \
                     self._readState.encContext and\
                     header.type != ContentType.change_cipher_spec:
+                # check if plaintext is not too big, RFC 8446, section 5.4
+                if len(data) > 2**14 + 1:
+                    raise TLSRecordOverflow()
                 data, contentType = self._tls13_de_pad(data)
                 header = RecordHeader3().create((3, 4), contentType, len(data))
 
