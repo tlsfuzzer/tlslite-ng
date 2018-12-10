@@ -23,6 +23,14 @@ TLS_1_3_DRAFT = (3, 4)
 TLS_1_3_HRR = a2b_hex("CF21AD74E59A6111BE1D8C021E65B891"
                       "C2A211167ABB8C5E079E09E2C8A8339C")
 
+# last bytes of ServerHello.random to be used when negotiating TLS 1.1 or
+# earlier while supporting TLS 1.2 or greater
+TLS_1_1_DOWNGRADE_SENTINEL = a2b_hex("444F574E47524400")
+
+# last bytes of ServerHello.random to be used when negotiating TLS 1.2
+# while supporting TLS 1.3 or greater
+TLS_1_2_DOWNGRADE_SENTINEL = a2b_hex("444F574E47524401")
+
 
 class TLSEnum(object):
     """Base class for different enums of TLS IDs"""
