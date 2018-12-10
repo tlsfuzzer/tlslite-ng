@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha20 (2018-12-07)
+tlslite-ng version 0.8.0-alpha21 (2018-12-10)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -653,6 +653,7 @@ calculate GCM tag, see #301)
   for `rsa_pss_pss_*` signature methods
 * clearly state in documentation that inputs to signature and verification
   methods of RSA keys need to be bytes-like objects
+* support for setting maximum supported version in tls.py server and client
 
 0.7.0 - 2017-07-31
 
