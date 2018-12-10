@@ -1943,7 +1943,13 @@ class TLSConnection(TLSRecordLayer):
             extensions = None
 
         serverHello = ServerHello()
-        serverHello.create(self.version, getRandomBytes(32), sessionID, \
+        # RFC 8446, section 4.1.3
+        random = getRandomBytes(32)
+        if version == (3, 3) and settings.maxVersion > (3, 3):
+            random[-8:] = TLS_1_2_DOWNGRADE_SENTINEL
+        if version < (3, 3) and settings.maxVersion >= (3, 3):
+            random[-8:] = TLS_1_1_DOWNGRADE_SENTINEL
+        serverHello.create(self.version, random, sessionID,
                            cipherSuite, CertificateType.x509, tackExt,
                            nextProtos, extensions=extensions)
 
