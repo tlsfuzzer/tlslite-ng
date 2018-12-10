@@ -77,12 +77,13 @@ def printUsage(s=None):
   server  
     [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384] [--ssl3]
+    [--psk-sha384] [--ssl3] [--max-ver VER]
     HOST:PORT
 
   client
     [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
     [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
+    [--max-ver VER]
     HOST:PORT
 
   LABEL - TLS exporter label
@@ -94,8 +95,23 @@ def printUsage(s=None):
   PSK - hex encoded (without starting 0x) shared key to be used for connection
   IDENTITY - name associated with the PSK key
   --ssl3 - enable support for SSLv3
+  VER - TLS version as a string, "ssl3", "tls1.0", "tls1.1", "tls1.2" or
+        "tls1.3"
 """)
     sys.exit(-1)
+
+
+def ver_to_tuple(name):
+    vers = {"ssl3": (3, 0),
+            "tls1.0": (3, 1),
+            "tls1.1": (3, 2),
+            "tls1.2": (3, 3),
+            "tls1.3": (3, 4)}
+    try:
+        return vers[name]
+    except KeyError:
+        raise ValueError("Unknown protocol name: {0}".format(name))
+
 
 def printError(s):
     """Print error message and exit"""
@@ -129,6 +145,7 @@ def handleArgs(argv, argString, flagsList=[]):
     psk_hash = 'sha256'
     resumption = False
     ssl3 = False
+    max_ver = None
 
     for opt, arg in opts:
         if opt == "-k":
@@ -180,6 +197,8 @@ def handleArgs(argv, argString, flagsList=[]):
             resumption = True
         elif opt == "--ssl3":
             ssl3 = True
+        elif opt == "--max-ver":
+            max_ver = ver_to_tuple(arg)
         else:
             assert(False)
 
@@ -235,6 +254,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(resumption)
     if "ssl3" in flagsList:
         retList.append(ssl3)
+    if "max-ver=" in flagsList:
+        retList.append(max_ver)
     return retList
 
 
@@ -296,9 +317,10 @@ def printExporter(connection, expLabel, expLength):
 
 def clientCmd(argv):
     (address, privateKey, cert_chain, username, password, expLabel,
-            expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3) = \
+            expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
+            max_ver) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
-                                     "resumption", "ssl3"])
+                                     "resumption", "ssl3", "max-ver="])
         
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -322,7 +344,9 @@ def clientCmd(argv):
     settings.useExperimentalTackExtension = True
     if ssl3:
         settings.minVersion = (3, 0)
-    
+    if max_ver:
+        settings.maxVersion = max_ver
+
     try:
         start = time.clock()
         if username and password:
@@ -425,10 +449,11 @@ def clientCmd(argv):
 
 def serverCmd(argv):
     (address, privateKey, cert_chain, tacks, verifierDB, directory, reqCert,
-            expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3) = \
+            expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
+            max_ver) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
-                    "psk-ident=", "psk-sha384", "ssl3"])
+                    "psk-ident=", "psk-sha384", "ssl3", "max-ver="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -465,6 +490,8 @@ def serverCmd(argv):
     settings.ticketKeys = [getRandomBytes(32)]
     if ssl3:
         settings.minVersion = (3, 0)
+    if max_ver:
+        settings.maxVersion = max_ver
 
     class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
         """Buffer the header and body of HTTP message."""
