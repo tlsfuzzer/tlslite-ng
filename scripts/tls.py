@@ -322,8 +322,6 @@ def timeStamp():
     else:
         return time.clock()
     
-    
-    
 def clientCmd(argv):
     (address, privateKey, cert_chain, username, password, expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
