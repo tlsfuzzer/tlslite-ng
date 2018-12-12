@@ -12,7 +12,6 @@ import os
 import os.path
 import socket
 import struct
-import time
 import getopt
 import binascii
 try:
@@ -34,7 +33,7 @@ from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
         GroupName, SignatureScheme
 from tlslite import __version__
-from tlslite.utils.compat import b2a_hex, a2b_hex
+from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
 
@@ -315,6 +314,7 @@ def printExporter(connection, expLabel, expLength):
     print("  Exporter length: {0}".format(expLength))
     print("  Keying material: {0}".format(exp))
 
+    
 def clientCmd(argv):
     (address, privateKey, cert_chain, username, password, expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
@@ -348,14 +348,14 @@ def clientCmd(argv):
         settings.maxVersion = max_ver
 
     try:
-        start = time.clock()
+        start = time_stamp()
         if username and password:
             connection.handshakeClientSRP(username, password, 
                 settings=settings, serverName=address[0])
         else:
             connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
-        stop = time.clock()        
+        stop = time_stamp()
         print("Handshake success")        
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -415,10 +415,10 @@ def clientCmd(argv):
     connection = TLSConnection(sock)
 
     try:
-        start = time.clock()
+        start = time_stamp()
         connection.handshakeClientCert(serverName=address[0], alpn=alpn,
             session=session)
-        stop = time.clock()
+        stop = time_stamp()
         print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -508,7 +508,7 @@ def serverCmd(argv):
                     activationFlags = 3
 
             try:
-                start = time.clock()
+                start = time_stamp()
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
                 connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
@@ -526,7 +526,7 @@ def serverCmd(argv):
                                               sni=sni)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
-                stop = time.clock()
+                stop = time_stamp()
             except TLSRemoteAlert as a:
                 if a.description == AlertDescription.user_canceled:
                     print(str(a))
