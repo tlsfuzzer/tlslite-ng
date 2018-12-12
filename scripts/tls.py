@@ -348,14 +348,14 @@ def clientCmd(argv):
         settings.maxVersion = max_ver
 
     try:
-        start = time.clock()
+        start = time.perf_counter()
         if username and password:
             connection.handshakeClientSRP(username, password, 
                 settings=settings, serverName=address[0])
         else:
             connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
-        stop = time.clock()        
+        stop = time.perf_counter()        
         print("Handshake success")        
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -415,10 +415,10 @@ def clientCmd(argv):
     connection = TLSConnection(sock)
 
     try:
-        start = time.clock()
+        start = time.perf_counter()
         connection.handshakeClientCert(serverName=address[0], alpn=alpn,
             session=session)
-        stop = time.clock()
+        stop = time.perf_counter()
         print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -508,7 +508,7 @@ def serverCmd(argv):
                     activationFlags = 3
 
             try:
-                start = time.clock()
+                start = time.perf_counter()
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
                 connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
@@ -526,7 +526,7 @@ def serverCmd(argv):
                                               sni=sni)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
-                stop = time.clock()
+                stop = time.perf_counter()
             except TLSRemoteAlert as a:
                 if a.description == AlertDescription.user_canceled:
                     print(str(a))
