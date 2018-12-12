@@ -315,6 +315,15 @@ def printExporter(connection, expLabel, expLength):
     print("  Exporter length: {0}".format(expLength))
     print("  Keying material: {0}".format(exp))
 
+def timeStamp():
+    major, minor = sys.version_info
+    if (major, minor) >= (3,3):
+        return time.perf_counter()
+    else:
+        return time.clock()
+    
+    
+    
 def clientCmd(argv):
     (address, privateKey, cert_chain, username, password, expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
@@ -348,14 +357,14 @@ def clientCmd(argv):
         settings.maxVersion = max_ver
 
     try:
-        start = time.clock()
+        start = timeStamp()
         if username and password:
             connection.handshakeClientSRP(username, password, 
                 settings=settings, serverName=address[0])
         else:
             connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
-        stop = time.clock()        
+        stop = timeStamp()        
         print("Handshake success")        
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -415,10 +424,10 @@ def clientCmd(argv):
     connection = TLSConnection(sock)
 
     try:
-        start = time.clock()
+        start = timeStamp()
         connection.handshakeClientCert(serverName=address[0], alpn=alpn,
             session=session)
-        stop = time.clock()
+        stop = timeStamp()
         print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
@@ -508,7 +517,7 @@ def serverCmd(argv):
                     activationFlags = 3
 
             try:
-                start = time.clock()
+                start = timeStamp()
                 connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
                                       1)
                 connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
@@ -526,7 +535,7 @@ def serverCmd(argv):
                                               sni=sni)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
-                stop = time.clock()
+                stop = timeStamp()
             except TLSRemoteAlert as a:
                 if a.description == AlertDescription.user_canceled:
                     print(str(a))
