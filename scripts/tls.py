@@ -382,7 +382,7 @@ def clientCmd(argv):
     printGoodConnection(connection, stop-start)
     printExporter(connection, expLabel, expLength)
     session = connection.session
-    connection.send("GET / HTTP/1.0\r\n\r\n")
+    connection.send(b"GET / HTTP/1.0\r\n\r\n")
     while True:
         try:
             r = connection.recv(10240)
