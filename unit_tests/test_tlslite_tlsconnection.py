@@ -243,6 +243,36 @@ class TestTLSConnection(unittest.TestCase):
         # 5 bytes is record layer header, 4 bytes is handshake protocol header
         self.assertEqual(len(sock.sent[0]) - 5 - 4, 512)
 
+    def test_keyingMaterialExporter_tls1_3_sha384(self):
+        sock = MockSocket(bytearray(0))
+        conn = TLSConnection(sock)
+        conn._recordLayer.version = (3, 4)
+        conn.session = Session()
+        conn.session.cipherSuite = \
+            CipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        conn.session.exporterMasterSecret = \
+            bytearray(b'0123456789abcdef0123456789abcdef0123456789abcdef' +
+                      b'0123456789abcdef0123456789abcdef0123456789abcdef')
+
+        mat = conn.keyingMaterialExporter(bytearray(b'test'), 20)
+        self.assertEqual(mat,
+            bytearray(b';\x96;\x08U*\xbd1\x0fL5^0\xe1*I\x9e\xd3\xcb0'))
+
+    def test_keyingMaterialExporter_tls1_3_sha256(self):
+        sock = MockSocket(bytearray(0))
+        conn = TLSConnection(sock)
+        conn._recordLayer.version = (3, 4)
+        conn.session = Session()
+        conn.session.cipherSuite = \
+            CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        conn.session.exporterMasterSecret = \
+            bytearray(b'0123456789abcdef0123456789abcdef' +
+                      b'0123456789abcdef0123456789abcdef')
+
+        mat = conn.keyingMaterialExporter(bytearray(b'test'), 20)
+        self.assertEqual(mat,
+            bytearray(b'W_h\x10\x83\xc0XD\x0fw\x0e\xfc/\x92\x8f\xb3\xfd\x13\x96\xd9'))
+
     def test_keyingMaterialExporter_tls1_2_sha384(self):
         sock = MockSocket(bytearray(0))
         conn = TLSConnection(sock)
@@ -268,19 +298,6 @@ class TestTLSConnection(unittest.TestCase):
             CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA
 
         with self.assertRaises(ValueError):
-            conn.keyingMaterialExporter(bytearray(b'test'), 20)
-
-    def test_keyingMaterialExporter_tls1_3(self):
-        sock = MockSocket(bytearray(0))
-        conn = TLSConnection(sock)
-        conn._clientRandom = bytearray(b'012345678901234567890123456789ab')
-        conn._serverRandom = bytearray(b'987654321098765432109876543210ab')
-        conn._recordLayer.version = (3, 4)
-        conn.session = Session()
-        conn.session.cipherSuite = \
-            CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-
-        with self.assertRaises(AssertionError):
             conn.keyingMaterialExporter(bytearray(b'test'), 20)
 
     def test_keyingMaterialExporter_invalid_label(self):
