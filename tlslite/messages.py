@@ -1218,13 +1218,30 @@ class CertificateRequest(HandshakeMsg):
         self.version = version
         self.supported_signature_algs = []
 
-    def create(self, certificate_types, certificate_authorities, sig_algs=()):
+    def create(self, certificate_types=None, certificate_authorities=None,
+               sig_algs=(), context=None, extensions=None):
         self.certificate_types = certificate_types
         self.certificate_authorities = certificate_authorities
         self.supported_signature_algs = sig_algs
+        self.certificate_request_context = context
+        self.extensions = extensions
         return self
 
-    def parse(self, p):
+    def _parse_tls13(self, p):
+        p.startLengthCheck(3)
+        self.certificate_request_context = p.getVarBytes(1)
+        if not p.getRemainingLength():
+            raise SyntaxError("No list of extensions")
+        else:
+            self.extensions = []
+            p2 = Parser(p.getVarBytes(2))
+            while p2.getRemainingLength():
+                self.extensions.append(TLSExtension().parse(p2))
+
+        p.stopLengthCheck()
+        return self
+
+    def _parse_tls12(self, p):
         p.startLengthCheck(3)
         self.certificate_types = p.getVarList(1, 1)
         if self.version >= (3, 3):
@@ -1239,7 +1256,22 @@ class CertificateRequest(HandshakeMsg):
         p.stopLengthCheck()
         return self
 
-    def write(self):
+    def parse(self, p):
+        if self.version <= (3, 3):
+            return self._parse_tls12(p)
+        else:
+            return self._parse_tls13(p)
+
+    def _write_tls13(self):
+        w = Writer()
+        w.addVarSeq(self.certificate_request_context, 1, 1)
+        w2 = Writer()
+        for ext in self.extensions:
+            w2.bytes += ext.write()
+        w.addVarSeq(w2.bytes, 1, 2)
+        return w
+
+    def _write_tls12(self):
         w = Writer()
         w.addVarSeq(self.certificate_types, 1, 1)
         if self.version >= (3, 3):
@@ -1252,7 +1284,14 @@ class CertificateRequest(HandshakeMsg):
         # add bytes
         for ca_dn in self.certificate_authorities:
             w.addVarSeq(ca_dn, 1, 2)
-        return self.postWrite(w)
+        return w
+
+    def write(self):
+        if self.version <= (3, 3):
+            writer = self._write_tls12()
+        else:
+            writer = self._write_tls13()
+        return self.postWrite(writer)
 
 
 class ServerKeyExchange(HandshakeMsg):
