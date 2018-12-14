@@ -2432,7 +2432,7 @@ class TestCertificateRequest(unittest.TestCase):
         self.assertEqual(cr.version, (3, 0))
         self.assertEqual(cr.certificate_types, [])
         self.assertEqual(cr.certificate_authorities, [])
-        self.assertEqual(cr.supported_signature_algs, [])
+        self.assertIsNone(cr.supported_signature_algs)
 
     def test_create(self):
         cr = CertificateRequest((3, 0))
@@ -2441,8 +2441,7 @@ class TestCertificateRequest(unittest.TestCase):
         self.assertEqual(cr.certificate_authorities, [])
         self.assertEqual(cr.certificate_types, [ClientCertificateType.rsa_sign])
 
-        # XXX type change from array!
-        self.assertEqual(cr.supported_signature_algs, tuple())
+        self.assertIsNone(cr.supported_signature_algs)
 
     def test_parse(self):
         cr = CertificateRequest((3, 1))
@@ -3331,7 +3330,7 @@ class TestSessionTicketPayload(unittest.TestCase):
 
     def test_parse_with_wrong_version(self):
         parser = Parser(
-            bytearray(b'\x00\x01' +  # version (internal)
+            bytearray(b'\x00\xff' +  # version (internal)
                       b'\x00\x20' +  # master secret length
                       b'\x22' * 32 +  # master secret
                       b'\x03\x04' +  # protocol version
