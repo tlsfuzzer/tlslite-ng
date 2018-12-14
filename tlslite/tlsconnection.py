@@ -2413,6 +2413,66 @@ class TLSConnection(TLSRecordLayer):
         # Finished messages
         self._changeWriteState()
 
+        clientCertChain = None
+        #Get [Certificate,] (if was requested)
+        if reqCert:
+            for result in self._getMsg(ContentType.handshake,
+                                       HandshakeType.certificate,
+                                       CertificateType.x509):
+                    if result in (0,1): yield result
+                    else: break
+            clientCertificate = result
+            if clientCertificate.cert_chain and \
+                    clientCertificate.cert_chain.getNumCerts() != 0:
+                clientCertChain = clientCertificate.cert_chain
+        else:
+            raise AssertionError()
+
+        #Get and check CertificateVerify, if relevant
+        cli_cert_verify_hh = self._handshake_hash.copy()
+        if clientCertChain:
+            for result in self._getMsg(ContentType.handshake,
+                                       HandshakeType.certificate_verify):
+                if result in (0, 1):
+                    yield result
+                else: break
+            certificate_verify = result
+            assert isinstance(certificate_verify, CertificateVerify)
+
+            signature_scheme = certificate_verify.signatureAlgorithm
+
+            validSigAlgs = self._sigHashesToList(settings)
+            if signature_scheme not in validSigAlgs:
+                for result in self._sendError(\
+                        AlertDescription.decryption_failed,
+                        "Invalid signature on Certificate Verify"):
+                    yield result
+
+            scheme = SignatureScheme.toRepr(signature_scheme)
+            # keyType = SignatureScheme.getKeyType(scheme)
+            padType = SignatureScheme.getPadding(scheme)
+            hashName = SignatureScheme.getHash(scheme)
+            saltLen = getattr(hashlib, hashName)().digest_size
+
+            signature_context = bytearray(b'\x20' * 64 +
+                                          b'TLS 1.3, client ' +
+                                          b'CertificateVerify' +
+                                          b'\x00') + \
+                                cli_cert_verify_hh.digest(prf_name)
+
+            signature_context = secureHash(signature_context, hashName)
+
+            publicKey = clientCertChain.getEndEntityPublicKey()
+
+            if not publicKey.verify(certificate_verify.signature,
+                                    signature_context,
+                                    padType,
+                                    hashName,
+                                    saltLen):
+                raise TLSDecryptionFailed("client Certificate Verify "
+                                          "signature "
+                                          "verification failed")
+
         # as both exporter and resumption master secrets include handshake
         # transcript, we need to derive them early
         exporter_master_secret = derive_secret(secret,
@@ -2462,7 +2522,7 @@ class TLSConnection(TLSRecordLayer):
                             bytearray(b''),  # no session_id
                             serverHello.cipher_suite,
                             bytearray(b''),  # no SRP
-                            None,
+                            clientCertChain,
                             serverCertChain,
                             None,
                             False,
