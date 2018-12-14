@@ -1093,7 +1093,7 @@ class Certificate(HandshakeMsg):
         self.certificateType = certificateType
         self._cert_chain = None
         self.version = version
-        self.certificate_list = None
+        self.certificate_list = []
         self.certificate_request_context = None
 
     @property
@@ -1101,10 +1101,11 @@ class Certificate(HandshakeMsg):
         """Getter for the cert_chain property."""
         if self._cert_chain:
             return self._cert_chain
-        elif self.certificate_list is None:
+        elif self.certificate_list:
+            return X509CertChain([i.certificate
+                                  for i in self.certificate_list])
+        else:
             return None
-        return X509CertChain([i.certificate
-                              for i in self.certificate_list])
 
     @cert_chain.setter
     def cert_chain(self, cert_chain):
@@ -1114,6 +1115,8 @@ class Certificate(HandshakeMsg):
             self.certificate_list = [CertificateEntry(self.certificateType)
                                      .create(i, []) for i
                                      in cert_chain.x509List]
+        elif cert_chain is None:
+            self.certificate_list = []
         else:
             self.certificate_list = cert_chain
 
@@ -1210,21 +1213,49 @@ class Certificate(HandshakeMsg):
                        self.certificate_list)
 
 
-class CertificateRequest(HandshakeMsg):
+class CertificateRequest(HelloMessage):
     def __init__(self, version):
-        HandshakeMsg.__init__(self, HandshakeType.certificate_request)
+        super(CertificateRequest, self).__init__(
+                HandshakeType.certificate_request)
         self.certificate_types = []
         self.certificate_authorities = []
         self.version = version
         self.supported_signature_algs = []
+        self.certificate_request_context = None
+        self.extensions = None
 
-    def create(self, certificate_types, certificate_authorities, sig_algs=()):
+    def create(self, certificate_types=None, certificate_authorities=None,
+               sig_algs=(), context=None, extensions=None):
+        """
+            Creates a Certificate Request message.
+            For TLS 1.3 only the context and extensions parameters should be
+            provided, the others are ignored.
+            For TLS versions below 1.3 instead only the first three parameters
+            are considered.
+        """
         self.certificate_types = certificate_types
         self.certificate_authorities = certificate_authorities
         self.supported_signature_algs = sig_algs
+        self.certificate_request_context = context
+        self.extensions = extensions
         return self
 
-    def parse(self, p):
+    def _parse_tls13(self, parser):
+        parser.startLengthCheck(3)
+        self.certificate_request_context = parser.getVarBytes(1)
+        if not parser.getRemainingLength():
+            raise SyntaxError("No list of extensions")
+        else:
+            self.extensions = []
+            sub_parser = Parser(parser.getVarBytes(2))
+            while sub_parser.getRemainingLength():
+                # We care only for universal extensions so far
+                self.extensions.append( TLSExtension().parse(sub_parser))
+
+        parser.stopLengthCheck()
+        return self
+
+    def _parse_tls12(self, p):
         p.startLengthCheck(3)
         self.certificate_types = p.getVarList(1, 1)
         if self.version >= (3, 3):
@@ -1239,7 +1270,21 @@ class CertificateRequest(HandshakeMsg):
         p.stopLengthCheck()
         return self
 
-    def write(self):
+    def parse(self, parser):
+        if self.version <= (3, 3):
+            return self._parse_tls12(parser)
+        return self._parse_tls13(parser)
+
+    def _write_tls13(self):
+        writer = Writer()
+        writer.addVarSeq(self.certificate_request_context, 1, 1)
+        sub_writer = Writer()
+        for ext in self.extensions:
+            sub_writer.bytes += ext.write()
+        writer.addVarSeq(sub_writer.bytes, 1, 2)
+        return writer
+
+    def _write_tls12(self):
         w = Writer()
         w.addVarSeq(self.certificate_types, 1, 1)
         if self.version >= (3, 3):
@@ -1252,7 +1297,14 @@ class CertificateRequest(HandshakeMsg):
         # add bytes
         for ca_dn in self.certificate_authorities:
             w.addVarSeq(ca_dn, 1, 2)
-        return self.postWrite(w)
+        return w
+
+    def write(self):
+        if self.version <= (3, 3):
+            writer = self._write_tls12()
+        else:
+            writer = self._write_tls13()
+        return self.postWrite(writer)
 
 
 class ServerKeyExchange(HandshakeMsg):
@@ -1975,27 +2027,52 @@ class SessionTicketPayload(object):
         self.cipher_suite = 0
         self.creation_time = 0
         self.nonce = bytearray()
+        self._cert_chain = None
+
+    @property
+    def cli_cert_chain(self):
+        """Getter for the cli_cert_chain property."""
+        if self._cert_chain:
+            return X509CertChain([i.certificate
+                                  for i in self._cert_chain])
+        return None
+
+    @cli_cert_chain.setter
+    def cli_cert_chain(self, cert_chain):
+        """Setter for the cert_chain property."""
+        self._cert_chain = [CertificateEntry(CertificateType.x509)
+                            .create(i, []) for i in cert_chain.x509List]
 
     def create(self, master_secret, protocol_version, cipher_suite,
-               creation_time, nonce=bytearray()):
+               creation_time, nonce=bytearray(), cli_cert_chain=None):
         """Initialise the object with cryptographic data."""
         self.master_secret = master_secret
         self.protocol_version = protocol_version
         self.cipher_suite = cipher_suite
         self.creation_time = creation_time
         self.nonce = nonce
-        # TODO certificates - client and server
+        if cli_cert_chain:
+            self.version = 1
+            self.cli_cert_chain = cli_cert_chain
         return self
+
+    def _parse_cert_chain(self, parser):
+        self._cert_chain = []
+        while parser.getRemainingLength():
+            entry = CertificateEntry(CertificateType.x509)
+            self._cert_chain.append(entry.parse(parser))
 
     def parse(self, parser):
         self.version = parser.get(2)
-        if self.version != 0:
+        if self.version > 1:
             raise ValueError("Unrecognised version number")
         self.master_secret = parser.getVarBytes(2)
         self.protocol_version = (parser.get(1), parser.get(1))
         self.cipher_suite = parser.get(2)
         self.nonce = parser.getVarBytes(1)
         self.creation_time = parser.get(8)
+        if self.version == 1:
+            self._parse_cert_chain(Parser(parser.getVarBytes(3)))
         if parser.getRemainingLength():
             raise ValueError("Malformed ticket")
         return self
@@ -2011,6 +2088,11 @@ class SessionTicketPayload(object):
         writer.addOne(len(self.nonce))
         writer.bytes += self.nonce
         writer.add(self.creation_time, 8)
+        if self.version == 1:
+            wcert = Writer()
+            for entry in self._cert_chain:
+                wcert.bytes += entry.write()
+            writer.addVarSeq(wcert.bytes, 1, 3)
         return writer.bytes
 
 
