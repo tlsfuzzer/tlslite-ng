@@ -23,7 +23,7 @@ from .utils.compat import formatExceptionTrace
 from .tlsrecordlayer import TLSRecordLayer
 from .session import Session
 from .constants import *
-from .utils.cryptomath import getRandomBytes
+from .utils.cryptomath import derive_secret, getRandomBytes, HKDF_expand_label
 from .utils.dns_utils import is_valid_hostname
 from .utils.lists import getFirstMatching
 from .errors import *
@@ -109,6 +109,14 @@ class TLSConnection(TLSRecordLayer):
                 return PRF_1_2(self.session.masterSecret, label,
                                self._clientRandom + self._serverRandom,
                                length)
+        elif self.version == (3, 4):
+            prf = 'sha256'
+            if self.session.cipherSuite in CipherSuite.sha384PrfSuites:
+                prf = 'sha384'
+            secret = derive_secret(self.session.exporterMasterSecret, label,
+                                   None, prf)
+            ctxhash = secureHash(bytearray(b''), prf)
+            return HKDF_expand_label(secret, b"exporter", ctxhash, length, prf)
         else:
             raise AssertionError("Unknown protocol version")
 

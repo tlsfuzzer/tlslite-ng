@@ -38,11 +38,20 @@ docs:
 dist: docs
 	./setup.py sdist
 
+.PHONY : test
 test:
 	python tests/tlstest.py server localhost:4433 tests & sleep 4
 	python tests/tlstest.py client localhost:4433 tests
 
-test-local:
+.PHONY : test-utils
+test-utils:
+	PYTHONPATH=. python scripts/tls.py server -c tests/serverX509Cert.pem -k tests/serverX509Key.pem localhost:4433 & echo "$$!" > server.pid & sleep 4
+	PYTHONPATH=. python scripts/tls.py client localhost:4433
+	kill `cat server.pid`
+	wait `cat server.pid` || :
+
+.PHONY : test-local
+test-local: test-utils
 	PYTHONPATH=. COVERAGE_FILE=.coverage.server coverage run --branch --source tlslite tests/tlstest.py server localhost:4433 tests & sleep 4
 	PYTHONPATH=. COVERAGE_FILE=.coverage.client coverage run --branch --source tlslite tests/tlstest.py client localhost:4433 tests
 
