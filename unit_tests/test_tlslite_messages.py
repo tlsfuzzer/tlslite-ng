@@ -3331,7 +3331,7 @@ class TestSessionTicketPayload(unittest.TestCase):
 
     def test_parse_with_wrong_version(self):
         parser = Parser(
-            bytearray(b'\x00\x01' +  # version (internal)
+            bytearray(b'\x00\xff' +  # version (internal)
                       b'\x00\x20' +  # master secret length
                       b'\x22' * 32 +  # master secret
                       b'\x03\x04' +  # protocol version
