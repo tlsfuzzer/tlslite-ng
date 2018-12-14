@@ -1842,7 +1842,7 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      privateKey, cert_chain,
                                                      version, scheme,
-                                                     alpn):
+                                                     alpn, reqCert):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2148,7 +2148,7 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version, scheme,
-                              srv_alpns):
+                              srv_alpns, reqCert):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
 
@@ -2323,6 +2323,26 @@ class TLSConnection(TLSRecordLayer):
             yield result
 
         if selected_psk is None:
+
+            # optionslly send the client a certificate request
+            if reqCert:
+
+                # the context SHALL be zero length except in post-handshake
+                ctx = b''
+
+                cr_extensions = []
+
+                # Get list of valid Signing Algorithms as an extension
+                validSigAlgs = self._sigHashesToList(settings)
+                assert len(validSigAlgs) > 0
+                sigAlgExt = SignatureAlgorithmsExtension().create(validSigAlgs)
+                cr_extensions.append(sigAlgExt)
+
+                certificateRequest = CertificateRequest(self.version)
+                certificateRequest.create(None, None, None, ctx, cr_extensions)
+                for result in self._sendMsg(certificateRequest):
+                    yield result
+
             certificate = Certificate(CertificateType.x509, self.version)
             certificate.create(serverCertChain, bytearray())
             for result in self._sendMsg(certificate):
