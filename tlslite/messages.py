@@ -1210,21 +1210,48 @@ class Certificate(HandshakeMsg):
                        self.certificate_list)
 
 
-class CertificateRequest(HandshakeMsg):
+class CertificateRequest(HelloMessage):
     def __init__(self, version):
-        HandshakeMsg.__init__(self, HandshakeType.certificate_request)
+        super(CertificateRequest, self).__init__(
+                HandshakeType.certificate_request)
         self.certificate_types = []
         self.certificate_authorities = []
         self.version = version
         self.supported_signature_algs = []
+        self.certificate_request_context = None
+        self.extensions = None
 
-    def create(self, certificate_types, certificate_authorities, sig_algs=()):
+    def create(self, certificate_types=None, certificate_authorities=None,
+               sig_algs=(), context=None, extensions=None):
+        """
+            Creates a Certificate Request message.
+            For TLS 1.3 only the context and extensions parameters should be
+            provided, the others are ignored.
+            For TLS versions below 1.3 instead only the first three parameters
+            are considered.
+        """
         self.certificate_types = certificate_types
         self.certificate_authorities = certificate_authorities
         self.supported_signature_algs = sig_algs
+        self.certificate_request_context = context
+        self.extensions = extensions
         return self
 
-    def parse(self, p):
+    def _parse_tls13(self, parser):
+        parser.startLengthCheck(3)
+        self.certificate_request_context = parser.getVarBytes(1)
+        if not parser.getRemainingLength():
+            raise SyntaxError("No list of extensions")
+        else:
+            self.extensions = []
+            sub_parser = Parser(parser.getVarBytes(2))
+            while sub_parser.getRemainingLength():
+                self.extensions.append(TLSExtension().parse(sub_parser))
+
+        parser.stopLengthCheck()
+        return self
+
+    def _parse_tls12(self, p):
         p.startLengthCheck(3)
         self.certificate_types = p.getVarList(1, 1)
         if self.version >= (3, 3):
@@ -1239,7 +1266,21 @@ class CertificateRequest(HandshakeMsg):
         p.stopLengthCheck()
         return self
 
-    def write(self):
+    def parse(self, parser):
+        if self.version <= (3, 3):
+            return self._parse_tls12(parser)
+        return self._parse_tls13(parser)
+
+    def _write_tls13(self):
+        writer = Writer()
+        writer.addVarSeq(self.certificate_request_context, 1, 1)
+        sub_writer = Writer()
+        for ext in self.extensions:
+            sub_writer.bytes += ext.write()
+        writer.addVarSeq(sub_writer.bytes, 1, 2)
+        return writer
+
+    def _write_tls12(self):
         w = Writer()
         w.addVarSeq(self.certificate_types, 1, 1)
         if self.version >= (3, 3):
@@ -1252,7 +1293,14 @@ class CertificateRequest(HandshakeMsg):
         # add bytes
         for ca_dn in self.certificate_authorities:
             w.addVarSeq(ca_dn, 1, 2)
-        return self.postWrite(w)
+        return w
+
+    def write(self):
+        if self.version <= (3, 3):
+            writer = self._write_tls12()
+        else:
+            writer = self._write_tls13()
+        return self.postWrite(writer)
 
 
 class ServerKeyExchange(HandshakeMsg):
