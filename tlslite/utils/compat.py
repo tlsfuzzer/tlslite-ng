@@ -10,6 +10,7 @@ import math
 import binascii
 import traceback
 import ecdsa
+import time
 
 if sys.version_info >= (3,0):
 
