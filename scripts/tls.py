@@ -12,7 +12,6 @@ import os
 import os.path
 import socket
 import struct
-import time
 import getopt
 import binascii
 try:
