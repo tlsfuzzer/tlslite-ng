@@ -274,6 +274,21 @@ class SignatureScheme(TLSEnum):
         assert kType == 'rsa'
         return hName
 
+    @staticmethod
+    def getSchemeName(signature_scheme):
+        sig_scheme_to_name = {
+            (2, 1): "rsa_pkcs1_sha1",
+            (4, 1): "rsa_pkcs1_sha256",
+            (5, 1): "rsa_pkcs1_sha384", 
+            (6, 1): "rsa_pkcs1_sha512",
+            (8, 4): "rsa_pss_rsae_sha256",
+            (8, 5): "rsa_pss_rsae_sha384",
+            (8, 6): "rsa_pss_rsae_sha512",
+            (8, 9): "rsa_pss_pss_sha256",
+            (8, 10): "rsa_pss_pss_sha384",
+            (8, 11): "rsa_pss_pss_sha512",
+        }
+        return sig_scheme_to_name[signature_scheme]
 
 class GroupName(TLSEnum):
     """Name of groups supported for (EC)DH key exchange"""
