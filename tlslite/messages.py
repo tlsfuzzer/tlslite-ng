@@ -1121,7 +1121,7 @@ class Certificate(HandshakeMsg):
             self.certificate_list = cert_chain
 
     @deprecated_params({"cert_chain": "certChain"})
-    def create(self, cert_chain, context=None):
+    def create(self, cert_chain, context=b''):
         """Initialise fields of the class."""
         self.cert_chain = cert_chain
         self.certificate_request_context = context

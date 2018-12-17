@@ -521,6 +521,8 @@ class TLSConnection(TLSRecordLayer):
         if ext and ext.version > (3, 3):
             for result in self._clientTLS13Handshake(settings, session,
                                                      clientHello,
+                                                     clientCertChain,
+                                                     privateKey,
                                                      serverHello):
                 if result in (0, 1):
                     yield result
@@ -1083,7 +1085,7 @@ class TLSConnection(TLSRecordLayer):
         return 'sha256', 32
 
     def _clientTLS13Handshake(self, settings, session, clientHello,
-                              serverHello):
+                              clientCertChain, privateKey, serverHello):
         """Perform TLS 1.3 handshake as a client."""
         prfName, prf_size = self._getPRFParams(serverHello.cipher_suite)
 
@@ -1163,15 +1165,29 @@ class TLSConnection(TLSRecordLayer):
         assert isinstance(encrypted_extensions, EncryptedExtensions)
 
         # if we negotiated PSK then Certificate is not sent
+        certificate_request = None
         certificate = None
         if not sr_psk:
             for result in self._getMsg(ContentType.handshake,
-                                       HandshakeType.certificate,
+                                       (HandshakeType.certificate_request,
+                                        HandshakeType.certificate),
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
                 else:
                     break
+
+            if isinstance(result, CertificateRequest):
+                certificate_request = result
+
+                # we got CertificateRequest so now we'll get Certificate
+                for result in self._getMsg(ContentType.handshake,
+                                           HandshakeType.certificate,
+                                           CertificateType.x509):
+                    if result in (0, 1):
+                        yield result
+                    else:
+                        break
 
             certificate = result
             assert isinstance(certificate, Certificate)
@@ -1247,9 +1263,72 @@ class TLSConnection(TLSRecordLayer):
                                        server_finish_hs, prfName)
         sr_app_traffic = derive_secret(secret, bytearray(b's ap traffic'),
                                        server_finish_hs, prfName)
+
+        if certificate_request:
+            client_certificate = Certificate(serverHello.certificate_type,
+                                             self.version)
+            if clientCertChain:
+                # Check to make sure we have the same type of certificates the
+                # server requested
+                if serverHello.certificate_type == CertificateType.x509 \
+                    and not isinstance(clientCertChain, X509CertChain):
+                    for result in self._sendError(
+                            AlertDescription.handshake_failure,
+                            "Client certificate is of wrong type"):
+                        yield result
+
+            client_certificate.create(clientCertChain)
+            # we need to send the message even if we don't have a certificate
+            for result in self._sendMsg(client_certificate):
+                yield result
+
+            if clientCertChain and privateKey:
+                validSigAlgs = certificate_request.supported_signature_algs
+                if not validSigAlgs:
+                    for result in self._sendError(
+                            AlertDescription.missing_extension,
+                            "No Signature Algorithms found"):
+                        yield result
+
+                availSigAlgs = self._sigHashesToList(settings, privateKey,
+                                                     clientCertChain)
+                signature_scheme = getFirstMatching(availSigAlgs, validSigAlgs)
+                scheme = SignatureScheme.toRepr(signature_scheme)
+                signature_scheme = getattr(SignatureScheme, scheme)
+                pad_type = SignatureScheme.getPadding(scheme)
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = getattr(hashlib, hash_name)().digest_size
+
+                signature_context = bytearray(b'\x20' * 64 +
+                                              b'TLS 1.3, client ' +
+                                              b'CertificateVerify' +
+                                              b'\x00') + \
+                                    self._handshake_hash.digest(prfName)
+                signature_context = secureHash(signature_context, hash_name)
+
+                signature = privateKey.sign(signature_context,
+                                            pad_type,
+                                            hash_name,
+                                            salt_len)
+                if not privateKey.verify(signature, signature_context,
+                                         pad_type,
+                                         hash_name,
+                                         salt_len):
+                    for result in self._sendError(
+                            AlertDescription.internal_error,
+                            "Certificate Verify signature failed"):
+                        yield result
+
+                certificate_verify = CertificateVerify(self.version)
+                certificate_verify.create(signature, signature_scheme)
+
+                for result in self._sendMsg(certificate_verify):
+                    yield result
+
+        # Do after client cert and verify messages has been sent.
         exporter_master_secret = derive_secret(secret,
                                                bytearray(b'exp master'),
-                                               server_finish_hs, prfName)
+                                               self._handshake_hash, prfName)
 
         self._recordLayer.calcTLS1_3PendingState(
             serverHello.cipher_suite,
