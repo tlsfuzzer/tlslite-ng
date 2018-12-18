@@ -416,6 +416,32 @@ def clientTestCmd(argv):
     settings.maxVersion = (3, 3)
     connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
     testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X509, TLSv1.3 no certs".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.maxVersion = (3,4)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X509, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.maxVersion = (3,4)
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
     connection.close()
 
@@ -850,6 +876,37 @@ def clientTestCmd(argv):
     settings.keyShares = []
     connection = connect()
     connection.handshakeClientCert(serverName=address[0], session=session,
+                                   settings=settings)
+    testConnClient(connection)
+    assert connection.resumed
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - resumption in TLSv1.3 with mutual X509".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    # force HRR
+    settings.keyShares = []
+    connection.handshakeClientCert(x509Chain, x509Key, serverName=address[0],
+                                   settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverName == address[0]
+    assert not connection.resumed
+    assert connection.session.tickets
+    connection.close()
+    session = connection.session
+
+    # resume
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.keyShares = []
+    connection = connect()
+    connection.handshakeClientCert(x509Chain, x509Key, serverName=address[0], session=session,
                                    settings=settings)
     testConnClient(connection)
     assert connection.resumed
@@ -1312,6 +1369,32 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual X.509, TLSv1.3 no certs".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.maxVersion = (3,4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert not connection.session.clientCertChain
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.maxVersion = (3,4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good mutual X.509, TLSv1.1".format(test_no))
     synchro.send(b'R')
     connection = connect()
@@ -1660,6 +1743,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
+    settings.minVersion = (3,4)
     settings.ticketKeys = [getRandomBytes(32)]
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings)
@@ -1672,6 +1756,28 @@ def serverTestCmd(argv):
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings)
     testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - resumption in TLSv1.3 with mutual X509".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.ticketKeys = [getRandomBytes(32)]
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               reqCert=True, settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    # resume
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert connection.session.clientCertChain
     connection.close()
 
     test_no += 1
