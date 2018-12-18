@@ -70,7 +70,7 @@ if sys.version_info >= (3,0):
         return str(e)
 
     def time_stamp():
-        """Returns time.clock() or time.perf_counter depending on python version"""
+        """Returns system time as a float"""
         if sys.version_info >= (3, 3):
             return time.perf_counter()
         return time.clock()
@@ -131,7 +131,7 @@ else:
     #pylint: enable=no-member
 
     def time_stamp():
-        """Returns time.clock() or time.perf_counter depending on python version"""
+        """Returns system time as a float"""
         return time.clock()
 
 try:
