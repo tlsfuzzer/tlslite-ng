@@ -9,6 +9,7 @@ import platform
 import math
 import binascii
 import traceback
+import time
 import ecdsa
 
 if sys.version_info >= (3,0):
@@ -68,6 +69,12 @@ if sys.version_info >= (3,0):
         """Return exception information formatted as string"""
         return str(e)
 
+    def time_stamp():
+        """Returns system time as a float"""
+        if sys.version_info >= (3, 3):
+            return time.perf_counter()
+        return time.clock()
+
 else:
     # Python 2.6 requires strings instead of bytearrays in a couple places,
     # so we define this function so it does the conversion if needed.
@@ -122,6 +129,10 @@ else:
                                                     sys.exc_traceback))
         return newStr
     #pylint: enable=no-member
+
+    def time_stamp():
+        """Returns system time as a float"""
+        return time.clock()
 
 try:
     # Fedora and Red Hat Enterprise Linux versions have small curves removed
