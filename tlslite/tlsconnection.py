@@ -2482,7 +2482,15 @@ class TLSConnection(TLSRecordLayer):
         clientHello = result
 
         #If client's version is too low, reject it
-        if clientHello.client_version < settings.minVersion:
+        real_version = clientHello.client_version
+        if real_version >= (3, 3):
+            ext = clientHello.getExtension(ExtensionType.supported_versions)
+            if ext:
+                for v in ext.versions:
+                    if v >= settings.minVersion:
+                        real_version = v
+                        break
+        if real_version < settings.minVersion:
             self.version = settings.minVersion
             for result in self._sendError(\
                   AlertDescription.protocol_version,
