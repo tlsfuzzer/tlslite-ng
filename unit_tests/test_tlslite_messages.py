@@ -30,7 +30,8 @@ from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         SignatureScheme, TLS_1_3_HRR, HeartbeatMessageType
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
-    ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity
+    ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity, \
+    SignatureAlgorithmsExtension
 from tlslite.errors import TLSInternalError
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
@@ -2433,6 +2434,8 @@ class TestCertificateRequest(unittest.TestCase):
         self.assertEqual(cr.certificate_types, [])
         self.assertEqual(cr.certificate_authorities, [])
         self.assertIsNone(cr.supported_signature_algs)
+        self.assertEqual(cr.certificate_request_context, b'')
+        self.assertIsNone(cr.extensions)
 
     def test_create(self):
         cr = CertificateRequest((3, 0))
@@ -2442,6 +2445,13 @@ class TestCertificateRequest(unittest.TestCase):
         self.assertEqual(cr.certificate_types, [ClientCertificateType.rsa_sign])
 
         self.assertIsNone(cr.supported_signature_algs)
+
+    def test_create_tls13(self):
+        cr = CertificateRequest((3, 4))
+        cr.create(context=b'\x01', extensions=None)
+
+        self.assertEqual(cr.certificate_request_context, b'\x01')
+        self.assertEqual(cr.extensions, None)
 
     def test_parse(self):
         cr = CertificateRequest((3, 1))
@@ -2490,6 +2500,43 @@ class TestCertificateRequest(unittest.TestCase):
         for cert_auth in cr.certificate_authorities:
             self.assertEqual(cert_auth, bytearray(0))
 
+    def test_parse_with_TLS1_3(self):
+        cr = CertificateRequest((3, 4))
+
+        parser = Parser(bytearray(
+            b'\x00\x00\x0e' +       # overall length
+            b'\x01' +               # length of self.certificate_request_context
+            b'\x01' +               # context data
+            b'\x00\x0a' +           # length of extensions
+            b'\x00\x0d' +           # extension type signature_algorithms(13)
+            b'\x00\x06' +           # extension data length
+            b'\x00\x04' +           # sig alg list length in bytes
+            b'\x08\x06' +           # rsa_pss_rsae_sha512
+            b'\x02\x01'             # rsa_pkcs1_sha1
+            ))
+
+        cr.parse(parser)
+        self.assertEqual(cr.certificate_request_context, b'\x01')
+        self.assertEqual(cr.extensions, [
+            SignatureAlgorithmsExtension().create(
+                [(8, 6), (2, 1)]
+        )])
+        self.assertEqual(cr.supported_signature_algs, [(8, 6), (2, 1)])
+
+    def test_parse_with_TLS1_3_invalid(self):
+        cr = CertificateRequest((3, 4))
+
+        # will raise as no extensions are provided
+        parser = Parser(bytearray(
+            b'\x00\x00\x02' +       # overall length
+            b'\x01' +               # length of certificate_request_context
+            b'\x01'                 # context data
+        ))
+
+        with self.assertRaises(SyntaxError):
+            cr.parse(parser)
+
+
     def test_write(self):
         cr = CertificateRequest((3, 1))
         cr.create([ClientCertificateType.rsa_sign], [bytearray(b'\xff\xff')])
@@ -2522,6 +2569,23 @@ class TestCertificateRequest(unittest.TestCase):
             b'\x02\x01' +           # SHA1+RSA
             b'\x00\x00'             # length of CA list
             ))
+
+    def test_write_in_TLS_v1_3(self):
+        cr = CertificateRequest((3, 4))
+        self.assertEqual(cr.version, (3, 4))
+        cr.create(context=b'', sig_algs=[(2, 1), (8, 6)])
+
+        self.assertEqual(cr.write(), bytearray(
+            b'\x0d' +               # type
+            b'\x00\x00\x0d' +       # overall length
+            b'\x00' +               # length of self.certificate_request_context
+            b'\x00\x0a' +           # length of extensions
+            b'\x00\x0d' +           # extension type signature_algorithms(13)
+            b'\x00\x06' +           # extension data length
+            b'\x00\x04' +           # sig alg list length in bytes
+            b'\x02\x01' +           # rsa_pkcs1_sha1
+            b'\x08\x06'             # rsa_pss_rsae_sha512
+        ))
 
 class TestCertificateVerify(unittest.TestCase):
     def test___init__(self):
