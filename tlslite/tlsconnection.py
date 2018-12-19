@@ -2837,54 +2837,59 @@ class TLSConnection(TLSRecordLayer):
         if clientHello.session_id and sessionCache:
             session = None
 
-            #Check in the session cache
-            if sessionCache and not session:
-                try:
-                    session = sessionCache[clientHello.session_id]
-                    if not session.resumable:
-                        raise AssertionError()
-                    #Check for consistency with ClientHello
-                    if session.cipherSuite not in cipherSuites:
-                        for result in self._sendError(\
+            # Check if the session there is good enough and consistent with
+            # new Client Hello
+            try:
+                session = sessionCache[clientHello.session_id]
+                if not session.resumable:
+                    raise AssertionError()
+                # Check if we are willing to use that old cipher still
+                if session.cipherSuite not in cipherSuites:
+                    for result in self._sendError(
+                            AlertDescription.handshake_failure):
+                        yield result
+                # Check for consistency with ClientHello
+                # see RFC 5246 section 7.4.1.2, description of
+                # cipher_suites
+                if session.cipherSuite not in clientHello.cipher_suites:
+                    for result in self._sendError(
+                            AlertDescription.handshake_failure):
+                        yield result
+                if clientHello.srp_username:
+                    if not session.srpUsername or \
+                            clientHello.srp_username != \
+                            bytearray(session.srpUsername, "utf-8"):
+                        for result in self._sendError(
                                 AlertDescription.handshake_failure):
                             yield result
-                    if session.cipherSuite not in clientHello.cipher_suites:
-                        for result in self._sendError(\
+                if clientHello.server_name:
+                    if not session.serverName or \
+                            clientHello.server_name != \
+                            bytearray(session.serverName, "utf-8"):
+                        for result in self._sendError(
                                 AlertDescription.handshake_failure):
                             yield result
-                    if clientHello.srp_username:
-                        if not session.srpUsername or \
-                            clientHello.srp_username != bytearray(session.srpUsername, "utf-8"):
-                            for result in self._sendError(\
-                                    AlertDescription.handshake_failure):
-                                yield result
-                    if clientHello.server_name:
-                        if not session.serverName or \
-                            clientHello.server_name != bytearray(session.serverName, "utf-8"):
-                            for result in self._sendError(\
-                                    AlertDescription.handshake_failure):
-                                yield result                    
-                    if session.encryptThenMAC and \
-                            not clientHello.getExtension(
-                                    ExtensionType.encrypt_then_mac):
-                        for result in self._sendError(\
+                if session.encryptThenMAC and \
+                        not clientHello.getExtension(
+                                ExtensionType.encrypt_then_mac):
+                    for result in self._sendError(
                                 AlertDescription.handshake_failure):
-                            yield result
-                    # if old session used EMS, new connection MUST use EMS
-                    if session.extendedMasterSecret and \
-                            not clientHello.getExtension(
-                                    ExtensionType.extended_master_secret):
-                        for result in self._sendError(\
-                                AlertDescription.handshake_failure):
-                            yield result
-                    # if old session didn't use EMS but new connection
-                    # advertises EMS, create a new session
-                    elif not session.extendedMasterSecret and \
-                            clientHello.getExtension(
-                                    ExtensionType.extended_master_secret):
-                        session = None
-                except KeyError:
-                    pass
+                        yield result
+                # if old session used EMS, new connection MUST use EMS
+                if session.extendedMasterSecret and \
+                        not clientHello.getExtension(
+                                ExtensionType.extended_master_secret):
+                    for result in self._sendError(
+                            AlertDescription.handshake_failure):
+                        yield result
+                # if old session didn't use EMS but new connection
+                # advertises EMS, create a new session
+                elif not session.extendedMasterSecret and \
+                        clientHello.getExtension(
+                                ExtensionType.extended_master_secret):
+                    session = None
+            except KeyError:
+                pass
 
             #If a session is found..
             if session:
