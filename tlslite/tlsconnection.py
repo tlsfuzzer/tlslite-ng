@@ -2845,15 +2845,14 @@ class TLSConnection(TLSRecordLayer):
                     raise AssertionError()
                 # Check if we are willing to use that old cipher still
                 if session.cipherSuite not in cipherSuites:
-                    for result in self._sendError(
-                            AlertDescription.handshake_failure):
-                        yield result
+                    session = None
+                    raise KeyError()
                 # Check for consistency with ClientHello
                 # see RFC 5246 section 7.4.1.2, description of
                 # cipher_suites
                 if session.cipherSuite not in clientHello.cipher_suites:
                     for result in self._sendError(
-                            AlertDescription.handshake_failure):
+                            AlertDescription.illegal_parameter):
                         yield result
                 if clientHello.srp_username:
                     if not session.srpUsername or \
@@ -2873,12 +2872,14 @@ class TLSConnection(TLSRecordLayer):
                         not clientHello.getExtension(
                                 ExtensionType.encrypt_then_mac):
                     for result in self._sendError(
-                                AlertDescription.handshake_failure):
+                            AlertDescription.illegal_parameter):
                         yield result
                 # if old session used EMS, new connection MUST use EMS
                 if session.extendedMasterSecret and \
                         not clientHello.getExtension(
                                 ExtensionType.extended_master_secret):
+                    # RFC 7627, section 5.2 explicitly requires
+                    # handshake_failure
                     for result in self._sendError(
                             AlertDescription.handshake_failure):
                         yield result
