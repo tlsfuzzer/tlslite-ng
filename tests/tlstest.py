@@ -822,7 +822,7 @@ def clientTestCmd(argv):
         connection.handshakeClientCert(serverName=address[0], session=session,
                                        settings=settings)
     except TLSRemoteAlert as e:
-        assert(str(e) == "handshake_failure")
+        assert(str(e) == "illegal_parameter")
     else:
         raise AssertionError("No exception raised")
     connection.close()
@@ -1649,7 +1649,7 @@ def serverTestCmd(argv):
         connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                    sessionCache=sessionCache)
     except TLSLocalAlert as e:
-        assert(str(e) == "handshake_failure")
+        assert(str(e) == "illegal_parameter")
     else:
         raise AssertionError("no exception raised")
     connection.close()
