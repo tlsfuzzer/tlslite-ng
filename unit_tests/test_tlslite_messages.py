@@ -3331,6 +3331,11 @@ class TestEncryptedExtensions(unittest.TestCase):
 
 
 class TestSessionTicketPayload(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.x509_cert = X509().parse(srv_raw_certificate)
+        cls.der_cert = cls.x509_cert.writeBytes()
+
     def test___init__(self):
         ticket = SessionTicketPayload()
 
@@ -3373,6 +3378,30 @@ class TestSessionTicketPayload(unittest.TestCase):
                       b'\x11' * 16 +  # nonce
                       b'\x00\x00\x00\x00\x00\xbc\x61\x4e'))  # creation time
 
+    def test_write_v1(self):
+        ticket = SessionTicketPayload()
+        ticket.create(bytearray(b'\x22' * 32),
+                      (3, 4),
+                      0x1302,
+                      12345678,
+                      bytearray(b'\x11' * 16),
+                      X509CertChain([self.x509_cert]))
+
+        self.assertEqual(
+            ticket.write(),
+            bytearray(b'\x00\x01' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e' +  # creation time
+                      b'\x00\x01\xff' +  # length of array of certificates
+                      b'\x00\x01\xfa' +  # length of certificate
+                      self.der_cert + # certificate payload
+                      b'\x00\x00'))
+
     def test_parse(self):
         parser = Parser(
             bytearray(b'\x00\x00' +  # version (internal)
@@ -3383,6 +3412,7 @@ class TestSessionTicketPayload(unittest.TestCase):
                       b'\x10' +  # nonce length
                       b'\x11' * 16 +  # nonce
                       b'\x00\x00\x00\x00\x00\xbc\x61\x4e'))  # creation time
+
         ticket = SessionTicketPayload().parse(parser)
 
         self.assertEqual(ticket.master_secret, bytearray(b'\x22' * 32))
@@ -3390,6 +3420,33 @@ class TestSessionTicketPayload(unittest.TestCase):
         self.assertEqual(ticket.cipher_suite, 0x1302)
         self.assertEqual(ticket.creation_time, 12345678)
         self.assertEqual(ticket.nonce, bytearray(b'\x11' * 16))
+
+    def test_parse_v1(self):
+        parser = Parser(
+            bytearray(b'\x00\x01' +  # version (internal)
+                      b'\x00\x20' +  # master secret length
+                      b'\x22' * 32 +  # master secret
+                      b'\x03\x04' +  # protocol version
+                      b'\x13\x02' +  # cipher suite
+                      b'\x10' +  # nonce length
+                      b'\x11' * 16 +  # nonce
+                      b'\x00\x00\x00\x00\x00\xbc\x61\x4e' +  # creation time
+                      b'\x00\x01\xff' +  # length of array of certificates
+                      b'\x00\x01\xfa' +  # length of certificate
+                      self.der_cert + # certificate payload
+                      b'\x00\x00'))
+        ticket = SessionTicketPayload().parse(parser)
+
+        self.assertEqual(ticket.master_secret, bytearray(b'\x22' * 32))
+        self.assertEqual(ticket.protocol_version, (3, 4))
+        self.assertEqual(ticket.cipher_suite, 0x1302)
+        self.assertEqual(ticket.creation_time, 12345678)
+        self.assertEqual(ticket.nonce, bytearray(b'\x11' * 16))
+        self.assertIsNotNone(ticket.client_cert_chain)
+        self.assertIsInstance(ticket.client_cert_chain, X509CertChain)
+        self.assertEqual(len(ticket.client_cert_chain.x509List), 1)
+        self.assertEqual(ticket.client_cert_chain.x509List[0].writeBytes(),
+                         self.der_cert)
 
 
     def test_parse_with_wrong_version(self):
