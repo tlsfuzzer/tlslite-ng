@@ -1205,19 +1205,16 @@ class TLSConnection(TLSRecordLayer):
 
             signature_scheme = certificate_verify.signatureAlgorithm
 
+            signature_context = KeyExchange.calcVerifyBytes((3, 4),
+                                                            srv_cert_verify_hh,
+                                                            signature_scheme,
+                                                            None, None, None,
+                                                            prfName, b'server')
+
             scheme = SignatureScheme.toRepr(signature_scheme)
-            # keyType = SignatureScheme.getKeyType(scheme)
             padType = SignatureScheme.getPadding(scheme)
             hashName = SignatureScheme.getHash(scheme)
             saltLen = getattr(hashlib, hashName)().digest_size
-
-            signature_context = bytearray(b'\x20' * 64 +
-                                          b'TLS 1.3, server ' +
-                                          b'CertificateVerify' +
-                                          b'\x00') + \
-                                srv_cert_verify_hh.digest(prfName)
-
-            signature_context = secureHash(signature_context, hashName)
 
             publicKey = certificate.cert_chain.getEndEntityPublicKey()
 
@@ -1295,16 +1292,15 @@ class TLSConnection(TLSRecordLayer):
                 signature_scheme = getFirstMatching(availSigAlgs, validSigAlgs)
                 scheme = SignatureScheme.toRepr(signature_scheme)
                 signature_scheme = getattr(SignatureScheme, scheme)
+
+                signature_context = \
+                    KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
+                                                signature_scheme, None, None,
+                                                None, prfName, b'client')
+
                 pad_type = SignatureScheme.getPadding(scheme)
                 hash_name = SignatureScheme.getHash(scheme)
                 salt_len = getattr(hashlib, hash_name)().digest_size
-
-                signature_context = bytearray(b'\x20' * 64 +
-                                              b'TLS 1.3, client ' +
-                                              b'CertificateVerify' +
-                                              b'\x00') + \
-                                    self._handshake_hash.digest(prfName)
-                signature_context = secureHash(signature_context, hash_name)
 
                 signature = privateKey.sign(signature_context,
                                             pad_type,
@@ -2431,17 +2427,15 @@ class TLSConnection(TLSRecordLayer):
             certificate_verify = CertificateVerify(self.version)
 
             signature_scheme = getattr(SignatureScheme, scheme)
-            keyType = SignatureScheme.getKeyType(scheme)
+
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
+                                            signature_scheme, None, None, None,
+                                            prf_name, b'server')
+
             padType = SignatureScheme.getPadding(scheme)
             hashName = SignatureScheme.getHash(scheme)
             saltLen = getattr(hashlib, hashName)().digest_size
-
-            signature_context = bytearray(b'\x20' * 64 +
-                                          b'TLS 1.3, server ' +
-                                          b'CertificateVerify' +
-                                          b'\x00') + \
-                                self._handshake_hash.digest(prf_name)
-            signature_context = secureHash(signature_context, hashName)
 
             signature = privateKey.sign(signature_context,
                                         padType,
@@ -2527,18 +2521,15 @@ class TLSConnection(TLSRecordLayer):
                         "Invalid signature on Certificate Verify"):
                     yield result
 
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4), cli_cert_verify_hh,
+                                            signature_scheme, None, None, None,
+                                            prf_name, b'client')
+
             scheme = SignatureScheme.toRepr(signature_scheme)
             pad_type = SignatureScheme.getPadding(scheme)
             hash_name = SignatureScheme.getHash(scheme)
             salt_len = getattr(hashlib, hash_name)().digest_size
-
-            signature_context = bytearray(b'\x20' * 64 +
-                                          b'TLS 1.3, client ' +
-                                          b'CertificateVerify' +
-                                          b'\x00') + \
-                                cli_cert_verify_hh.digest(prf_name)
-
-            signature_context = secureHash(signature_context, hash_name)
 
             public_key = client_cert_chain.getEndEntityPublicKey()
 
