@@ -203,6 +203,7 @@ class SignatureScheme(TLSEnum):
     """
 
     rsa_pkcs1_sha1 = (2, 1)
+    rsa_pkcs1_sha224 = (3, 1)
     rsa_pkcs1_sha256 = (4, 1)
     rsa_pkcs1_sha384 = (5, 1)
     rsa_pkcs1_sha512 = (6, 1)
