@@ -17,7 +17,7 @@ from .utils.ecc import decodeX962Point, encodeX962Point, getCurveByName, \
         getPointByteSize
 from .utils.rsakey import RSAKey
 from .utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
-        numBits, numberToByteArray, divceil, numBytes
+        numBits, numberToByteArray, divceil, numBytes, secureHash
 from .utils.lists import getFirstMatching
 from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
@@ -200,7 +200,8 @@ class KeyExchange(object):
 
     @staticmethod
     def calcVerifyBytes(version, handshakeHashes, signatureAlg,
-                        premasterSecret, clientRandom, serverRandom):
+                        premasterSecret, clientRandom, serverRandom,
+                        prf_name = None, peer_tag=b'client'):
         """Calculate signed bytes for Certificate Verify"""
         if version == (3, 0):
             masterSecret = calcMasterSecret(version,
@@ -222,6 +223,17 @@ class KeyExchange(object):
             verifyBytes = handshakeHashes.digest(hashName)
             if padding == 'pkcs1':
                 verifyBytes = RSAKey.addPKCS1Prefix(verifyBytes, hashName)
+        elif version == (3, 4):
+            scheme = SignatureScheme.toRepr(signatureAlg)
+            hash_name = SignatureScheme.getHash(scheme)
+            verifyBytes = bytearray(b'\x20' * 64 +
+                                    b'TLS 1.3, ' + peer_tag +
+                                    b' CertificateVerify' +
+                                    b'\x00') + \
+                          handshakeHashes.digest(prf_name)
+            verifyBytes = secureHash(verifyBytes, hash_name)
+        else:
+            raise ValueError("Unsupported TLS version {}".format(version))
         return verifyBytes
 
     @staticmethod
