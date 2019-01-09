@@ -29,7 +29,7 @@ from .utils.lists import getFirstMatching
 from .errors import *
 from .messages import *
 from .mathtls import *
-from .handshakesettings import HandshakeSettings
+from .handshakesettings import HandshakeSettings, KNOWN_VERSIONS
 from .handshakehashes import HandshakeHashes
 from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
@@ -521,6 +521,8 @@ class TLSConnection(TLSRecordLayer):
         if ext and ext.version > (3, 3):
             for result in self._clientTLS13Handshake(settings, session,
                                                      clientHello,
+                                                     clientCertChain,
+                                                     privateKey,
                                                      serverHello):
                 if result in (0, 1):
                     yield result
@@ -1083,7 +1085,7 @@ class TLSConnection(TLSRecordLayer):
         return 'sha256', 32
 
     def _clientTLS13Handshake(self, settings, session, clientHello,
-                              serverHello):
+                              clientCertChain, privateKey, serverHello):
         """Perform TLS 1.3 handshake as a client."""
         prfName, prf_size = self._getPRFParams(serverHello.cipher_suite)
 
@@ -1163,15 +1165,29 @@ class TLSConnection(TLSRecordLayer):
         assert isinstance(encrypted_extensions, EncryptedExtensions)
 
         # if we negotiated PSK then Certificate is not sent
+        certificate_request = None
         certificate = None
         if not sr_psk:
             for result in self._getMsg(ContentType.handshake,
-                                       HandshakeType.certificate,
+                                       (HandshakeType.certificate_request,
+                                        HandshakeType.certificate),
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
                 else:
                     break
+
+            if isinstance(result, CertificateRequest):
+                certificate_request = result
+
+                # we got CertificateRequest so now we'll get Certificate
+                for result in self._getMsg(ContentType.handshake,
+                                           HandshakeType.certificate,
+                                           CertificateType.x509):
+                    if result in (0, 1):
+                        yield result
+                    else:
+                        break
 
             certificate = result
             assert isinstance(certificate, Certificate)
@@ -1189,19 +1205,16 @@ class TLSConnection(TLSRecordLayer):
 
             signature_scheme = certificate_verify.signatureAlgorithm
 
+            signature_context = KeyExchange.calcVerifyBytes((3, 4),
+                                                            srv_cert_verify_hh,
+                                                            signature_scheme,
+                                                            None, None, None,
+                                                            prfName, b'server')
+
             scheme = SignatureScheme.toRepr(signature_scheme)
-            # keyType = SignatureScheme.getKeyType(scheme)
             padType = SignatureScheme.getPadding(scheme)
             hashName = SignatureScheme.getHash(scheme)
             saltLen = getattr(hashlib, hashName)().digest_size
-
-            signature_context = bytearray(b'\x20' * 64 +
-                                          b'TLS 1.3, server ' +
-                                          b'CertificateVerify' +
-                                          b'\x00') + \
-                                srv_cert_verify_hh.digest(prfName)
-
-            signature_context = secureHash(signature_context, hashName)
 
             publicKey = certificate.cert_chain.getEndEntityPublicKey()
 
@@ -1247,9 +1260,71 @@ class TLSConnection(TLSRecordLayer):
                                        server_finish_hs, prfName)
         sr_app_traffic = derive_secret(secret, bytearray(b's ap traffic'),
                                        server_finish_hs, prfName)
+
+        if certificate_request:
+            client_certificate = Certificate(serverHello.certificate_type,
+                                             self.version)
+            if clientCertChain:
+                # Check to make sure we have the same type of certificates the
+                # server requested
+                if serverHello.certificate_type == CertificateType.x509 \
+                    and not isinstance(clientCertChain, X509CertChain):
+                    for result in self._sendError(
+                            AlertDescription.handshake_failure,
+                            "Client certificate is of wrong type"):
+                        yield result
+
+            client_certificate.create(clientCertChain)
+            # we need to send the message even if we don't have a certificate
+            for result in self._sendMsg(client_certificate):
+                yield result
+
+            if clientCertChain and privateKey:
+                validSigAlgs = certificate_request.supported_signature_algs
+                if not validSigAlgs:
+                    for result in self._sendError(
+                            AlertDescription.missing_extension,
+                            "No Signature Algorithms found"):
+                        yield result
+
+                availSigAlgs = self._sigHashesToList(settings, privateKey,
+                                                     clientCertChain)
+                signature_scheme = getFirstMatching(availSigAlgs, validSigAlgs)
+                scheme = SignatureScheme.toRepr(signature_scheme)
+                signature_scheme = getattr(SignatureScheme, scheme)
+
+                signature_context = \
+                    KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
+                                                signature_scheme, None, None,
+                                                None, prfName, b'client')
+
+                pad_type = SignatureScheme.getPadding(scheme)
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = getattr(hashlib, hash_name)().digest_size
+
+                signature = privateKey.sign(signature_context,
+                                            pad_type,
+                                            hash_name,
+                                            salt_len)
+                if not privateKey.verify(signature, signature_context,
+                                         pad_type,
+                                         hash_name,
+                                         salt_len):
+                    for result in self._sendError(
+                            AlertDescription.internal_error,
+                            "Certificate Verify signature failed"):
+                        yield result
+
+                certificate_verify = CertificateVerify(self.version)
+                certificate_verify.create(signature, signature_scheme)
+
+                for result in self._sendMsg(certificate_verify):
+                    yield result
+
+        # Do after client cert and verify messages has been sent.
         exporter_master_secret = derive_secret(secret,
                                                bytearray(b'exp master'),
-                                               server_finish_hs, prfName)
+                                               self._handshake_hash, prfName)
 
         self._recordLayer.calcTLS1_3PendingState(
             serverHello.cipher_suite,
@@ -1842,7 +1917,7 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      privateKey, cert_chain,
                                                      version, scheme,
-                                                     alpn):
+                                                     alpn, reqCert):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2082,7 +2157,8 @@ class TLSConnection(TLSRecordLayer):
                       self.version,
                       self.session.cipherSuite,
                       int(time.time()),
-                      getRandomBytes(len(settings.ticketKeys[0])))
+                      getRandomBytes(len(settings.ticketKeys[0])),
+                      client_cert_chain=self.session.clientCertChain)
 
         # encrypt the ticket
         if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
@@ -2144,11 +2220,11 @@ class TLSConnection(TLSRecordLayer):
                                                        ticket.master_secret,
                                                        [new_sess_ticket])
 
-            return (identity.identity, psk, prf)
+            return ((identity.identity, psk, prf), ticket)
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version, scheme,
-                              srv_alpns):
+                              srv_alpns, reqCert):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
 
@@ -2171,6 +2247,7 @@ class TLSConnection(TLSRecordLayer):
 
         psk = None
         selected_psk = None
+        resumed_client_cert_chain = None
         psks = clientHello.getExtension(ExtensionType.pre_shared_key)
         psk_types = clientHello.getExtension(
             ExtensionType.psk_key_exchange_modes)
@@ -2178,11 +2255,12 @@ class TLSConnection(TLSRecordLayer):
                      PskKeyExchangeMode.psk_ke in psk_types.modes) and \
                 (settings.pskConfigs or settings.ticketKeys):
             for i, ident in enumerate(psks.identities):
+                ticket = None
                 external = True
                 match = [j for j in settings.pskConfigs
                          if j[0] == ident.identity]
                 if not match:
-                    match = self._tryDecrypt(settings, ident)
+                    (match, ticket) = self._tryDecrypt(settings, ident)
                     external = False
                     if not match:
                         continue
@@ -2195,6 +2273,8 @@ class TLSConnection(TLSRecordLayer):
 
                 psk = match[0][1]
                 selected_psk = i
+                if ticket:
+                    resumed_client_cert_chain = ticket.client_cert_chain
                 try:
                     HandshakeHelpers.verify_binder(
                         clientHello,
@@ -2323,6 +2403,22 @@ class TLSConnection(TLSRecordLayer):
             yield result
 
         if selected_psk is None:
+
+            # optionally send the client a certificate request
+            if reqCert:
+
+                # the context SHALL be zero length except in post-handshake
+                ctx = b''
+
+                # Get list of valid Signing Algorithms
+                valid_sig_algs = self._sigHashesToList(settings)
+                assert valid_sig_algs
+
+                certificate_request = CertificateRequest(self.version)
+                certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
+                for result in self._sendMsg(certificate_request):
+                    yield result
+
             certificate = Certificate(CertificateType.x509, self.version)
             certificate.create(serverCertChain, bytearray())
             for result in self._sendMsg(certificate):
@@ -2331,17 +2427,15 @@ class TLSConnection(TLSRecordLayer):
             certificate_verify = CertificateVerify(self.version)
 
             signature_scheme = getattr(SignatureScheme, scheme)
-            keyType = SignatureScheme.getKeyType(scheme)
+
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
+                                            signature_scheme, None, None, None,
+                                            prf_name, b'server')
+
             padType = SignatureScheme.getPadding(scheme)
             hashName = SignatureScheme.getHash(scheme)
             saltLen = getattr(hashlib, hashName)().digest_size
-
-            signature_context = bytearray(b'\x20' * 64 +
-                                          b'TLS 1.3, server ' +
-                                          b'CertificateVerify' +
-                                          b'\x00') + \
-                                self._handshake_hash.digest(prf_name)
-            signature_context = secureHash(signature_context, hashName)
 
             signature = privateKey.sign(signature_context,
                                         padType,
@@ -2393,6 +2487,61 @@ class TLSConnection(TLSRecordLayer):
         # Finished messages
         self._changeWriteState()
 
+        client_cert_chain = None
+        #Get [Certificate,] (if was requested)
+        if reqCert and selected_psk is None:
+            for result in self._getMsg(ContentType.handshake,
+                                       HandshakeType.certificate,
+                                       CertificateType.x509):
+                if result in (0, 1):
+                    yield result
+                else:
+                    break
+            client_certificate = result
+            assert isinstance(client_certificate, Certificate)
+            client_cert_chain = client_certificate.cert_chain
+
+        #Get and check CertificateVerify, if relevant
+        cli_cert_verify_hh = self._handshake_hash.copy()
+        if client_cert_chain and client_cert_chain.getNumCerts():
+            for result in self._getMsg(ContentType.handshake,
+                                       HandshakeType.certificate_verify):
+                if result in (0, 1):
+                    yield result
+                else: break
+            certificate_verify = result
+            assert isinstance(certificate_verify, CertificateVerify)
+
+            signature_scheme = certificate_verify.signatureAlgorithm
+
+            valid_sig_algs = self._sigHashesToList(settings)
+            if signature_scheme not in valid_sig_algs:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Invalid signature on Certificate Verify"):
+                    yield result
+
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4), cli_cert_verify_hh,
+                                            signature_scheme, None, None, None,
+                                            prf_name, b'client')
+
+            scheme = SignatureScheme.toRepr(signature_scheme)
+            pad_type = SignatureScheme.getPadding(scheme)
+            hash_name = SignatureScheme.getHash(scheme)
+            salt_len = getattr(hashlib, hash_name)().digest_size
+
+            public_key = client_cert_chain.getEndEntityPublicKey()
+
+            if not public_key.verify(certificate_verify.signature,
+                                     signature_context,
+                                     pad_type,
+                                     hash_name,
+                                     salt_len):
+                raise TLSDecryptionFailed("client Certificate Verify "
+                                          "signature "
+                                          "verification failed")
+
         # as both exporter and resumption master secrets include handshake
         # transcript, we need to derive them early
         exporter_master_secret = derive_secret(secret,
@@ -2438,11 +2587,14 @@ class TLSConnection(TLSRecordLayer):
         if alpnExt:
             app_proto = alpnExt.protocol_names[0]
 
+        if not client_cert_chain and resumed_client_cert_chain:
+            client_cert_chain = resumed_client_cert_chain
+
         self.session.create(secret,
                             bytearray(b''),  # no session_id
                             serverHello.cipher_suite,
                             bytearray(b''),  # no SRP
-                            None,
+                            client_cert_chain,
                             serverCertChain,
                             None,
                             False,
@@ -2482,7 +2634,14 @@ class TLSConnection(TLSRecordLayer):
         clientHello = result
 
         #If client's version is too low, reject it
-        if clientHello.client_version < settings.minVersion:
+        real_version = clientHello.client_version
+        if real_version >= (3, 3):
+            ext = clientHello.getExtension(ExtensionType.supported_versions)
+            if ext:
+                for v in ext.versions:
+                    if v in KNOWN_VERSIONS and v > real_version:
+                        real_version = v
+        if real_version < settings.minVersion:
             self.version = settings.minVersion
             for result in self._sendError(\
                   AlertDescription.protocol_version,

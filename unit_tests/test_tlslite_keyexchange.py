@@ -284,6 +284,16 @@ class TestCalcVerifyBytes(unittest.TestCase):
         self.handshake_hashes = HandshakeHashes()
         self.handshake_hashes.update(bytearray(b'\xab'*32))
 
+    def test_with_TLS1_3(self):
+        vrfy = KeyExchange.calcVerifyBytes((3, 4),
+                                           self.handshake_hashes,
+                                           (HashAlgorithm.sha1,
+                                            SignatureAlgorithm.rsa),
+                                           None, None, None,
+                                           'sha256', b'server')
+        self.assertEqual(vrfy, bytearray(
+            b'\xc5\x86\xeeO\xbe\xed\xc67g\xe0\xb5\xea(#O\xfd1\x85\xa1\xcd'))
+
     def test_with_TLS1_2(self):
         vrfy = KeyExchange.calcVerifyBytes((3, 3),
                                            self.handshake_hashes,
