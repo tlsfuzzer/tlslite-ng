@@ -2211,39 +2211,42 @@ class TLSConnection(TLSRecordLayer):
         if not settings.ticketKeys:
             return
 
-        # prepare the ticket
-        ticket = SessionTicketPayload()
-        ticket.create(self.session.resumptionMasterSecret,
-                      self.version,
-                      self.session.cipherSuite,
-                      int(time.time()),
-                      getRandomBytes(len(settings.ticketKeys[0])),
-                      client_cert_chain=self.session.clientCertChain)
+        for _ in range(settings.ticket_count):
+            # prepare the ticket
+            ticket = SessionTicketPayload()
+            ticket.create(self.session.resumptionMasterSecret,
+                          self.version,
+                          self.session.cipherSuite,
+                          int(time.time()),
+                          getRandomBytes(len(settings.ticketKeys[0])),
+                          client_cert_chain=self.session.clientCertChain)
 
-        # encrypt the ticket
-        if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
-            cipher = createAESGCM(settings.ticketKeys[0],
-                                  settings.cipherImplementations)
-        else:  # assume chacha, enforced by handshake settings
-            cipher = createCHACHA20(settings.ticketKeys[0],
-                                    settings.cipherImplementations)
+            # encrypt the ticket
+            if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
+                cipher = createAESGCM(settings.ticketKeys[0],
+                                      settings.cipherImplementations)
+            else:
+                assert settings.ticketCipher == "chacha20-poly1305"
+                cipher = createCHACHA20(settings.ticketKeys[0],
+                                        settings.cipherImplementations)
 
-        # all AEADs we support require 12 byte nonces/IVs
-        iv = getRandomBytes(12)
+            # all AEADs we support require 12 byte nonces/IVs
+            iv = getRandomBytes(12)
 
-        encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
+            encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
 
-        # send ticket to client
-        new_ticket = NewSessionTicket()
-        new_ticket.create(settings.ticketLifetime,
-                          getRandomNumber(1, 8**4),
-                          ticket.nonce,
-                          iv + encrypted_ticket,
-                          [])
+            new_ticket = NewSessionTicket()
+            new_ticket.create(settings.ticketLifetime,
+                              getRandomNumber(1, 8**4),
+                              ticket.nonce,
+                              iv + encrypted_ticket,
+                              [])
+            self._queue_message(new_ticket)
 
-        self._queue_message(new_ticket)
-        for result in self._queue_flush():
-            yield result
+        # send tickets to client
+        if settings.ticket_count:
+            for result in self._queue_flush():
+                yield result
 
     def _tryDecrypt(self, settings, identity):
         if not settings.ticketKeys:

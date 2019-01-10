@@ -255,6 +255,7 @@ class HandshakeSettings(object):
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
         self.max_early_data = 2 ** 14 + 16  # full record + tag
+        self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
 
     def __init__(self):
@@ -475,6 +476,10 @@ class HandshakeSettings(object):
         if not 0 < other.max_early_data <= 2**64:
             raise ValueError("max_early_data must be between 0 and 2GiB")
 
+        if not 0 < other.ticket_count < 2**16:
+            raise ValueError("Incorrect amount for number of new session "
+                             "tickets to send")
+
     def _copy_cipher_settings(self, other):
         """Copy values related to cipher selection."""
         other.cipherNames = self.cipherNames
@@ -498,6 +503,7 @@ class HandshakeSettings(object):
         other.ticketCipher = self.ticketCipher
         other.ticketLifetime = self.ticketLifetime
         other.max_early_data = self.max_early_data
+        other.ticket_count = self.ticket_count
         other.record_size_limit = self.record_size_limit
 
     @staticmethod
