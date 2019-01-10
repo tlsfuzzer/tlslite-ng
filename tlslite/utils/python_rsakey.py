@@ -10,6 +10,9 @@ from .pem import *
 
 class Python_RSAKey(RSAKey):
     def __init__(self, n=0, e=0, d=0, p=0, q=0, dP=0, dQ=0, qInv=0):
+        """Initialise key directly from integers.
+
+        see also generate() and parsePEM()."""
         if (n and not e) or (e and not n):
             raise AssertionError()
         self.n = n
@@ -36,6 +39,10 @@ class Python_RSAKey(RSAKey):
         self._lock = threading.Lock()
 
     def hasPrivateKey(self):
+        """
+        Does the key has the associated private key (True) or is it only
+        the public part (False).
+        """
         return self.d != 0
 
     def _rawPrivateKeyOp(self, m):
@@ -79,9 +86,13 @@ class Python_RSAKey(RSAKey):
         m = powMod(c, self.e, self.n)
         return m
 
-    def acceptsPassword(self): return False
+    def acceptsPassword(self):
+        """Does it support encrypted key files."""
+        return False
 
+    @staticmethod
     def generate(bits):
+        """Generate a private key with modulus 'bits' bit big."""
         key = Python_RSAKey()
         p = getRandomPrime(bits//2, False)
         q = getRandomPrime(bits//2, False)
@@ -95,23 +106,22 @@ class Python_RSAKey(RSAKey):
         key.dQ = key.d % (q-1)
         key.qInv = invMod(q, p)
         return key
-    generate = staticmethod(generate)
 
+    @staticmethod
     def parsePEM(s, passwordCallback=None):
         """Parse a string containing a PEM-encoded <privateKey>."""
-
         if pemSniff(s, "PRIVATE KEY"):
-            bytes = dePem(s, "PRIVATE KEY")
-            return Python_RSAKey._parsePKCS8(bytes)
+            data = dePem(s, "PRIVATE KEY")
+            return Python_RSAKey._parsePKCS8(data)
         elif pemSniff(s, "RSA PRIVATE KEY"):
-            bytes = dePem(s, "RSA PRIVATE KEY")
-            return Python_RSAKey._parseSSLeay(bytes)
+            data = dePem(s, "RSA PRIVATE KEY")
+            return Python_RSAKey._parseSSLeay(data)
         else:
             raise SyntaxError("Not a PEM private key file")
-    parsePEM = staticmethod(parsePEM)
 
-    def _parsePKCS8(bytes):
-        p = ASN1Parser(bytes)
+    @staticmethod
+    def _parsePKCS8(data):
+        p = ASN1Parser(data)
 
         # first element in PrivateKeyInfo is an INTEGER
         version = p.getChild(0).value
@@ -152,13 +162,13 @@ class Python_RSAKey(RSAKey):
         privateKeyP = ASN1Parser(privateKeyP.value)
 
         return Python_RSAKey._parseASN1PrivateKey(privateKeyP)
-    _parsePKCS8 = staticmethod(_parsePKCS8)
 
-    def _parseSSLeay(bytes):
-        privateKeyP = ASN1Parser(bytes)
+    @staticmethod
+    def _parseSSLeay(data):
+        privateKeyP = ASN1Parser(data)
         return Python_RSAKey._parseASN1PrivateKey(privateKeyP)
-    _parseSSLeay = staticmethod(_parseSSLeay)
 
+    @staticmethod
     def _parseASN1PrivateKey(privateKeyP):
         version = privateKeyP.getChild(0).value[0]
         if version != 0:
@@ -172,4 +182,3 @@ class Python_RSAKey(RSAKey):
         dQ = bytesToNumber(privateKeyP.getChild(7).value)
         qInv = bytesToNumber(privateKeyP.getChild(8).value)
         return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv)
-    _parseASN1PrivateKey = staticmethod(_parseASN1PrivateKey)
