@@ -2517,7 +2517,8 @@ class TLSConnection(TLSRecordLayer):
 
             signature_scheme = certificate_verify.signatureAlgorithm
 
-            valid_sig_algs = self._sigHashesToList(settings)
+            valid_sig_algs = self._sigHashesToList(settings,
+                                                   certList=client_cert_chain)
             if signature_scheme not in valid_sig_algs:
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,
@@ -3551,11 +3552,13 @@ class TLSConnection(TLSRecordLayer):
             certificateVerify = result
             signatureAlgorithm = None
             if self.version == (3, 3):
-                validSigAlgs = self._sigHashesToList(settings)
+                validSigAlgs = self._sigHashesToList(settings,
+                                                     certList=clientCertChain)
                 if certificateVerify.signatureAlgorithm not in validSigAlgs:
-                    for result in self._sendError(\
-                            AlertDescription.decryption_failed,
-                            "Invalid signature on Certificate Verify"):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Invalid signature algorithm in Certificate "
+                            "Verify"):
                         yield result
                 signatureAlgorithm = certificateVerify.signatureAlgorithm
 
