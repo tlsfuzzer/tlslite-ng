@@ -168,6 +168,9 @@ def _createPrivateKey(key):
     return _createPrivateRSAKey(key.n, key.e, key.d, key.p, key.q, key.dP,
                                 key.dQ, key.qInv)
 
+# n, e, d, etc. are the names used in mathematical proofs for the variables
+# so using so short names makes it actually more readable
+# pylint: disable=invalid-name
 def _createPublicRSAKey(n, e, implementations = ["openssl", "pycrypto",
                                                 "python"]):
     for implementation in implementations:
@@ -187,3 +190,4 @@ def _createPrivateRSAKey(n, e, d, p, q, dP, dQ, qInv,
         elif implementation == "python":
             return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv)
     raise ValueError("No acceptable implementations")
+# pylint: enable=invalid-name
