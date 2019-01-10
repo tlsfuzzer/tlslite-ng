@@ -2206,6 +2206,32 @@ class TLSConnection(TLSRecordLayer):
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
 
+    @staticmethod
+    def _derive_key_iv(nonce, user_key, settings):
+        """Derive the IV and key for session ticket encryption."""
+        if settings.ticketCipher == "aes128gcm":
+            prf_name = "sha256"
+            prf_size = 32
+        else:
+            prf_name = "sha384"
+            prf_size = 48
+
+        # mix the nonce with the key set by user
+        secret = bytearray(prf_size)
+        secret = secureHMAC(secret, nonce, prf_name)
+        secret = derive_secret(secret, bytearray(b'derived'), None, prf_name)
+        secret = secureHMAC(secret, user_key, prf_name)
+
+        ticket_secret = derive_secret(secret,
+                                      bytearray(b'SessionTicket secret'),
+                                      None, prf_name)
+
+        key = HKDF_expand_label(ticket_secret, b"key", b"", len(user_key),
+                                prf_name)
+        # all AEADs use 12 byte long IV
+        iv = HKDF_expand_label(ticket_secret, b"iv", b"", 12, prf_name)
+        return key, iv
+
     def _serverSendTickets(self, settings):
         """Send session tickets to client."""
         if not settings.ticketKeys:
@@ -2222,24 +2248,28 @@ class TLSConnection(TLSRecordLayer):
                           client_cert_chain=self.session.clientCertChain)
 
             # encrypt the ticket
+
+            # generate keys for the encryption
+            nonce = getRandomBytes(32)
+            key, iv = self._derive_key_iv(nonce, settings.ticketKeys[0],
+                                          settings)
+
             if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
-                cipher = createAESGCM(settings.ticketKeys[0],
+                cipher = createAESGCM(key,
                                       settings.cipherImplementations)
             else:
                 assert settings.ticketCipher == "chacha20-poly1305"
-                cipher = createCHACHA20(settings.ticketKeys[0],
+                cipher = createCHACHA20(key,
                                         settings.cipherImplementations)
-
-            # all AEADs we support require 12 byte nonces/IVs
-            iv = getRandomBytes(12)
 
             encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
 
+            # encapsulate the ticket and send to client
             new_ticket = NewSessionTicket()
             new_ticket.create(settings.ticketLifetime,
                               getRandomNumber(1, 8**4),
                               ticket.nonce,
-                              iv + encrypted_ticket,
+                              nonce + encrypted_ticket,
                               [])
             self._queue_message(new_ticket)
 
@@ -2252,15 +2282,17 @@ class TLSConnection(TLSRecordLayer):
         if not settings.ticketKeys:
             return None, None
 
-        if len(identity.identity) < 13:
+        if len(identity.identity) < 33:
             # too small for an encrypted ticket
             return None, None
 
-        iv, encrypted_ticket = identity.identity[:12], identity.identity[12:]
-        for key in settings.ticketKeys:
+        nonce, encrypted_ticket = identity.identity[:32], identity.identity[32:]
+        for user_key in settings.ticketKeys:
+            key, iv = self._derive_key_iv(nonce, user_key, settings)
             if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
                 cipher = createAESGCM(key, settings.cipherImplementations)
             else:
+                assert settings.ticketCipher == "chacha20-poly1305"
                 cipher = createCHACHA20(key, settings.cipherImplementations)
 
             ticket = cipher.open(iv, encrypted_ticket, b'')
