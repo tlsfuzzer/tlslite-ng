@@ -90,14 +90,15 @@ if m2cryptoLoaded:
             m2.bio_free(bio)
             return s
 
+        @staticmethod
         def generate(bits):
             key = OpenSSL_RSAKey()
             def f():pass
             key.rsa = m2.rsa_generate_key(bits, 3, f)
             key._hasPrivateKey = True
             return key
-        generate = staticmethod(generate)
 
+        @staticmethod
         def parse(s, passwordCallback=None):
             # Skip forward to the first PEM header
             start = s.find("-----BEGIN ")
@@ -152,4 +153,3 @@ if m2cryptoLoaded:
             else:
                 raise SyntaxError()
 
-        parse = staticmethod(parse)
