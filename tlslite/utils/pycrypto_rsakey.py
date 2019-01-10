@@ -58,10 +58,10 @@ if pycryptoLoaded:
                 print("c: {0}".format(c), file=sys.stderr)
                 raise
 
+        @staticmethod
         def generate(bits):
             key = PyCrypto_RSAKey()
             def f(numBytes):
                 return bytes(getRandomBytes(numBytes))
             key.rsa = RSA.generate(bits, f)
             return key
-        generate = staticmethod(generate)
