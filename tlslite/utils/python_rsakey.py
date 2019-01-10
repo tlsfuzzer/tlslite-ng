@@ -7,6 +7,7 @@ from .cryptomath import *
 from .asn1parser import ASN1Parser
 from .rsakey import *
 from .pem import *
+from .deprecations import deprecated_params
 
 class Python_RSAKey(RSAKey):
     def __init__(self, n=0, e=0, d=0, p=0, q=0, dP=0, dQ=0, qInv=0):
@@ -82,9 +83,9 @@ class Python_RSAKey(RSAKey):
         c = s2 + self.q * h
         return c
 
-    def _rawPublicKeyOp(self, c):
-        m = powMod(c, self.e, self.n)
-        return m
+    def _rawPublicKeyOp(self, ciphertxt):
+        msg = powMod(ciphertxt, self.e, self.n)
+        return msg
 
     def acceptsPassword(self):
         """Does it support encrypted key files."""
