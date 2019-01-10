@@ -2186,11 +2186,11 @@ class TLSConnection(TLSRecordLayer):
 
     def _tryDecrypt(self, settings, identity):
         if not settings.ticketKeys:
-            return
+            return None, None
 
         if len(identity.identity) < 13:
             # too small for an encrypted ticket
-            return
+            return None, None
 
         iv, encrypted_ticket = identity.identity[:12], identity.identity[12:]
         for key in settings.ticketKeys:
@@ -2221,6 +2221,9 @@ class TLSConnection(TLSRecordLayer):
                                                        [new_sess_ticket])
 
             return ((identity.identity, psk, prf), ticket)
+
+        # no keys
+        return None, None
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version, scheme,
