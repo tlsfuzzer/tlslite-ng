@@ -10,7 +10,8 @@ from .pem import *
 from .deprecations import deprecated_params
 
 class Python_RSAKey(RSAKey):
-    def __init__(self, n=0, e=0, d=0, p=0, q=0, dP=0, dQ=0, qInv=0):
+    def __init__(self, n=0, e=0, d=0, p=0, q=0, dP=0, dQ=0, qInv=0,
+                 key_type="rsa"):
         """Initialise key directly from integers.
 
         see also generate() and parsePEM()."""
@@ -38,6 +39,7 @@ class Python_RSAKey(RSAKey):
         self.blinder = 0
         self.unblinder = 0
         self._lock = threading.Lock()
+        self.key_type = key_type
 
     def hasPrivateKey(self):
         """
@@ -92,8 +94,11 @@ class Python_RSAKey(RSAKey):
         return False
 
     @staticmethod
-    def generate(bits):
-        """Generate a private key with modulus 'bits' bit big."""
+    def generate(bits, key_type="rsa"):
+        """Generate a private key with modulus 'bits' bit big.
+
+        key_type can be "rsa" for a universal rsaEncryption key or
+        "rsa-pss" for a key that can be used only for RSASSA-PSS."""
         key = Python_RSAKey()
         p = getRandomPrime(bits//2, False)
         q = getRandomPrime(bits//2, False)
@@ -106,22 +111,26 @@ class Python_RSAKey(RSAKey):
         key.dP = key.d % (p-1)
         key.dQ = key.d % (q-1)
         key.qInv = invMod(q, p)
+        key.key_type = key_type
         return key
 
     @staticmethod
-    def parsePEM(s, passwordCallback=None):
+    @deprecated_params({"data": "s", "password_callback": "passwordCallback"})
+    def parsePEM(data, password_callback=None):
         """Parse a string containing a PEM-encoded <privateKey>."""
-        if pemSniff(s, "PRIVATE KEY"):
-            data = dePem(s, "PRIVATE KEY")
-            return Python_RSAKey._parsePKCS8(data)
-        elif pemSniff(s, "RSA PRIVATE KEY"):
-            data = dePem(s, "RSA PRIVATE KEY")
-            return Python_RSAKey._parseSSLeay(data)
+        del password_callback
+        if pemSniff(data, "PRIVATE KEY"):
+            data = dePem(data, "PRIVATE KEY")
+            return Python_RSAKey._parse_pkcs8(data)
+        elif pemSniff(data, "RSA PRIVATE KEY"):
+            data = dePem(data, "RSA PRIVATE KEY")
+            return Python_RSAKey._parse_ssleay(data)
         else:
             raise SyntaxError("Not a PEM private key file")
 
     @staticmethod
-    def _parsePKCS8(data):
+    def _parse_pkcs8(data):
+        """Parse data in the binary PKCS#8 format."""
         p = ASN1Parser(data)
 
         # first element in PrivateKeyInfo is an INTEGER
@@ -136,15 +145,15 @@ class Python_RSAKey(RSAKey):
         # first item of AlgorithmIdentifier is an OBJECT (OID)
         oid = algIdent.getChild(0)
         if list(oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
-            keyType = "rsa"
+            key_type = "rsa"
         elif list(oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
-            keyType = "rsa-pss"
+            key_type = "rsa-pss"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier: {0}"
                               .format(list(oid.value)))
         # second item of AlgorithmIdentifier are parameters (defined by
         # above algorithm)
-        if keyType == "rsa":
+        if key_type == "rsa":
             if seqLen != 2:
                 raise SyntaxError("Missing parameters for RSA algorithm ID")
             parameters = algIdent.getChild(1)
@@ -157,29 +166,38 @@ class Python_RSAKey(RSAKey):
             raise SyntaxError("Invalid encoding of AlgorithmIdentifier")
 
         #Get the privateKey
-        privateKeyP = p.getChild(2)
+        private_key_parser = p.getChild(2)
 
         #Adjust for OCTET STRING encapsulation
-        privateKeyP = ASN1Parser(privateKeyP.value)
+        private_key_parser = ASN1Parser(private_key_parser.value)
 
-        return Python_RSAKey._parseASN1PrivateKey(privateKeyP)
-
-    @staticmethod
-    def _parseSSLeay(data):
-        privateKeyP = ASN1Parser(data)
-        return Python_RSAKey._parseASN1PrivateKey(privateKeyP)
+        return Python_RSAKey._parse_asn1_private_key(private_key_parser,
+                                                     key_type)
 
     @staticmethod
-    def _parseASN1PrivateKey(privateKeyP):
-        version = privateKeyP.getChild(0).value[0]
+    def _parse_ssleay(data):
+        """
+        Parse binary structure of the old SSLeay file format used by OpenSSL.
+        """
+        private_key_parser = ASN1Parser(data)
+
+        # "rsa" type as old format doesn't support rsa-pss parameters
+        return Python_RSAKey._parse_asn1_private_key(private_key_parser, "rsa")
+
+    # n, e, d, etc. are standar names for those values, keep them
+    # pylint: disable=invalid-name
+    @staticmethod
+    def _parse_asn1_private_key(private_key_parser, key_type):
+        version = private_key_parser.getChild(0).value[0]
         if version != 0:
             raise SyntaxError("Unrecognized RSAPrivateKey version")
-        n = bytesToNumber(privateKeyP.getChild(1).value)
-        e = bytesToNumber(privateKeyP.getChild(2).value)
-        d = bytesToNumber(privateKeyP.getChild(3).value)
-        p = bytesToNumber(privateKeyP.getChild(4).value)
-        q = bytesToNumber(privateKeyP.getChild(5).value)
-        dP = bytesToNumber(privateKeyP.getChild(6).value)
-        dQ = bytesToNumber(privateKeyP.getChild(7).value)
-        qInv = bytesToNumber(privateKeyP.getChild(8).value)
-        return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv)
+        n = bytesToNumber(private_key_parser.getChild(1).value)
+        e = bytesToNumber(private_key_parser.getChild(2).value)
+        d = bytesToNumber(private_key_parser.getChild(3).value)
+        p = bytesToNumber(private_key_parser.getChild(4).value)
+        q = bytesToNumber(private_key_parser.getChild(5).value)
+        dP = bytesToNumber(private_key_parser.getChild(6).value)
+        dQ = bytesToNumber(private_key_parser.getChild(7).value)
+        qInv = bytesToNumber(private_key_parser.getChild(8).value)
+        return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv, key_type)
+    # pylint: enable=invalid-name

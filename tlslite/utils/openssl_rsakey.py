@@ -30,7 +30,7 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 if m2cryptoLoaded:
     class OpenSSL_RSAKey(RSAKey):
-        def __init__(self, n=0, e=0):
+        def __init__(self, n=0, e=0, key_type="rsa"):
             self.rsa = None
             self._hasPrivateKey = False
             if (n and not e) or (e and not n):
@@ -39,6 +39,7 @@ if m2cryptoLoaded:
                 self.rsa = m2.rsa_new()
                 m2.rsa_set_n(self.rsa, numberToMPI(n))
                 m2.rsa_set_e(self.rsa, numberToMPI(e))
+            self.key_type = key_type
 
         def __del__(self):
             if self.rsa:
@@ -91,11 +92,12 @@ if m2cryptoLoaded:
             return s
 
         @staticmethod
-        def generate(bits):
+        def generate(bits, key_type="rsa"):
             key = OpenSSL_RSAKey()
             def f():pass
             key.rsa = m2.rsa_generate_key(bits, 3, f)
             key._hasPrivateKey = True
+            key.key_type = key_type
             return key
 
         @staticmethod
@@ -152,4 +154,3 @@ if m2cryptoLoaded:
                     m2.bio_free(bio)
             else:
                 raise SyntaxError()
-

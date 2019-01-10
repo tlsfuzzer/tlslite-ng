@@ -23,7 +23,7 @@ class RSAKey(object):
     :py:class:`~tlslite.utils.keyfactory`.
     """
 
-    def __init__(self, n=0, e=0):
+    def __init__(self, n=0, e=0, key_type="rsa"):
         """Create a new RSA key.
 
         If n and e are passed in, the new key will be initialized.
@@ -33,6 +33,12 @@ class RSAKey(object):
 
         :type e: int
         :param e: RSA public exponent.
+
+        :type key_type: str
+        :param key_type: type of the RSA key, "rsa" for rsaEncryption
+            (universal, able to perform all operations) or "rsa-pss" for a
+            RSASSA-PSS key (able to perform only RSA-PSS signature verification
+            and creation)
         """
         raise NotImplementedError()
 
@@ -351,6 +357,8 @@ class RSAKey(object):
         :rtype: bool
         :returns: Whether the signature matches the passed-in data.
         """
+        if padding == "pkcs1" and self.key_type == "rsa-pss":
+            return False
         if padding == "pkcs1" and hashAlg == 'sha1':
             # Try it with/without the embedded NULL
             prefixedHashBytes1 = self.addPKCS1SHA1Prefix(bytes, False)
@@ -406,6 +414,9 @@ class RSAKey(object):
         """
         if not self.hasPrivateKey():
             raise AssertionError()
+        if self.key_type != "rsa":
+            raise ValueError("Decryption requires RSA key, \"{0}\" present"
+                             .format(self.key_type))
         if len(encBytes) != numBytes(self.n):
             return None
         c = bytesToNumber(encBytes)
@@ -447,13 +458,13 @@ class RSAKey(object):
         """
         raise NotImplementedError()
 
-    def generate(bits):
+    @staticmethod
+    def generate(bits, key_type="rsa"):
         """Generate a new key with the specified bit length.
 
         :rtype: ~tlslite.utils.RSAKey.RSAKey
         """
         raise NotImplementedError()
-    generate = staticmethod(generate)
 
 
     # **************************************************************************
