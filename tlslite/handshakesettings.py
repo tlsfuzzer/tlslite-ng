@@ -186,12 +186,17 @@ class HandshakeSettings(object):
         tickets. First entry is the encryption key for new tickets and the
         default decryption key, subsequent entries are the fallback keys
         allowing for key rollover. The keys need to be of size appropriate
-        for a selected cipher in ticketCipher, 32 bytes for 'aes256gcm'.
+        for a selected cipher in ticketCipher, 32 bytes for 'aes256gcm' and
+        'chacha20-poly1305', 16 bytes for 'aes128-gcm'.
+        New keys should be generated regularly and replace old ones. Key use
+        time should generally not be longer than 24h and key life-time should
+        not be longer than 48h.
         Leave empty to disable session ticket support on server side.
 
     :vartype ticketCipher: str
     :ivar ticketCipher: name of the cipher used for encrypting the session
-        tickets. 'aes256gcm' by default
+        tickets. 'aes256gcm' by default, 'aes128gcm' or 'chacha20-poly1305'
+        alternatively.
 
     :vartype ticketLifetime: int
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
