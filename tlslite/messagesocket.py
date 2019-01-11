@@ -38,7 +38,7 @@ class MessageSocket(RecordLayer):
 
     :vartype unfragmentedDataTypes: tuple
     :ivar unfragmentedDataTypes: data types which will be passed as-read,
-        TLS application_data by default
+        TLS application_data and heartbeat by default
     """
 
     def __init__(self, sock, defragmenter):
