@@ -41,6 +41,8 @@ class RecordSocket(object):
     :ivar version: version for the records to be encoded on the wire
     :ivar tls13record: flag to indicate that TLS 1.3 specific record limits
         should be used for received records
+    :ivar int recv_record_limit: negotiated maximum size of record plaintext
+        size
     """
 
     def __init__(self, sock):
@@ -52,6 +54,7 @@ class RecordSocket(object):
         self.sock = sock
         self.version = (0, 0)
         self.tls13record = False
+        self.recv_record_limit = 2**14
 
     def _sockSendAll(self, data):
         """
@@ -212,11 +215,11 @@ class RecordSocket(object):
         assert record is not None
 
         #Check the record header fields
-        # 18432 = 2**14 (basic record size limit) + 1024 (maximum compression
+        # 18432 = 2**14 (default record size limit) + 1024 (maximum compression
         # overhead) + 1024 (maximum encryption overhead)
-        if record.length > 2**14 + 1024 + 1024:
+        if record.length > self.recv_record_limit + 1024 + 1024:
             raise TLSRecordOverflow()
-        if self.tls13record and record.length > 2**14 + 256:
+        if self.tls13record and record.length > self.recv_record_limit + 256:
             raise TLSRecordOverflow()
 
         #Read the record contents
@@ -232,6 +235,7 @@ class RecordSocket(object):
         buf += result
 
         yield (record, buf)
+
 
 class ConnectionState(object):
 
@@ -279,6 +283,14 @@ class RecordLayer(object):
     :ivar int max_early_data: maximum number of bytes that will be processed
         before aborting the connection on data that can not be validated,
         works only if early_data_ok is set to True
+    :ivar callable padding_cb: callback used for calculating the size of
+        padding to add in TLSv1.3 records
+    :ivar int send_record_limit: hint provided to padding callback to not
+        generate records larger than the receiving size expects
+    :ivar int recv_record_limit: negotiated size of records we are willing to
+        accept, TLSRecordOverflow will be raised when records with larger
+        plaintext size are received (in TLS 1.3 padding is included in this
+        size but encrypted content type is not)
     """
 
     def __init__(self, sock):
@@ -302,6 +314,16 @@ class RecordLayer(object):
         self._early_data_ok = False
         self.max_early_data = 0
         self._early_data_processed = 0
+        self.send_record_limit = 2**14
+
+    @property
+    def recv_record_limit(self):
+        """Maximum record size that is permitted for receiving."""
+        return self._recordSocket.recv_record_limit
+
+    @recv_record_limit.setter
+    def recv_record_limit(self, value):
+        self._recordSocket.recv_record_limit = value
 
     @property
     def early_data_ok(self):
@@ -580,7 +602,7 @@ class RecordLayer(object):
                 contentType != ContentType.change_cipher_spec:
             data += bytearray([contentType])
             if self.padding_cb:
-                max_padding = 2**14 - len(data) - 1
+                max_padding = self.send_record_limit - len(data) - 1
                 # add number of zero bytes specified by padding_cb()
                 data += bytearray(self.padding_cb(len(data),
                                                   contentType,
@@ -934,13 +956,13 @@ class RecordLayer(object):
                     self._readState.encContext and\
                     header.type != ContentType.change_cipher_spec:
                 # check if plaintext is not too big, RFC 8446, section 5.4
-                if len(data) > 2**14 + 1:
+                if len(data) > self.recv_record_limit + 1:
                     raise TLSRecordOverflow()
                 data, contentType = self._tls13_de_pad(data)
                 header = RecordHeader3().create((3, 4), contentType, len(data))
 
             # RFC 5246, section 6.2.1
-            if len(data) > 2**14:
+            if len(data) > self.recv_record_limit:
                 raise TLSRecordOverflow()
 
             yield (header, Parser(data))

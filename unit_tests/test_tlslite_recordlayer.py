@@ -355,6 +355,23 @@ class TestRecordSocket(unittest.TestCase):
 
         self.assertEqual(bytearray(b'\xaa'*4), data)
 
+    def test_recv_with_limited_recv_size(self):
+        mockSock = MockSocket(bytearray(
+            b'\x16' +  # type
+            b'\x03\x03' +  # TLSv1.2
+            b'\x04\x00' +  # 1024B
+            b'\xff' * 1024))
+
+        sock = RecordSocket(mockSock)
+        sock.recv_record_limit = 256
+        sock.tls13record = True
+
+        gen = sock.recv()
+
+        with self.assertRaises(TLSRecordOverflow):
+            next(gen)
+
+
 class TestConnectionState(unittest.TestCase):
     def test___init__(self):
         connState = ConnectionState()
@@ -2086,6 +2103,66 @@ class TestRecordLayer(unittest.TestCase):
 
         with self.assertRaises(TLSBadRecordMAC):
             next(gen)
+
+    def test_recvRecord_with_too_long_application_data_for_record_size_limit(self):
+        # make sure the IV is predictible (all zero)
+        patcher = mock.patch.object(os,
+                                    'urandom',
+                                    lambda x: bytearray(x))
+        mock_random = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # constructor for the data
+        sendingSocket = MockSocket(bytearray())
+
+        sendingRecordLayer = RecordLayer(sendingSocket)
+        sendingRecordLayer.version = (3, 3)
+        sendingRecordLayer.calcPendingStates(
+                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                bytearray(48), # master secret
+                bytearray(32), # client random
+                bytearray(32), # server random
+                None)
+        sendingRecordLayer.changeWriteState()
+
+        msg = ApplicationData().create(bytearray(b'test'*1024))
+
+        # create the data
+        for result in sendingRecordLayer.sendRecord(msg):
+            if result in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # sanity check the data
+        self.assertEqual(1, len(sendingSocket.sent))
+        self.assertEqual(bytearray(
+            b'\x17' +           # app data
+            b'\x03\x03' +       # SSLv3
+            b'\x10\x30'         # length
+            ), sendingSocket.sent[0][:5])
+        self.assertEqual(len(sendingSocket.sent[0][5:]), 4096+16+32)
+
+        # test proper
+        sock = MockSocket(sendingSocket.sent[0])
+
+        recordLayer = RecordLayer(sock)
+        recordLayer.client = False
+        recordLayer.version = (3, 3)
+        recordLayer.calcPendingStates(CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                      bytearray(48), # master secret
+                                      bytearray(32), # client random
+                                      bytearray(32), # server random
+                                      None)
+        recordLayer.changeReadState()
+        recordLayer.recv_record_limit = 256
+        self.assertEqual(recordLayer.recv_record_limit, 256)
+
+        with self.assertRaises(TLSRecordOverflow):
+            for result in recordLayer.recvRecord():
+                if result in (0, 1):
+                    self.assertTrue(False, "Blocking socket")
+                else: break
 
     def test_recvRecord_with_zero_filled_padding_in_SSLv3(self):
         # make sure the IV is predictible (all zero)
