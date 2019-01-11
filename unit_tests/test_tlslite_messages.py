@@ -3005,7 +3005,7 @@ class TestCertificate(unittest.TestCase):
                 "Certificate(request_context=bytearray(b'context'), "
                 "certificate_list=[CertificateEntry(certificate="
                 "bytearray(b'this is certificate'), extensions=["
-                "ServerCertTypeExtension(cert_type=0)"
+                "ServerCertTypeExtension(cert_type=x509)"
                 "])])")
 
     def test_write_empty(self):

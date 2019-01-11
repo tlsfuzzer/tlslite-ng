@@ -1111,7 +1111,7 @@ class TestServerCertTypeExtension(unittest.TestCase):
     def test___repr__(self):
         cert_type = ServerCertTypeExtension().create(1)
 
-        self.assertEqual("ServerCertTypeExtension(cert_type=1)",
+        self.assertEqual("ServerCertTypeExtension(cert_type=openpgp)",
                 repr(cert_type))
 
 class TestSRPExtension(unittest.TestCase):
