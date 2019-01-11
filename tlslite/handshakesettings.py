@@ -211,7 +211,15 @@ class HandshakeSettings(object):
 
     :vartype heartbeat_response_callback: func
     :ivar heartbeat_response_callback: Callback to function when Heartbeat
-        response is received
+        response is received.
+
+    :vartype record_size_limit: int
+    :ivar record_size_limit: maximum size of records we are willing to process
+        (value advertised to the other side). It must not be larger than
+        2**14+1 (the maximum for TLS 1.3) and will be reduced to 2**14 if TLS
+        1.2 or lower is the highest enabled version. Must not be set to values
+        smaller than 64. Set to None to disable support for the extension.
+        See also: RFC 8449.
     """
 
     def _init_key_settings(self):
@@ -247,6 +255,7 @@ class HandshakeSettings(object):
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
         self.max_early_data = 2 ** 14 + 16  # full record + tag
+        self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -416,6 +425,10 @@ class HandshakeSettings(object):
             raise ValueError("heartbeat_response_callback requires "
                              "use_heartbeat_extension")
 
+        if other.record_size_limit is not None and \
+                not 64 <= other.record_size_limit <= 2**14 + 1:
+            raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
+
         HandshakeSettings._sanityCheckEMSExtension(other)
 
     @staticmethod
@@ -485,6 +498,7 @@ class HandshakeSettings(object):
         other.ticketCipher = self.ticketCipher
         other.ticketLifetime = self.ticketLifetime
         other.max_early_data = self.max_early_data
+        other.record_size_limit = self.record_size_limit
 
     @staticmethod
     def _remove_all_matches(values, needle):
