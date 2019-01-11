@@ -11,7 +11,8 @@ from collections import namedtuple
 from .utils.codec import Writer, Parser
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat
+        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
+        HeartbeatMode
 from .errors import TLSInternalError
 
 
@@ -964,7 +965,7 @@ class ClientCertTypeExtension(VarListExtension):
             CertificateType)
 
 
-class ServerCertTypeExtension(TLSExtension):
+class ServerCertTypeExtension(IntExtension):
     """
     This class handles the Certificate Type extension (variant sent by server)
     defined in RFC 6091.
@@ -986,51 +987,19 @@ class ServerCertTypeExtension(TLSExtension):
         See also: :py:meth:`create` and :py:meth:`parse`
         """
         super(ServerCertTypeExtension, self).__init__(
-            server=True,
-            extType=ExtensionType.cert_type)
-        self.cert_type = None
+            1, 'cert_type', ext_type=ExtensionType.cert_type,
+            item_enum=CertificateType)
+        self.serverType = True
 
-    def __repr__(self):
-        """ Return programmer-centric description of object
-
-        :rtype: str
-        """
-        return "ServerCertTypeExtension(cert_type={0!r})"\
-               .format(self.cert_type)
-
-    @property
-    def extData(self):
-        """
-        Return the raw encoding of the extension data
-
-        :rtype: bytearray
-        """
-        if self.cert_type is None:
-            return bytearray(0)
-
-        w = Writer()
-        w.add(self.cert_type, 1)
-
-        return w.bytes
-
-    def create(self, val):
-        """Create an instance for sending the extension to client.
-
-        :param int val: selected type of certificate
-        """
-        self.cert_type = val
-        return self
-
-    def parse(self, p):
+    def parse(self, parser):
         """Parse the extension from on the wire format
 
         :param Parser p: parser with data
         """
-        self.cert_type = p.get(1)
-        if p.getRemainingLength() > 0:
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
             raise SyntaxError()
-
-        return self
+        return super(ServerCertTypeExtension, self).parse(parser)
 
 
 class SRPExtension(TLSExtension):
@@ -1819,7 +1788,7 @@ class KeyShareEntry(object):
         writer.bytes += self.key_exchange
 
 
-class HeartbeatExtension(TLSExtension):
+class HeartbeatExtension(IntExtension):
     """
     Heartbeat extension from RFC 6520
 
@@ -1828,34 +1797,15 @@ class HeartbeatExtension(TLSExtension):
     """
     def __init__(self):
         super(HeartbeatExtension, self).__init__(
-                                        extType=ExtensionType.heartbeat)
-        self.mode = None
+            1, 'mode', ext_type=ExtensionType.heartbeat,
+            item_enum=HeartbeatMode)
 
-    @property
-    def extData(self):
-        """
-        Return encoded heartbeat mode
-
-        @rtype: bytearray
-        """
-        if self.mode is None:
-            return bytearray(0)
-
-        writer = Writer()
-        writer.add(self.mode, 1)
-
-        return writer.bytes
-
-    def create(self, mode):
-        self.mode = mode
-        return self
-
-    def parse(self, p):
-        self.mode = p.get(1)
-        if p.getRemainingLength() > 0:
+    def parse(self, parser):
+        """Deserialise the extension from on the wire data."""
+        # the generic class allows for missing values, it's not allowed here
+        if not parser.getRemainingLength():
             raise SyntaxError()
-
-        return self
+        return super(HeartbeatExtension, self).parse(parser)
 
 
 class ClientKeyShareExtension(TLSExtension):
@@ -2108,40 +2058,13 @@ class PreSharedKeyExtension(TLSExtension):
         return self
 
 
-class SrvPreSharedKeyExtension(TLSExtension):
+class SrvPreSharedKeyExtension(IntExtension):
     """Handling of the Pre Shared Key extension from server."""
 
     def __init__(self):
         """Create instance of class."""
         super(SrvPreSharedKeyExtension, self).__init__(
-            extType=ExtensionType.pre_shared_key)
-        self.selected = None
-
-    def create(self, selected):
-        """Set the selected PSK identity."""
-        self.selected = selected
-        return self
-
-    @property
-    def extData(self):
-        """Serialise the extension payload."""
-        if self.selected is None:
-            return bytearray()
-        writer = Writer()
-        writer.addTwo(self.selected)
-        return writer.bytes
-
-    def parse(self, parser):
-        """Parse the extension from on the wire format."""
-        if not parser.getRemainingLength():
-            self.selected = None
-            return self
-
-        self.selected = parser.get(2)
-        if parser.getRemainingLength():
-            raise SyntaxError()
-
-        return self
+            2, 'selected', ext_type=ExtensionType.pre_shared_key)
 
 
 class PskKeyExchangeModesExtension(VarListExtension):
