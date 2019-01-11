@@ -40,6 +40,11 @@ class RSAKey(object):
             RSASSA-PSS key (able to perform only RSA-PSS signature verification
             and creation)
         """
+        # pylint: disable=invalid-name
+        self.n = n
+        self.e = e
+        # pylint: enable=invalid-name
+        self.key_type = key_type
         raise NotImplementedError()
 
     def __len__(self):
@@ -435,10 +440,10 @@ class RSAKey(object):
             return None
         return decBytes[x+1:] #Return everything after the separator
 
-    def _rawPrivateKeyOp(self, m):
+    def _rawPrivateKeyOp(self, message):
         raise NotImplementedError()
 
-    def _rawPublicKeyOp(self, c):
+    def _rawPublicKeyOp(self, ciphertext):
         raise NotImplementedError()
 
     def acceptsPassword(self):

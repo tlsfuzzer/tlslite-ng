@@ -48,7 +48,7 @@ class Python_RSAKey(RSAKey):
         """
         return self.d != 0
 
-    def _rawPrivateKeyOp(self, m):
+    def _rawPrivateKeyOp(self, message):
         with self._lock:
             # Create blinding values, on the first pass:
             if not self.blinder:
@@ -63,16 +63,16 @@ class Python_RSAKey(RSAKey):
             self.unblinder = (self.unblinder * self.unblinder) % self.n
 
         # Blind the input
-        m = (m * blinder) % self.n
+        message = (message * blinder) % self.n
 
         # Perform the RSA operation
-        c = self._rawPrivateKeyOpHelper(m)
+        cipher = self._rawPrivateKeyOpHelper(message)
 
         # Unblind the output
-        c = (c * unblinder) % self.n
+        cipher = (cipher * unblinder) % self.n
 
         # Return the output
-        return c
+        return cipher
 
     def _rawPrivateKeyOpHelper(self, m):
         #Non-CRT version
@@ -85,8 +85,8 @@ class Python_RSAKey(RSAKey):
         c = s2 + self.q * h
         return c
 
-    def _rawPublicKeyOp(self, ciphertxt):
-        msg = powMod(ciphertxt, self.e, self.n)
+    def _rawPublicKeyOp(self, ciphertext):
+        msg = powMod(ciphertext, self.e, self.n)
         return msg
 
     def acceptsPassword(self):
@@ -131,19 +131,19 @@ class Python_RSAKey(RSAKey):
     @staticmethod
     def _parse_pkcs8(data):
         """Parse data in the binary PKCS#8 format."""
-        p = ASN1Parser(data)
+        parser = ASN1Parser(data)
 
         # first element in PrivateKeyInfo is an INTEGER
-        version = p.getChild(0).value
+        version = parser.getChild(0).value
         if bytesToNumber(version) != 0:
             raise SyntaxError("Unrecognized PKCS8 version")
 
         # second element in PrivateKeyInfo is a SEQUENCE of type
         # AlgorithmIdentifier
-        algIdent = p.getChild(1)
-        seqLen = algIdent.getChildCount()
+        alg_ident = parser.getChild(1)
+        seqLen = alg_ident.getChildCount()
         # first item of AlgorithmIdentifier is an OBJECT (OID)
-        oid = algIdent.getChild(0)
+        oid = alg_ident.getChild(0)
         if list(oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
             key_type = "rsa"
         elif list(oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
@@ -156,7 +156,7 @@ class Python_RSAKey(RSAKey):
         if key_type == "rsa":
             if seqLen != 2:
                 raise SyntaxError("Missing parameters for RSA algorithm ID")
-            parameters = algIdent.getChild(1)
+            parameters = alg_ident.getChild(1)
             if parameters.value != bytearray(0):
                 raise SyntaxError("RSA parameters are not NULL")
         else:  # rsa-pss
@@ -166,7 +166,7 @@ class Python_RSAKey(RSAKey):
             raise SyntaxError("Invalid encoding of AlgorithmIdentifier")
 
         #Get the privateKey
-        private_key_parser = p.getChild(2)
+        private_key_parser = parser.getChild(2)
 
         #Adjust for OCTET STRING encapsulation
         private_key_parser = ASN1Parser(private_key_parser.value)

@@ -34,9 +34,9 @@ if pycryptoLoaded:
         def hasPrivateKey(self):
             return self.rsa.has_private()
 
-        def _rawPrivateKeyOp(self, m):
+        def _rawPrivateKeyOp(self, message):
             try:
-                return self.rsa.decrypt((compatLong(m),))
+                return self.rsa.decrypt((compatLong(message),))
             except ValueError as e:
                 print("rsa: {0!r}".format(self.rsa), file=sys.stderr)
                 values = []
@@ -44,13 +44,13 @@ if pycryptoLoaded:
                     values.append("{0}: {1}".format(name,
                                                     getattr(self, name, None)))
                 print(", ".join(values), file=sys.stderr)
-                print("m: {0}".format(m), file=sys.stderr)
+                print("message: {0}".format(message), file=sys.stderr)
                 raise
 
 
-        def _rawPublicKeyOp(self, c):
+        def _rawPublicKeyOp(self, ciphertext):
             try:
-                return self.rsa.encrypt(compatLong(c), None)[0]
+                return self.rsa.encrypt(compatLong(ciphertext), None)[0]
             except ValueError as e:
                 print("rsa: {0!r}".format(self.rsa), file=sys.stderr)
                 values = []
@@ -58,7 +58,7 @@ if pycryptoLoaded:
                     values.append("{0}: {1}".format(name,
                                                     getattr(self, name, None)))
                 print(", ".join(values), file=sys.stderr)
-                print("c: {0}".format(c), file=sys.stderr)
+                print("ciphertext: {0}".format(ciphertext), file=sys.stderr)
                 raise
 
         @staticmethod
