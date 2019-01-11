@@ -2087,6 +2087,15 @@ class CookieExtension(VarBytesExtension):
         super(CookieExtension, self).__init__('cookie', 2, ext_type)
 
 
+class RecordSizeLimitExtension(IntExtension):
+    """Class for handling the record_size_limit extension from RFC 8449."""
+
+    def __init__(self):
+        """Create instance."""
+        super(RecordSizeLimitExtension, self).__init__(
+            2, 'record_size_limit', ExtensionType.record_size_limit)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -2107,7 +2116,8 @@ TLSExtension._universalExtensions = \
             SignatureAlgorithmsCertExtension,
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
-        ExtensionType.cookie: CookieExtension}
+        ExtensionType.cookie: CookieExtension,
+        ExtensionType.record_size_limit: RecordSizeLimitExtension}
 
 TLSExtension._serverExtensions = \
     {

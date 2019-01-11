@@ -26,7 +26,7 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
-        HeartbeatExtension, IntExtension
+        HeartbeatExtension, IntExtension, RecordSizeLimitExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -384,6 +384,19 @@ class TestTLSExtension(unittest.TestCase):
                 "extData=bytearray(b'\\x00\\x00'), serverType=False, "
                 "encExtType=False)",
                 repr(ext))
+
+    def test_parse_with_record_size_limit_extension(self):
+        ext = TLSExtension()
+
+        p = Parser(bytearray(
+            b'\x00\x1c' +  # ext type
+            b'\x00\x02' +  # ext length
+            b'\x01\x00'))  # ext value
+
+        ext = ext.parse(p)
+
+        self.assertIsInstance(ext, RecordSizeLimitExtension)
+        self.assertEqual(ext.record_size_limit, 256)
 
 
 class TestVarBytesExtension(unittest.TestCase):
