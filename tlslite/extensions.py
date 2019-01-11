@@ -560,6 +560,71 @@ class VarSeqListExtension(ListExtension):
         return self
 
 
+class IntExtension(CustomNameExtension):
+    """
+    Abstract class for extensions that deal with single integer in payload.
+
+    Extension for handling arbitrary extensions that have a payload that is
+    a single integer of a given size (1, 2, ... bytes)
+    """
+
+    def __init__(self, elem_length, field_name, ext_type, item_enum=None):
+        """Create handler for extension that has a single integer as payload.
+
+        :param str field_name: name of the field that will store the value
+        :param int elem_length: size (in bytes) of the value in the extension
+        :param int ext_tyoe: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the
+            extension
+        """
+        super(IntExtension, self).__init__(field_name, extType=ext_type)
+        self._elem_length = elem_length
+        self._item_enum = item_enum
+
+    def _entry_to_repr(self):
+        """Return human readable representation of the value."""
+        if self._item_enum:
+            return self._item_enum.toStr(self._internal_value)
+        return str(self._internal_value)
+
+    def __repr__(self):
+        """Return human readable representation of the extension."""
+        return "{0}({1}={2})".format(self.__class__.__name__,
+                                     self._field_name,
+                                     self._entry_to_repr())
+
+    @property
+    def extData(self):
+        """Return raw data encoding of the extension.
+
+        :rtype: bytearray
+        """
+        if self._internal_value is None:
+            return bytearray(0)
+
+        writer = Writer()
+        writer.add(self._internal_value, self._elem_length)
+        return writer.bytes
+
+    def parse(self, parser):
+        """
+        Deserialise extension from on-the-wire data.
+
+        :param tlslite.utils.codec.Parser parser: data
+        :rtype: Extension
+        """
+        if parser.getRemainingLength() == 0:
+            self._internal_value = None
+            return self
+
+        self._internal_value = parser.get(self._elem_length)
+
+        if parser.getRemainingLength():
+            raise SyntaxError()
+
+        return self
+
+
 class SNIExtension(TLSExtension):
     """
     Class for handling Server Name Indication (server_name) extension from
