@@ -81,6 +81,9 @@ class TLSConnection(TLSRecordLayer):
         self.next_proto = None
         # whether the CCS was already sent in the connection (for hello retry)
         self._ccs_sent = False
+        # if and how big is the limit on records peer is willing to accept
+        # used only for TLS 1.2 and earlier
+        self._peer_record_size_limit = None
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -551,7 +554,7 @@ class TLSConnection(TLSRecordLayer):
         for result in self._clientResume(session, serverHello, 
                         clientHello.random, 
                         settings.cipherImplementations,
-                        nextProto):
+                        nextProto, settings):
             if result in (0,1): yield result
             else: break
         if result == "resumed_and_finished":
@@ -620,7 +623,7 @@ class TLSConnection(TLSRecordLayer):
                             clientHello.random, 
                             serverHello.random,
                             cipherSuite, settings.cipherImplementations,
-                            nextProto):
+                            nextProto, settings):
                 if result in (0,1): yield result
                 else: break
         masterSecret = result
@@ -736,6 +739,10 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(HeartbeatExtension().create(
                 HeartbeatMode.PEER_ALLOWED_TO_SEND))
             self.heartbeat_can_receive = True
+
+        if settings.record_size_limit:
+            extensions.append(RecordSizeLimitExtension().create(
+                settings.record_size_limit))
 
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
@@ -1059,6 +1066,23 @@ class TLSConnection(TLSRecordLayer):
                         "Server responded with invalid Heartbeat extension"):
                     yield result
             self.heartbeat_supported = True
+        size_limit_ext = serverHello.getExtension(
+            ExtensionType.record_size_limit)
+        if size_limit_ext:
+            if size_limit_ext.record_size_limit is None:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Malformed record_size_limit extension"):
+                    yield result
+            # if we got the extension in ServerHello it means we're doing
+            # TLS 1.2 so the max value for extension is 2^14
+            if not 64 <= size_limit_ext.record_size_limit <= 2**14:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Server responed with invalid value in "
+                        "record_size_limit extension"):
+                    yield result
+            self._peer_record_size_limit = size_limit_ext.record_size_limit
         yield serverHello
 
     @staticmethod
@@ -1163,6 +1187,30 @@ class TLSConnection(TLSRecordLayer):
                 break
         encrypted_extensions = result
         assert isinstance(encrypted_extensions, EncryptedExtensions)
+
+        size_limit_ext = encrypted_extensions.getExtension(
+            ExtensionType.record_size_limit)
+        if size_limit_ext and not settings.record_size_limit:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Server sent record_size_limit extension despite us not "
+                    "advertising it"):
+                yield result
+        if size_limit_ext:
+            if size_limit_ext.record_size_limit is None:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Malformed record_size_limit extension"):
+                    yield result
+            if not 64 <= size_limit_ext.record_size_limit <= 2**14+1:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Invalid valid in record_size_limit extension"):
+                    yield result
+            # the record layer code expects a limit that excludes content type
+            # from the value while extension is defined including it
+            self._send_record_limit = size_limit_ext.record_size_limit - 1
+            self._recv_record_limit = min(2**14, settings.record_size_limit - 1)
 
         # if we negotiated PSK then Certificate is not sent
         certificate_request = None
@@ -1442,7 +1490,7 @@ class TLSConnection(TLSRecordLayer):
         return None
  
     def _clientResume(self, session, serverHello, clientRandom, 
-                      cipherImplementations, nextProto):
+                      cipherImplementations, nextProto, settings):
         #If the server agrees to resume
         if session and session.sessionID and \
             serverHello.session_id == session.sessionID:
@@ -1467,7 +1515,8 @@ class TLSConnection(TLSRecordLayer):
             self.sock.buffer_writes = True
             for result in self._sendFinished(session.masterSecret,
                                              session.cipherSuite,
-                                             nextProto):
+                                             nextProto,
+                                             settings=settings):
                 yield result
             self.sock.flush()
             self.sock.buffer_writes = False
@@ -1662,7 +1711,8 @@ class TLSConnection(TLSRecordLayer):
         yield (premasterSecret, serverCertChain, clientCertChain, tackExt)
 
     def _clientFinished(self, premasterSecret, clientRandom, serverRandom,
-                        cipherSuite, cipherImplementations, nextProto):
+                        cipherSuite, cipherImplementations, nextProto,
+                        settings):
         if self.extendedMasterSecret:
             cvhh = self._certificate_verify_handshake_hash
             # in case of session resumption, or when the handshake doesn't
@@ -1684,7 +1734,8 @@ class TLSConnection(TLSRecordLayer):
                                 cipherImplementations)
 
         #Exchange ChangeCipherSpec and Finished messages
-        for result in self._sendFinished(masterSecret, cipherSuite, nextProto):
+        for result in self._sendFinished(masterSecret, cipherSuite, nextProto,
+                settings=settings):
             yield result
         self.sock.flush()
         self.sock.buffer_writes = False
@@ -2023,6 +2074,13 @@ class TLSConnection(TLSRecordLayer):
                 extensions.append(HeartbeatExtension().create(
                     HeartbeatMode.PEER_ALLOWED_TO_SEND))
 
+        if clientHello.getExtension(ExtensionType.record_size_limit) and \
+                settings.record_size_limit:
+            # in TLS 1.2 and earlier we can select at most 2^14B records
+            extensions.append(RecordSizeLimitExtension().create(
+                min(2**14, settings.record_size_limit)))
+
+
         # don't send empty list of extensions
         if not extensions:
             extensions = None
@@ -2113,7 +2171,7 @@ class TLSConnection(TLSRecordLayer):
         for result in self._serverFinished(premasterSecret, 
                                 clientHello.random, serverHello.random,
                                 cipherSuite, settings.cipherImplementations,
-                                nextProtos):
+                                nextProtos, settings):
                 if result in (0,1): yield result
                 else: break
         masterSecret = result
@@ -2374,6 +2432,11 @@ class TLSConnection(TLSRecordLayer):
         self._changeWriteState()
 
         ee_extensions = []
+
+        if clientHello.getExtension(ExtensionType.record_size_limit) and \
+                settings.record_size_limit:
+            ee_extensions.append(RecordSizeLimitExtension().create(
+                min(2**14+1, settings.record_size_limit)))
 
         # a bit of a hack to detect if the HRR was sent
         # as that means that original key share didn't match what we wanted
@@ -2967,6 +3030,38 @@ class TLSConnection(TLSRecordLayer):
             self.heartbeat_supported = True
             self.heartbeat_can_receive = True
 
+        size_limit_ext = clientHello.getExtension(
+            ExtensionType.record_size_limit)
+        if size_limit_ext:
+            if size_limit_ext.record_size_limit is None:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Malformed record_size_limit extension"):
+                    yield result
+            if not 64 <= size_limit_ext.record_size_limit:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Invalid value in record_size_limit extension"):
+                    yield result
+            if settings.record_size_limit:
+                # in TLS 1.3 handshake is encrypted so we need to switch
+                # to sending smaller messages right away
+                if version >= (3, 4):
+                    # the client can send bigger values because it may
+                    # know protocol versions or extensions we don't know about
+                    # (but we need to still clamp it to protocol limit)
+                    self._send_record_limit = min(
+                        2**14, size_limit_ext.record_size_limit - 1)
+                    # the record layer excludes content type, extension doesn't
+                    # thus the "-1)
+                    self._recv_record_limit = min(2**14,
+                        settings.record_size_limit - 1)
+                else:
+                    # but in TLS 1.2 and earlier we need to postpone it till
+                    # handling of Finished
+                    self._peer_record_size_limit = min(
+                        2**14, size_limit_ext.record_size_limit)
+
         #Now that the version is known, limit to only the ciphers available to
         #that version and client capabilities.
         cipherSuites = []
@@ -3121,6 +3216,11 @@ class TLSConnection(TLSRecordLayer):
                     self.heartbeat_can_receive = True
                     self.heartbeat_supported = True
                     extensions.append(heartbeat)
+                record_limit = clientHello.getExtension(
+                    ExtensionType.record_size_limit)
+                if record_limit and settings.record_size_limit:
+                    extensions.append(RecordSizeLimitExtension().create(
+                        min(2**14, settings.record_size_limit)))
 
                 # don't send empty extensions
                 if not extensions:
@@ -3142,7 +3242,8 @@ class TLSConnection(TLSRecordLayer):
 
                 #Exchange ChangeCipherSpec and Finished messages
                 for result in self._sendFinished(session.masterSecret,
-                                                 session.cipherSuite):
+                                                 session.cipherSuite,
+                                                 settings=settings):
                     yield result
                 for result in self._getFinished(session.masterSecret,
                                                 session.cipherSuite):
@@ -3648,7 +3749,8 @@ class TLSConnection(TLSRecordLayer):
 
 
     def _serverFinished(self,  premasterSecret, clientRandom, serverRandom,
-                        cipherSuite, cipherImplementations, nextProtos):
+                        cipherSuite, cipherImplementations, nextProtos,
+                        settings):
         if self.extendedMasterSecret:
             cvhh = self._certificate_verify_handshake_hash
             # in case of resumption or lack of certificate authentication,
@@ -3678,7 +3780,8 @@ class TLSConnection(TLSRecordLayer):
                                    expect_next_protocol=nextProtos is not None):
             yield result
 
-        for result in self._sendFinished(masterSecret, cipherSuite):
+        for result in self._sendFinished(masterSecret, cipherSuite,
+                settings=settings):
             yield result
         
         yield masterSecret        
@@ -3689,7 +3792,8 @@ class TLSConnection(TLSRecordLayer):
     #*********************************************************
 
 
-    def _sendFinished(self, masterSecret, cipherSuite=None, nextProto=None):
+    def _sendFinished(self, masterSecret, cipherSuite=None, nextProto=None,
+            settings=None):
         # send the CCS and Finished in single TCP packet
         self.sock.buffer_writes = True
         #Send ChangeCipherSpec
@@ -3698,6 +3802,12 @@ class TLSConnection(TLSRecordLayer):
 
         #Switch to pending write state
         self._changeWriteState()
+
+        if self._peer_record_size_limit:
+            self._send_record_limit = self._peer_record_size_limit
+            # this is TLS 1.2 and earlier method, so the real limit may be
+            # lower that what's in the settings
+            self._recv_record_limit = min(2**14, settings.record_size_limit)
 
         if nextProto is not None:
             nextProtoMsg = NextProtocol().create(nextProto)
