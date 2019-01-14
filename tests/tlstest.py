@@ -190,6 +190,18 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good X.509, small record_size_limit".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.record_size_limit = 64
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good X509, SSLv3".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -1146,6 +1158,17 @@ def serverTestCmd(argv):
                                privateKey=x509KeyRSAPSS)
     assert(connection.session.serverName == address[0])
     assert(connection.extendedMasterSecret)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509, small record_size_limit".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.record_size_limit = 64
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
     testConnServer(connection)
     connection.close()
 
