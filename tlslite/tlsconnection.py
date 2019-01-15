@@ -1280,8 +1280,8 @@ class TLSConnection(TLSRecordLayer):
                 yield result
 
             if clientCertChain and privateKey:
-                validSigAlgs = certificate_request.supported_signature_algs
-                if not validSigAlgs:
+                valid_sig_algs = certificate_request.supported_signature_algs
+                if not valid_sig_algs:
                     for result in self._sendError(
                             AlertDescription.missing_extension,
                             "No Signature Algorithms found"):
@@ -1289,7 +1289,8 @@ class TLSConnection(TLSRecordLayer):
 
                 availSigAlgs = self._sigHashesToList(settings, privateKey,
                                                      clientCertChain)
-                signature_scheme = getFirstMatching(availSigAlgs, validSigAlgs)
+                signature_scheme = getFirstMatching(availSigAlgs,
+                                                    valid_sig_algs)
                 scheme = SignatureScheme.toRepr(signature_scheme)
                 signature_scheme = getattr(SignatureScheme, scheme)
 
@@ -1546,14 +1547,15 @@ class TLSConnection(TLSRecordLayer):
             #Check the server's signature, if the server chose an authenticated
             # PFS-enabled ciphersuite
             if serverKeyExchange:
-                validSigAlgs = self._sigHashesToList(settings,
-                                                     certList=serverCertChain)
+                valid_sig_algs = \
+                    self._sigHashesToList(settings,
+                                          certList=serverCertChain)
                 try:
                     KeyExchange.verifyServerKeyExchange(serverKeyExchange,
                                                         publicKey,
                                                         clientRandom,
                                                         serverRandom,
-                                                        validSigAlgs)
+                                                        valid_sig_algs)
                 except TLSIllegalParameterException:
                     for result in self._sendError(AlertDescription.\
                                                   illegal_parameter):
@@ -1638,13 +1640,13 @@ class TLSConnection(TLSRecordLayer):
         #if client auth was requested and we have a private key, send a
         #CertificateVerify
         if certificateRequest and privateKey:
-            validSigAlgs = self._sigHashesToList(settings, privateKey,
-                                                 clientCertChain)
+            valid_sig_algs = self._sigHashesToList(settings, privateKey,
+                                                   clientCertChain)
             try:
                 certificateVerify = KeyExchange.makeCertificateVerify(
                     self.version,
                     self._certificate_verify_handshake_hash,
-                    validSigAlgs,
+                    valid_sig_algs,
                     privateKey,
                     certificateRequest,
                     premasterSecret,
@@ -2517,7 +2519,8 @@ class TLSConnection(TLSRecordLayer):
 
             signature_scheme = certificate_verify.signatureAlgorithm
 
-            valid_sig_algs = self._sigHashesToList(settings)
+            valid_sig_algs = self._sigHashesToList(settings,
+                                                   certList=client_cert_chain)
             if signature_scheme not in valid_sig_algs:
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,
@@ -3472,10 +3475,10 @@ class TLSConnection(TLSRecordLayer):
             certificateRequest = CertificateRequest(self.version)
             if not reqCAs:
                 reqCAs = []
-            validSigAlgs = self._sigHashesToList(settings)
+            valid_sig_algs = self._sigHashesToList(settings)
             certificateRequest.create([ClientCertificateType.rsa_sign],
                                       reqCAs,
-                                      validSigAlgs)
+                                      valid_sig_algs)
             msgs.append(certificateRequest)
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
@@ -3551,11 +3554,14 @@ class TLSConnection(TLSRecordLayer):
             certificateVerify = result
             signatureAlgorithm = None
             if self.version == (3, 3):
-                validSigAlgs = self._sigHashesToList(settings)
-                if certificateVerify.signatureAlgorithm not in validSigAlgs:
-                    for result in self._sendError(\
-                            AlertDescription.decryption_failed,
-                            "Invalid signature on Certificate Verify"):
+                valid_sig_algs = \
+                    self._sigHashesToList(settings,
+                                          certList=clientCertChain)
+                if certificateVerify.signatureAlgorithm not in valid_sig_algs:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Invalid signature algorithm in Certificate "
+                            "Verify"):
                         yield result
                 signatureAlgorithm = certificateVerify.signatureAlgorithm
 

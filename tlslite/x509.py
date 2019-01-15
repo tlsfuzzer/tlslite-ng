@@ -132,7 +132,7 @@ class X509(object):
         e = bytesToNumber(public_exponent.value)
 
         # Create a public key instance
-        self.publicKey = _createPublicRSAKey(n, e)
+        self.publicKey = _createPublicRSAKey(n, e, self.certAlg)
         # pylint: enable=invalid-name
 
     def getFingerprint(self):

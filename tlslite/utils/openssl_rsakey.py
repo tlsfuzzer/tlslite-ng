@@ -30,7 +30,7 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 if m2cryptoLoaded:
     class OpenSSL_RSAKey(RSAKey):
-        def __init__(self, n=0, e=0):
+        def __init__(self, n=0, e=0, key_type="rsa"):
             self.rsa = None
             self._hasPrivateKey = False
             if (n and not e) or (e and not n):
@@ -39,6 +39,7 @@ if m2cryptoLoaded:
                 self.rsa = m2.rsa_new()
                 m2.rsa_set_n(self.rsa, numberToMPI(n))
                 m2.rsa_set_e(self.rsa, numberToMPI(e))
+            self.key_type = key_type
 
         def __del__(self):
             if self.rsa:
@@ -59,17 +60,19 @@ if m2cryptoLoaded:
         def hasPrivateKey(self):
             return self._hasPrivateKey
 
-        def _rawPrivateKeyOp(self, m):
-            b = numberToByteArray(m, numBytes(self.n))
-            s = m2.rsa_private_encrypt(self.rsa, bytes(b), m2.no_padding)
-            c = bytesToNumber(bytearray(s))
-            return c
+        def _rawPrivateKeyOp(self, message):
+            data = numberToByteArray(message, numBytes(self.n))
+            string = m2.rsa_private_encrypt(self.rsa, bytes(data),
+                                            m2.no_padding)
+            ciphertext = bytesToNumber(bytearray(string))
+            return ciphertext
 
-        def _rawPublicKeyOp(self, c):
-            b = numberToByteArray(c, numBytes(self.n))
-            s = m2.rsa_public_decrypt(self.rsa, bytes(b), m2.no_padding)
-            m = bytesToNumber(bytearray(s))
-            return m
+        def _rawPublicKeyOp(self, ciphertext):
+            data = numberToByteArray(ciphertext, numBytes(self.n))
+            string = m2.rsa_public_decrypt(self.rsa, bytes(data),
+                                           m2.no_padding)
+            message = bytesToNumber(bytearray(string))
+            return message
 
         def acceptsPassword(self): return True
 
@@ -90,14 +93,16 @@ if m2cryptoLoaded:
             m2.bio_free(bio)
             return s
 
-        def generate(bits):
+        @staticmethod
+        def generate(bits, key_type="rsa"):
             key = OpenSSL_RSAKey()
             def f():pass
             key.rsa = m2.rsa_generate_key(bits, 3, f)
             key._hasPrivateKey = True
+            key.key_type = key_type
             return key
-        generate = staticmethod(generate)
 
+        @staticmethod
         def parse(s, passwordCallback=None):
             # Skip forward to the first PEM header
             start = s.find("-----BEGIN ")
@@ -151,5 +156,3 @@ if m2cryptoLoaded:
                     m2.bio_free(bio)
             else:
                 raise SyntaxError()
-
-        parse = staticmethod(parse)

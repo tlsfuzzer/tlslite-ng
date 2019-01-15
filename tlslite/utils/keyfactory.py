@@ -155,7 +155,7 @@ def _createPublicKey(key):
     """
     if not isinstance(key, RSAKey):
         raise AssertionError()
-    return _createPublicRSAKey(key.n, key.e)
+    return _createPublicRSAKey(key.n, key.e, key.key_type)
 
 def _createPrivateKey(key):
     """
@@ -166,24 +166,30 @@ def _createPrivateKey(key):
     if not key.hasPrivateKey():
         raise AssertionError()
     return _createPrivateRSAKey(key.n, key.e, key.d, key.p, key.q, key.dP,
-                                key.dQ, key.qInv)
+                                key.dQ, key.qInv, key.key_type)
 
-def _createPublicRSAKey(n, e, implementations = ["openssl", "pycrypto",
-                                                "python"]):
+# n, e, d, etc. are the names used in mathematical proofs for the variables
+# so using so short names makes it actually more readable
+# pylint: disable=invalid-name
+def _createPublicRSAKey(n, e, key_type,
+                        implementations=("openssl", "pycrypto", "python")):
     for implementation in implementations:
         if implementation == "openssl" and cryptomath.m2cryptoLoaded:
-            return OpenSSL_RSAKey(n, e)
+            return OpenSSL_RSAKey(n, e, key_type=key_type)
         elif implementation == "pycrypto" and cryptomath.pycryptoLoaded:
-            return PyCrypto_RSAKey(n, e)
+            return PyCrypto_RSAKey(n, e, key_type=key_type)
         elif implementation == "python":
-            return Python_RSAKey(n, e)
+            return Python_RSAKey(n, e, key_type=key_type)
     raise ValueError("No acceptable implementations")
 
-def _createPrivateRSAKey(n, e, d, p, q, dP, dQ, qInv,
-                        implementations = ["pycrypto", "python"]):
+def _createPrivateRSAKey(n, e, d, p, q, dP, dQ, qInv, key_type,
+                         implementations=("pycrypto", "python")):
     for implementation in implementations:
         if implementation == "pycrypto" and cryptomath.pycryptoLoaded:
-            return PyCrypto_RSAKey(n, e, d, p, q, dP, dQ, qInv)
+            return PyCrypto_RSAKey(n, e, d, p, q, dP, dQ, qInv,
+                                   key_type=key_type)
         elif implementation == "python":
-            return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv)
+            return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv,
+                                 key_type=key_type)
     raise ValueError("No acceptable implementations")
+# pylint: enable=invalid-name
