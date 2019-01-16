@@ -26,11 +26,11 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
-        HeartbeatExtension
+        HeartbeatExtension, IntExtension, RecordSizeLimitExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
-        CertificateStatusType, SignatureScheme, HeartbeatMode
+        CertificateStatusType, SignatureScheme, HeartbeatMode, CertificateType
 from tlslite.errors import TLSInternalError
 
 class TestTLSExtension(unittest.TestCase):
@@ -385,6 +385,19 @@ class TestTLSExtension(unittest.TestCase):
                 "encExtType=False)",
                 repr(ext))
 
+    def test_parse_with_record_size_limit_extension(self):
+        ext = TLSExtension()
+
+        p = Parser(bytearray(
+            b'\x00\x1c' +  # ext type
+            b'\x00\x02' +  # ext length
+            b'\x01\x00'))  # ext value
+
+        ext = ext.parse(p)
+
+        self.assertIsInstance(ext, RecordSizeLimitExtension)
+        self.assertEqual(ext.record_size_limit, 256)
+
 
 class TestVarBytesExtension(unittest.TestCase):
     def setUp(self):
@@ -552,6 +565,76 @@ class TestVarSeqListExtension(unittest.TestCase):
         self.ext = self.ext.parse(p)
 
         self.assertIsNone(self.ext.values)
+
+
+class TestIntExtension(unittest.TestCase):
+    def setUp(self):
+        self.ext = IntExtension(2, 'value', 41)
+
+    def test___init__(self):
+        self.assertIsNotNone(self.ext)
+        self.assertEqual(self.ext.extType, 41)
+
+    def test_get_attribute(self):
+        self.assertIsNone(self.ext.value)
+
+    def test_set_attribute(self):
+        self.ext.value = 22
+
+        self.assertEqual(22, self.ext.value)
+
+    def test_get_non_existant_attribute(self):
+        with self.assertRaises(AttributeError) as e:
+            val = self.ext.values
+
+        self.assertEqual(str(e.exception),
+                "type object 'IntExtension' has no attribute 'values'")
+
+    def test_empty_extData(self):
+        self.assertEqual(self.ext.extData, bytearray())
+
+    def test_extData(self):
+        self.ext.create(22)
+
+        self.assertEqual(self.ext.extData,
+                         bytearray(b'\x00\x16'))
+
+    def test_parse_empty(self):
+        parser = Parser(bytearray())
+
+        self.ext = self.ext.parse(parser)
+
+        self.assertIsNone(self.ext.value)
+
+    def test_parse(self):
+        parser = Parser(bytearray(b'\x01\x02'))
+
+        self.ext = self.ext.parse(parser)
+
+        self.assertEqual(self.ext.value, 0x0102)
+
+    def test_parse_with_too_little_data(self):
+        parser = Parser(bytearray(b'\x01'))
+
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(parser)
+
+    def test_parse_with_too_much_data(self):
+        parser = Parser(bytearray(b'\x01\x02\x03'))
+
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(parser)
+
+    def test___repr__(self):
+        self.ext.value = 1
+
+        self.assertEqual("IntExtension(value=1)", repr(self.ext))
+
+    def test___repr___with_enum(self):
+        self.ext = IntExtension(2, 'value', 41, CertificateType)
+        self.ext.value = 1
+
+        self.assertEqual("IntExtension(value=openpgp)", repr(self.ext))
 
 
 class TestSNIExtension(unittest.TestCase):
@@ -1041,7 +1124,7 @@ class TestServerCertTypeExtension(unittest.TestCase):
     def test___repr__(self):
         cert_type = ServerCertTypeExtension().create(1)
 
-        self.assertEqual("ServerCertTypeExtension(cert_type=1)",
+        self.assertEqual("ServerCertTypeExtension(cert_type=openpgp)",
                 repr(cert_type))
 
 class TestSRPExtension(unittest.TestCase):

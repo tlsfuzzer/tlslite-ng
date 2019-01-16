@@ -11,7 +11,8 @@ from collections import namedtuple
 from .utils.codec import Writer, Parser
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat
+        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
+        HeartbeatMode
 from .errors import TLSInternalError
 
 
@@ -560,6 +561,71 @@ class VarSeqListExtension(ListExtension):
         return self
 
 
+class IntExtension(CustomNameExtension):
+    """
+    Abstract class for extensions that deal with single integer in payload.
+
+    Extension for handling arbitrary extensions that have a payload that is
+    a single integer of a given size (1, 2, ... bytes)
+    """
+
+    def __init__(self, elem_length, field_name, ext_type, item_enum=None):
+        """Create handler for extension that has a single integer as payload.
+
+        :param str field_name: name of the field that will store the value
+        :param int elem_length: size (in bytes) of the value in the extension
+        :param int ext_tyoe: numerical ID of the extension encoded
+        :param class item_enum: TLSEnum class that defines entries in the
+            extension
+        """
+        super(IntExtension, self).__init__(field_name, extType=ext_type)
+        self._elem_length = elem_length
+        self._item_enum = item_enum
+
+    def _entry_to_repr(self):
+        """Return human readable representation of the value."""
+        if self._item_enum:
+            return self._item_enum.toStr(self._internal_value)
+        return str(self._internal_value)
+
+    def __repr__(self):
+        """Return human readable representation of the extension."""
+        return "{0}({1}={2})".format(self.__class__.__name__,
+                                     self._field_name,
+                                     self._entry_to_repr())
+
+    @property
+    def extData(self):
+        """Return raw data encoding of the extension.
+
+        :rtype: bytearray
+        """
+        if self._internal_value is None:
+            return bytearray(0)
+
+        writer = Writer()
+        writer.add(self._internal_value, self._elem_length)
+        return writer.bytes
+
+    def parse(self, parser):
+        """
+        Deserialise extension from on-the-wire data.
+
+        :param tlslite.utils.codec.Parser parser: data
+        :rtype: Extension
+        """
+        if parser.getRemainingLength() == 0:
+            self._internal_value = None
+            return self
+
+        self._internal_value = parser.get(self._elem_length)
+
+        if parser.getRemainingLength():
+            raise SyntaxError()
+
+        return self
+
+
 class SNIExtension(TLSExtension):
     """
     Class for handling Server Name Indication (server_name) extension from
@@ -899,7 +965,7 @@ class ClientCertTypeExtension(VarListExtension):
             CertificateType)
 
 
-class ServerCertTypeExtension(TLSExtension):
+class ServerCertTypeExtension(IntExtension):
     """
     This class handles the Certificate Type extension (variant sent by server)
     defined in RFC 6091.
@@ -921,51 +987,19 @@ class ServerCertTypeExtension(TLSExtension):
         See also: :py:meth:`create` and :py:meth:`parse`
         """
         super(ServerCertTypeExtension, self).__init__(
-            server=True,
-            extType=ExtensionType.cert_type)
-        self.cert_type = None
+            1, 'cert_type', ext_type=ExtensionType.cert_type,
+            item_enum=CertificateType)
+        self.serverType = True
 
-    def __repr__(self):
-        """ Return programmer-centric description of object
-
-        :rtype: str
-        """
-        return "ServerCertTypeExtension(cert_type={0!r})"\
-               .format(self.cert_type)
-
-    @property
-    def extData(self):
-        """
-        Return the raw encoding of the extension data
-
-        :rtype: bytearray
-        """
-        if self.cert_type is None:
-            return bytearray(0)
-
-        w = Writer()
-        w.add(self.cert_type, 1)
-
-        return w.bytes
-
-    def create(self, val):
-        """Create an instance for sending the extension to client.
-
-        :param int val: selected type of certificate
-        """
-        self.cert_type = val
-        return self
-
-    def parse(self, p):
+    def parse(self, parser):
         """Parse the extension from on the wire format
 
         :param Parser p: parser with data
         """
-        self.cert_type = p.get(1)
-        if p.getRemainingLength() > 0:
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
             raise SyntaxError()
-
-        return self
+        return super(ServerCertTypeExtension, self).parse(parser)
 
 
 class SRPExtension(TLSExtension):
@@ -1754,7 +1788,7 @@ class KeyShareEntry(object):
         writer.bytes += self.key_exchange
 
 
-class HeartbeatExtension(TLSExtension):
+class HeartbeatExtension(IntExtension):
     """
     Heartbeat extension from RFC 6520
 
@@ -1763,34 +1797,15 @@ class HeartbeatExtension(TLSExtension):
     """
     def __init__(self):
         super(HeartbeatExtension, self).__init__(
-                                        extType=ExtensionType.heartbeat)
-        self.mode = None
+            1, 'mode', ext_type=ExtensionType.heartbeat,
+            item_enum=HeartbeatMode)
 
-    @property
-    def extData(self):
-        """
-        Return encoded heartbeat mode
-
-        @rtype: bytearray
-        """
-        if self.mode is None:
-            return bytearray(0)
-
-        writer = Writer()
-        writer.add(self.mode, 1)
-
-        return writer.bytes
-
-    def create(self, mode):
-        self.mode = mode
-        return self
-
-    def parse(self, p):
-        self.mode = p.get(1)
-        if p.getRemainingLength() > 0:
+    def parse(self, parser):
+        """Deserialise the extension from on the wire data."""
+        # the generic class allows for missing values, it's not allowed here
+        if not parser.getRemainingLength():
             raise SyntaxError()
-
-        return self
+        return super(HeartbeatExtension, self).parse(parser)
 
 
 class ClientKeyShareExtension(TLSExtension):
@@ -2043,40 +2058,13 @@ class PreSharedKeyExtension(TLSExtension):
         return self
 
 
-class SrvPreSharedKeyExtension(TLSExtension):
+class SrvPreSharedKeyExtension(IntExtension):
     """Handling of the Pre Shared Key extension from server."""
 
     def __init__(self):
         """Create instance of class."""
         super(SrvPreSharedKeyExtension, self).__init__(
-            extType=ExtensionType.pre_shared_key)
-        self.selected = None
-
-    def create(self, selected):
-        """Set the selected PSK identity."""
-        self.selected = selected
-        return self
-
-    @property
-    def extData(self):
-        """Serialise the extension payload."""
-        if self.selected is None:
-            return bytearray()
-        writer = Writer()
-        writer.addTwo(self.selected)
-        return writer.bytes
-
-    def parse(self, parser):
-        """Parse the extension from on the wire format."""
-        if not parser.getRemainingLength():
-            self.selected = None
-            return self
-
-        self.selected = parser.get(2)
-        if parser.getRemainingLength():
-            raise SyntaxError()
-
-        return self
+            2, 'selected', ext_type=ExtensionType.pre_shared_key)
 
 
 class PskKeyExchangeModesExtension(VarListExtension):
@@ -2099,6 +2087,15 @@ class CookieExtension(VarBytesExtension):
         super(CookieExtension, self).__init__('cookie', 2, ext_type)
 
 
+class RecordSizeLimitExtension(IntExtension):
+    """Class for handling the record_size_limit extension from RFC 8449."""
+
+    def __init__(self):
+        """Create instance."""
+        super(RecordSizeLimitExtension, self).__init__(
+            2, 'record_size_limit', ExtensionType.record_size_limit)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -2119,7 +2116,8 @@ TLSExtension._universalExtensions = \
             SignatureAlgorithmsCertExtension,
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
-        ExtensionType.cookie: CookieExtension}
+        ExtensionType.cookie: CookieExtension,
+        ExtensionType.record_size_limit: RecordSizeLimitExtension}
 
 TLSExtension._serverExtensions = \
     {

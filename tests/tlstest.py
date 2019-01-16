@@ -117,7 +117,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509 (plus SNI)".format(test_no))
+    print("Test {0} - good X.509 (plus SNI)".format(test_no))
     synchro.recv(1)
     connection = connect()
     connection.handshakeClientCert(serverName=address[0])
@@ -131,7 +131,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509 TLSv1.2 (plus ALPN)".format(test_no))
+    print("Test {0} - good X.509 TLSv1.2 (plus ALPN)".format(test_no))
     synchro.recv(1)
     settings = HandshakeSettings()
     settings.maxVersion = (3, 3)
@@ -149,7 +149,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509 TLSv1.3 (plus ALPN)".format(test_no))
+    print("Test {0} - good X.509 TLSv1.3 (plus ALPN)".format(test_no))
     synchro.recv(1)
     connection = connect()
     connection.handshakeClientCert(serverName=address[0],
@@ -160,19 +160,6 @@ def clientTestCmd(argv):
     assert connection.session.cipherSuite in constants.CipherSuite.aeadSuites
     assert connection.encryptThenMAC == False
     assert connection.session.appProto == b'http/1.1'
-    connection.close()
-
-    test_no += 1
-
-    print("Test {0} - good X.509/w RSA-PSS cert".format(test_no))
-    synchro.recv(1)
-    connection = connect()
-    connection.handshakeClientCert(serverName=address[0])
-    testConnClient(connection)
-    assert(isinstance(connection.session.serverCertChain, X509CertChain))
-    assert(connection.session.serverName == address[0])
-    assert(connection.session.cipherSuite in constants.CipherSuite.aeadSuites)
-    assert(connection.encryptThenMAC == False)
     connection.close()
 
     test_no += 1
@@ -190,7 +177,32 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509, SSLv3".format(test_no))
+    print("Test {0} - good X.509/w RSA-PSS cert".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    connection.handshakeClientCert(serverName=address[0])
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert(connection.session.serverName == address[0])
+    assert(connection.session.cipherSuite in constants.CipherSuite.aeadSuites)
+    assert(connection.encryptThenMAC == False)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509, small record_size_limit".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.record_size_limit = 64
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509, SSLv3".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -215,7 +227,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509, RC4-MD5".format(test_no))
+    print("Test {0} - good X.509, RC4-MD5".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -403,7 +415,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good mutual X509".format(test_no))
+    print("Test {0} - good mutual X.509".format(test_no))
     x509Cert = X509().parse(open(os.path.join(dir, "clientX509Cert.pem")).read())
     x509Chain = X509CertChain([x509Cert])
     s = open(os.path.join(dir, "clientX509Key.pem")).read()
@@ -421,7 +433,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good mutual X509, TLSv1.3 no certs".format(test_no))
+    print("Test {0} - good mutual X.509, TLSv1.3 no certs".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -434,7 +446,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good mutual X509, TLSv1.3".format(test_no))
+    print("Test {0} - good mutual X.509, TLSv1.3".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -447,7 +459,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good mutual X509, TLSv1.1".format(test_no))
+    print("Test {0} - good mutual X.509, TLSv1.1".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -460,7 +472,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good mutual X509, SSLv3".format(test_no))
+    print("Test {0} - good mutual X.509, SSLv3".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -883,7 +895,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - resumption in TLSv1.3 with mutual X509".format(test_no))
+    print("Test {0} - resumption in TLSv1.3 with mutual X.509".format(test_no))
     synchro.recv(1)
     connection = connect()
     settings = HandshakeSettings()
@@ -1151,7 +1163,18 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X.509, SSL v3".format(test_no))
+    print("Test {0} - good X.509, small record_size_limit".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.record_size_limit = 64
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509, SSLv3".format(test_no))
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
@@ -1328,7 +1351,7 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good SRP: with X.509 cert".format(test_no))
+    print("Test {0} - good SRP: with X.509 certificate, TLSv1.0".format(test_no))
     synchro.send(b'R')
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, \
@@ -1442,7 +1465,7 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - resumption".format(test_no))
+    print("Test {0} - resumption (plus SNI)".format(test_no))
     synchro.send(b'R')
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, sessionCache=sessionCache)
@@ -1452,7 +1475,7 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - invalidated resumption".format(test_no))
+    print("Test {0} - invalidated resumption (plus SNI)".format(test_no))
     synchro.send(b'R')
     try:
         connection.read(min=1, max=1)
@@ -1510,7 +1533,7 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - different ciphers".format(test_no))
+    print("Test {0} - different ciphers, TLSv1.0".format(test_no))
     for implementation in ["python"] * len(implementations):
         for cipher in ["aes128", "aes256", "rc4"]:
 
@@ -1760,7 +1783,7 @@ def serverTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - resumption in TLSv1.3 with mutual X509".format(test_no))
+    print("Test {0} - resumption in TLSv1.3 with mutual X.509".format(test_no))
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()

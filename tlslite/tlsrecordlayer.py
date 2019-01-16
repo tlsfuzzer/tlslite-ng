@@ -93,7 +93,7 @@ class TLSRecordLayer(object):
         RC4 or AEAD.
 
     :vartype recordSize: int
-    :ivar recordSize: maimum size of data to be sent in a single record layer
+    :ivar recordSize: maximum size of data to be sent in a single record layer
         message. Note that after encryption is established (generally after
         handshake protocol has finished) the actual amount of data written to
         network socket will be larger because of the record layer header,
@@ -102,9 +102,10 @@ class TLSRecordLayer(object):
         fragmentation on Ethernet, IP and TCP level) at the beginning of
         connection to reduce latency and set to protocol max (2**14) to
         maximise
-        throughput after sending few kiB of data. Setting to values greater
-        than
-        2**14 will cause the connection to be dropped by RFC compliant peers.
+        throughput after sending the first few kiB of data. If negotiated,
+        record_size_limit extension may limit it though, causing reading of the
+        variable to return lower value that was initially set.
+        See also: HandshakeSettings.record_size_limit.
 
     :vartype tickets: list of bytearray
     :ivar tickets: list of session tickets received from server, oldest first.
@@ -157,8 +158,8 @@ class TLSRecordLayer(object):
         #Fault we will induce, for testing purposes
         self.fault = None
 
-        #Limit the size of outgoing records to following size
-        self.recordSize = 16384 # 2**14
+        # Temporarily limit the size of outgoing records to following size
+        self._user_record_limit = 16384  # 2**14
 
         # NewSessionTickets received from server
         self.tickets = []
@@ -177,6 +178,36 @@ class TLSRecordLayer(object):
         # Callback function for handling responses to heartbeat requests
         # we sent
         self.heartbeat_response_callback = None
+
+    @property
+    def _send_record_limit(self):
+        """Maximum size of payload that can be sent."""
+        return self._recordLayer.send_record_limit
+
+    @_send_record_limit.setter
+    def _send_record_limit(self, value):
+        """Maximum size of payload that can be sent."""
+        self._recordLayer.send_record_limit = value
+
+    @property
+    def _recv_record_limit(self):
+        """Maximum size of payload that can be received."""
+        return self._recordLayer.recv_record_limit
+
+    @_recv_record_limit.setter
+    def _recv_record_limit(self, value):
+        """Maximum size of payload that can be received."""
+        self._recordLayer.recv_record_limit = value
+
+    @property
+    def recordSize(self):
+        """Maximum size of the records that will be sent out."""
+        return min(self._user_record_limit, self._send_record_limit)
+
+    @recordSize.setter
+    def recordSize(self, value):
+        """Size to automatically fragment records to."""
+        self._user_record_limit = value
 
     @property
     def _client(self):

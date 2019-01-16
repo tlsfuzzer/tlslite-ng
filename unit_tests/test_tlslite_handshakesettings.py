@@ -408,6 +408,34 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("heartbeat_response_callback", str(e.exception))
 
+    def test_too_small_record_size_limit(self):
+        hs = HandshakeSettings()
+        hs.record_size_limit = 63
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("record_size_limit", str(e.exception))
+
+    def test_too_big_record_size_limit(self):
+        hs = HandshakeSettings()
+        hs.record_size_limit = 2**14+2
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("record_size_limit", str(e.exception))
+
+    def test_none_as_record_size_limit(self):
+        hs = HandshakeSettings()
+        self.assertIsNotNone(hs.record_size_limit)
+
+        hs.record_size_limit = None
+
+        hs = hs.validate()
+
+        self.assertIsNone(hs.record_size_limit)
+
 
 if __name__ == '__main__':
     unittest.main()
