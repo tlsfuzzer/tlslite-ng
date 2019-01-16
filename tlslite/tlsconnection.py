@@ -1336,7 +1336,8 @@ class TLSConnection(TLSRecordLayer):
                         yield result
 
                 availSigAlgs = self._sigHashesToList(settings, privateKey,
-                                                     clientCertChain)
+                                                     clientCertChain,
+                                                     version=(3, 4))
                 signature_scheme = getFirstMatching(availSigAlgs,
                                                     valid_sig_algs)
                 scheme = SignatureScheme.toRepr(signature_scheme)
@@ -2583,7 +2584,8 @@ class TLSConnection(TLSRecordLayer):
             signature_scheme = certificate_verify.signatureAlgorithm
 
             valid_sig_algs = self._sigHashesToList(settings,
-                                                   certList=client_cert_chain)
+                                                   certList=client_cert_chain,
+                                                   version=(3, 4))
             if signature_scheme not in valid_sig_algs:
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,
