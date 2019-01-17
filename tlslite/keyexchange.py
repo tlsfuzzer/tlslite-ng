@@ -225,7 +225,12 @@ class KeyExchange(object):
                 verifyBytes = RSAKey.addPKCS1Prefix(verifyBytes, hashName)
         elif version == (3, 4):
             scheme = SignatureScheme.toRepr(signatureAlg)
-            hash_name = SignatureScheme.getHash(scheme)
+            if scheme:
+                hash_name = SignatureScheme.getHash(scheme)
+            else:
+                # handles negative test cases when we try to pass in
+                # schemes that are not supported in TLS1.3
+                hash_name = HashAlgorithm.toRepr(signatureAlg[0])
             verifyBytes = bytearray(b'\x20' * 64 +
                                     b'TLS 1.3, ' + peer_tag +
                                     b' CertificateVerify' +

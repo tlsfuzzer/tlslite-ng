@@ -2609,9 +2609,10 @@ class TLSConnection(TLSRecordLayer):
                                      pad_type,
                                      hash_name,
                                      salt_len):
-                raise TLSDecryptionFailed("client Certificate Verify "
-                                          "signature "
-                                          "verification failed")
+                for result in self._sendError(
+                        AlertDescription.decrypt_error,
+                        "signature verification failed"):
+                    yield result
 
         # as both exporter and resumption master secrets include handshake
         # transcript, we need to derive them early
