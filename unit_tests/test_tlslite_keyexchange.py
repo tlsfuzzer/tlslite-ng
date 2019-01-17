@@ -333,6 +333,17 @@ class TestCalcVerifyBytes(unittest.TestCase):
             b'\xed=\x9b\xe3\xd9_%qe\xa3k\xf5\x85\x0e?\x9fr\xfaML'
             ))
 
+    def test_with_TLS1_3_unsupported_hash(self):
+        vrfy = KeyExchange.calcVerifyBytes((3, 4),
+                                           self.handshake_hashes,
+                                           (HashAlgorithm.md5,
+                                            SignatureAlgorithm.rsa),
+                                           None, None, None,
+                                           'sha256', b'server')
+        self.assertEqual(vrfy, bytearray(
+            b'\xcfY\xa7\x9b \xea\xae4\xdb\xad)\xaeC\xc6\x98\xfd'))
+
+
 class TestMakeCertificateVerify(unittest.TestCase):
     def setUp(self):
         cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])
