@@ -2207,57 +2207,93 @@ class TLSConnection(TLSRecordLayer):
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
 
+    @staticmethod
+    def _derive_key_iv(nonce, user_key, settings):
+        """Derive the IV and key for session ticket encryption."""
+        if settings.ticketCipher == "aes128gcm":
+            prf_name = "sha256"
+            prf_size = 32
+        else:
+            prf_name = "sha384"
+            prf_size = 48
+
+        # mix the nonce with the key set by user
+        secret = bytearray(prf_size)
+        secret = secureHMAC(secret, nonce, prf_name)
+        secret = derive_secret(secret, bytearray(b'derived'), None, prf_name)
+        secret = secureHMAC(secret, user_key, prf_name)
+
+        ticket_secret = derive_secret(secret,
+                                      bytearray(b'SessionTicket secret'),
+                                      None, prf_name)
+
+        key = HKDF_expand_label(ticket_secret, b"key", b"", len(user_key),
+                                prf_name)
+        # all AEADs use 12 byte long IV
+        iv = HKDF_expand_label(ticket_secret, b"iv", b"", 12, prf_name)
+        return key, iv
+
     def _serverSendTickets(self, settings):
         """Send session tickets to client."""
         if not settings.ticketKeys:
             return
 
-        # prepare the ticket
-        ticket = SessionTicketPayload()
-        ticket.create(self.session.resumptionMasterSecret,
-                      self.version,
-                      self.session.cipherSuite,
-                      int(time.time()),
-                      getRandomBytes(len(settings.ticketKeys[0])),
-                      client_cert_chain=self.session.clientCertChain)
+        for _ in range(settings.ticket_count):
+            # prepare the ticket
+            ticket = SessionTicketPayload()
+            ticket.create(self.session.resumptionMasterSecret,
+                          self.version,
+                          self.session.cipherSuite,
+                          int(time.time()),
+                          getRandomBytes(len(settings.ticketKeys[0])),
+                          client_cert_chain=self.session.clientCertChain)
 
-        # encrypt the ticket
-        if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
-            cipher = createAESGCM(settings.ticketKeys[0],
-                                  settings.cipherImplementations)
-        else:  # assume chacha, enforced by handshake settings
-            cipher = createCHACHA20(settings.ticketKeys[0],
-                                    settings.cipherImplementations)
+            # encrypt the ticket
 
-        # all AEADs we support require 12 byte nonces/IVs
-        iv = getRandomBytes(12)
+            # generate keys for the encryption
+            nonce = getRandomBytes(32)
+            key, iv = self._derive_key_iv(nonce, settings.ticketKeys[0],
+                                          settings)
 
-        encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
+            if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
+                cipher = createAESGCM(key,
+                                      settings.cipherImplementations)
+            else:
+                assert settings.ticketCipher == "chacha20-poly1305"
+                cipher = createCHACHA20(key,
+                                        settings.cipherImplementations)
 
-        # send ticket to client
-        new_ticket = NewSessionTicket()
-        new_ticket.create(settings.ticketLifetime,
-                          getRandomNumber(1, 8**4),
-                          ticket.nonce,
-                          iv + encrypted_ticket,
-                          [])
+            encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
 
-        for result in self._sendMsg(new_ticket):
-            yield result
+            # encapsulate the ticket and send to client
+            new_ticket = NewSessionTicket()
+            new_ticket.create(settings.ticketLifetime,
+                              getRandomNumber(1, 8**4),
+                              ticket.nonce,
+                              nonce + encrypted_ticket,
+                              [])
+            self._queue_message(new_ticket)
+
+        # send tickets to client
+        if settings.ticket_count:
+            for result in self._queue_flush():
+                yield result
 
     def _tryDecrypt(self, settings, identity):
         if not settings.ticketKeys:
             return None, None
 
-        if len(identity.identity) < 13:
+        if len(identity.identity) < 33:
             # too small for an encrypted ticket
             return None, None
 
-        iv, encrypted_ticket = identity.identity[:12], identity.identity[12:]
-        for key in settings.ticketKeys:
+        nonce, encrypted_ticket = identity.identity[:32], identity.identity[32:]
+        for user_key in settings.ticketKeys:
+            key, iv = self._derive_key_iv(nonce, user_key, settings)
             if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
                 cipher = createAESGCM(key, settings.cipherImplementations)
             else:
+                assert settings.ticketCipher == "chacha20-poly1305"
                 cipher = createCHACHA20(key, settings.cipherImplementations)
 
             ticket = cipher.open(iv, encrypted_ticket, b'')
@@ -2401,12 +2437,13 @@ class TLSConnection(TLSRecordLayer):
                            clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
-        for result in self._sendMsg(serverHello):
-            yield result
+        msgs = []
+        msgs.append(serverHello)
         if not self._ccs_sent:
             ccs = ChangeCipherSpec().create()
-            for result in self._sendMsg(ccs):
-                yield result
+            msgs.append(ccs)
+        for result in self._sendMsgs(msgs):
+            yield result
 
         # Early secret
         secret = secureHMAC(secret, psk, prf_name)
@@ -2468,8 +2505,7 @@ class TLSConnection(TLSRecordLayer):
                     HeartbeatMode.PEER_ALLOWED_TO_SEND))
 
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
-        for result in self._sendMsg(encryptedExtensions):
-            yield result
+        self._queue_message(encryptedExtensions)
 
         if selected_psk is None:
 
@@ -2485,13 +2521,11 @@ class TLSConnection(TLSRecordLayer):
 
                 certificate_request = CertificateRequest(self.version)
                 certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
-                for result in self._sendMsg(certificate_request):
-                    yield result
+                self._queue_message(certificate_request)
 
             certificate = Certificate(CertificateType.x509, self.version)
             certificate.create(serverCertChain, bytearray())
-            for result in self._sendMsg(certificate):
-                yield result
+            self._queue_message(certificate)
 
             certificate_verify = CertificateVerify(self.version)
 
@@ -2520,8 +2554,7 @@ class TLSConnection(TLSRecordLayer):
                     yield result
             certificate_verify.create(signature, signature_scheme)
 
-            for result in self._sendMsg(certificate_verify):
-                yield result
+            self._queue_message(certificate_verify)
 
         finished_key = HKDF_expand_label(sr_handshake_traffic_secret,
                                          b"finished", b'', prf_size, prf_name)
@@ -2531,7 +2564,8 @@ class TLSConnection(TLSRecordLayer):
 
         finished = Finished(self.version, prf_size).create(verify_data)
 
-        for result in self._sendMsg(finished):
+        self._queue_message(finished)
+        for result in self._queue_flush():
             yield result
 
         self._changeReadState()

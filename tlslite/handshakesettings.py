@@ -186,12 +186,17 @@ class HandshakeSettings(object):
         tickets. First entry is the encryption key for new tickets and the
         default decryption key, subsequent entries are the fallback keys
         allowing for key rollover. The keys need to be of size appropriate
-        for a selected cipher in ticketCipher, 32 bytes for 'aes256gcm'.
+        for a selected cipher in ticketCipher, 32 bytes for 'aes256gcm' and
+        'chacha20-poly1305', 16 bytes for 'aes128-gcm'.
+        New keys should be generated regularly and replace old ones. Key use
+        time should generally not be longer than 24h and key life-time should
+        not be longer than 48h.
         Leave empty to disable session ticket support on server side.
 
     :vartype ticketCipher: str
     :ivar ticketCipher: name of the cipher used for encrypting the session
-        tickets. 'aes256gcm' by default
+        tickets. 'aes256gcm' by default, 'aes128gcm' or 'chacha20-poly1305'
+        alternatively.
 
     :vartype ticketLifetime: int
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
@@ -255,6 +260,9 @@ class HandshakeSettings(object):
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
         self.max_early_data = 2 ** 14 + 16  # full record + tag
+        # send two tickets so that client can quickly ramp up number of
+        # resumed connections (as tickets are single-use in TLS 1.3
+        self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
 
     def __init__(self):
@@ -475,6 +483,10 @@ class HandshakeSettings(object):
         if not 0 < other.max_early_data <= 2**64:
             raise ValueError("max_early_data must be between 0 and 2GiB")
 
+        if not 0 < other.ticket_count < 2**16:
+            raise ValueError("Incorrect amount for number of new session "
+                             "tickets to send")
+
     def _copy_cipher_settings(self, other):
         """Copy values related to cipher selection."""
         other.cipherNames = self.cipherNames
@@ -498,6 +510,7 @@ class HandshakeSettings(object):
         other.ticketCipher = self.ticketCipher
         other.ticketLifetime = self.ticketLifetime
         other.max_early_data = self.max_early_data
+        other.ticket_count = self.ticket_count
         other.record_size_limit = self.record_size_limit
 
     @staticmethod
