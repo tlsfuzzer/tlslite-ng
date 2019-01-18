@@ -260,6 +260,8 @@ class HandshakeSettings(object):
         self.ticketCipher = "aes256gcm"
         self.ticketLifetime = 24 * 60 * 60
         self.max_early_data = 2 ** 14 + 16  # full record + tag
+        # send two tickets so that client can quickly ramp up number of
+        # resumed connections (as tickets are single-use in TLS 1.3
         self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
 
