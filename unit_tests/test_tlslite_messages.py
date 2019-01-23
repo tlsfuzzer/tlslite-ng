@@ -21,13 +21,15 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
-        NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest
+        NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest, \
+        KeyUpdate
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
         SSL2HandshakeType, CertificateStatusType, HandshakeType, \
-        SignatureScheme, TLS_1_3_HRR, HeartbeatMessageType
+        SignatureScheme, TLS_1_3_HRR, HeartbeatMessageType, \
+        KeyUpdateMessageType
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
     ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity, \
@@ -3705,6 +3707,55 @@ class TestHelloRequest(unittest.TestCase):
                                   b'\xff'))  # some garbage
         with self.assertRaises(SyntaxError):
             self.msg.parse(parser)
+
+
+class TestKeyUpdate(unittest.TestCase):
+    def test___init__(self):
+        ku = KeyUpdate()
+
+        self.assertIsInstance(ku, KeyUpdate)
+        self.assertEqual(ku.message_type, 0)
+
+    def test_create(self):
+        ku = KeyUpdate().create(KeyUpdateMessageType.update_requested)
+
+        self.assertEqual(ku.message_type, 1)
+
+    def test_write(self):
+        ku = KeyUpdate().create(KeyUpdateMessageType.update_not_requested)
+
+        self.assertEqual(ku.write(),
+                         b'\x18'  # handshake type
+                         b'\x00\x00\x01'  # length
+                         b'\x00'  # message_type - update_not_requested
+                         )
+
+    def test_parse(self):
+        parser = Parser(bytearray(# b'\x18'  # type
+                                  b'\x00\x00\x01'  # overall length
+                                  b'\x00'  # message_type
+                                  ))
+
+        msg = KeyUpdate().parse(parser)
+
+        self.assertIsInstance(msg, KeyUpdate)
+        self.assertEqual(msg.message_type, 0)
+
+    def test_parse_with_truncated_payload(self):
+        parser = Parser(bytearray(# b'\x18'  # type
+                                  b'\x00\x00\x01'  # overall length (invalid)
+                                  ))
+
+        with self.assertRaises(SyntaxError):
+            KeyUpdate().parse(parser)
+
+    def test_parse_with_too_long_payload(self):
+        parser = Parser(bytearray(# b'\x18'  # type
+                                  b'\x00\x00\x02'  # overall length
+                                  b'\x00\x00'))
+
+        with self.assertRaises(SyntaxError):
+            KeyUpdate().parse(parser)
 
 
 if __name__ == '__main__':

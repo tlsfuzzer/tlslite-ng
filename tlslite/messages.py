@@ -2329,3 +2329,35 @@ class Heartbeat(object):
     def __str__(self):
         """Return human readable representation of heartbeat message."""
         return "heartbeat {0}".format(self._message_type)
+
+
+class KeyUpdate(HandshakeMsg):
+    """
+    Handling KeyUpdate message from RFC 8446
+
+    @type message_type: int
+    @ivar message_type: type of message (update_not_requested or
+                                         update_requested)
+    """
+
+    def __init__(self):
+        super(KeyUpdate, self).__init__(HandshakeType.key_update)
+        self.message_type = 0
+
+    def create(self, message_type):
+        """Create KeyUpdate message with selected parameter."""
+        self.message_type = message_type
+        return self
+
+    def parse(self, p):
+        """Deserialize keyupdate message from parser."""
+        p.startLengthCheck(3)
+        self.message_type = p.get(1)
+        p.stopLengthCheck()
+        return self
+
+    def write(self):
+        """Serialise keyupdate message."""
+        writer = Writer()
+        writer.add(self.message_type, 1)
+        return self.postWrite(writer)
