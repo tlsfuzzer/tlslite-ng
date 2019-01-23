@@ -266,7 +266,8 @@ class TLSRecordLayer(object):
         if self.version > (3, 3):
             allowedTypes = (ContentType.application_data,
                             ContentType.handshake)
-            allowedHsTypes = HandshakeType.new_session_ticket
+            allowedHsTypes = (HandshakeType.new_session_ticket,
+                              HandshakeType.key_update)
         else:
             allowedTypes = ContentType.application_data
             allowedHsTypes = None
@@ -280,6 +281,9 @@ class TLSRecordLayer(object):
                     if isinstance(result, NewSessionTicket):
                         result.time = time.time()
                         self.tickets.append(result)
+                        continue
+                    if isinstance(result, KeyUpdate):
+                        self._handle_keyupdate_request(result)
                         continue
                     applicationData = result
                     self._readBuffer += applicationData.write()
@@ -888,6 +892,8 @@ class TLSRecordLayer(object):
                     yield EncryptedExtensions().parse(p)
                 elif subType == HandshakeType.new_session_ticket:
                     yield NewSessionTicket().parse(p)
+                elif subType == HandshakeType.key_update:
+                    yield KeyUpdate().parse(p)
                 else:
                     raise AssertionError()
 
@@ -1069,3 +1075,24 @@ class TLSRecordLayer(object):
         """
         for _ in self.write_heartbeat(payload, padding_length):
             pass
+
+    def _handle_keyupdate_request(self, request):
+        """Process the KeyUpdate request.
+
+        @type request: KeyUpdate
+        @param request: Recieved KeyUpdate message.
+        """
+        if request.message_type == KeyUpdateMessageType.update_not_requested:
+            # Calculate new keys
+        elif request.message_type == KeyUpdateMessageType.update_requested:
+            # Calculate new keys
+            # Send KeyUpdate msg
+            keyupdate_request = KeyUpdate().create(
+                KeyUpdateMessageType.update_not_requested)
+            for _ in self._sendMsg(keyupdate_request):
+                pass
+        else:
+            for _ in self._sendError(\
+                    AlertDescription.illegal_parameter, \
+                    "Received KeyUpdate request with unknown message_type"):
+                pass
