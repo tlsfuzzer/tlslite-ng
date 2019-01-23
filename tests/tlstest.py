@@ -44,6 +44,7 @@ except ImportError:
     from xmlrpc import client as xmlrpclib
 import ssl
 from tlslite import *
+from tlslite.constants import KeyUpdateMessageType
 
 try:
     from tack.structures.Tack import Tack
@@ -77,10 +78,18 @@ def testConnClient(conn):
     conn.write(b10)
     conn.write(b100)
     conn.write(b1000)
-    assert(conn.read(min=1, max=1) == b1)
-    assert(conn.read(min=10, max=10) == b10)
-    assert(conn.read(min=100, max=100) == b100)
-    assert(conn.read(min=1000, max=1000) == b1000)
+    r1 = conn.read(min=1, max=1)
+    assert len(r1) == 1
+    assert r1 == b1
+    r10 = conn.read(min=10, max=10)
+    assert len(r10) == 10
+    assert r10 == b10
+    r100 = conn.read(min=100, max=100)
+    assert len(r100) == 100
+    assert r100 == b100
+    r1000 = conn.read(min=1000, max=1000)
+    assert len(r1000) == 1000
+    assert r1000 == b1000
 
 def clientTestCmd(argv):
     
@@ -1203,6 +1212,51 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - KeyUpdate from client in TLSv1.3".format(test_no))
+    assert synchro.recv(1) == b'R'
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    assert synchro.recv(1) == b'K'
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    assert synchro.recv(1) == b'K'
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - mutual KeyUpdates in TLSv1.3".format(test_no))
+    assert synchro.recv(1) == b'R'
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    testConnClient(connection)
+    synchro.send(b'R')
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - multiple mutual KeyUpdates in TLSv1.3".format(test_no))
+    assert synchro.recv(1) == b'R'
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    testConnClient(connection)
+    synchro.send(b'R')
+    connection.close()
+
+    test_no += 1
+
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
     synchro.recv(1)
@@ -2274,8 +2328,53 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - KeyUpdate from client in TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    synchro.send(b'K')
+    synchro.send(b'K')
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - mutual KeyUpdates in TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    testConnServer(connection)
+    assert synchro.recv(1) == b'R'
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - multiple mutual KeyUpdates in TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    for i in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+        assert i in (0, 1)
+    testConnServer(connection)
+    assert synchro.recv(1) == b'R'
+    connection.close()
+
+    test_no += 1
+
     print("Tests {0}-{1} - XMLRPXC server".format(test_no, test_no + 2))
-    test_no += 2
 
     address = address[0], address[1]+1
     class Server(TLSXMLRPCServer):
@@ -2306,6 +2405,7 @@ def serverTestCmd(argv):
 
     synchro.close()
     synchroSocket.close()
+    test_no += 2
 
     print("Test succeeded")
 
