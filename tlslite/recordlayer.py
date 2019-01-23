@@ -1316,3 +1316,55 @@ class RecordLayer(object):
         else:
             self._pendingWriteState = serverPendingState
             self._pendingReadState = clientPendingState
+
+    def _calcTLS1_3KeyUpdate(self, cipherSuite, app_secret):
+        prf_name, prf_length = ('sha384', 48) if cipherSuite \
+                                in CipherSuite.sha384PrfSuites \
+                                else ('sha256', 32)
+        key_length, iv_length, cipher_func = \
+            self._getCipherSettings(cipherSuite)
+        iv_length = 12
+
+        new_app_secret = HKDF_expand_label(app_secret,
+                                           b"traffic upd", b"",
+                                           prf_length,
+                                           prf_name)
+        new_state = ConnectionState()
+        new_state.macContext = None
+        new_state.encContext = \
+            cipher_func(HKDF_expand_label(new_app_secret,
+                                          b"key", b"",
+                                          key_length,
+                                          prf_name),
+                        None)
+        new_state.fixedNonce = HKDF_expand_label(new_app_secret,
+                                                 b"iv", b"",
+                                                 iv_length,
+                                                 prf_name)
+        return new_app_secret, new_state
+
+    def calcTLS1_3KeyUpdate_sender(self, cipherSuite, cl_app_secret,
+                                   sr_app_secret):
+        if self.client:
+            new_sr_app_secret, server_state = self._calcTLS1_3KeyUpdate(
+                cipherSuite, sr_app_secret)
+            self._readState = server_state
+            return cl_app_secret, new_sr_app_secret
+        else:
+            new_cl_app_secret, client_state = self._calcTLS1_3KeyUpdate(
+                cipherSuite, cl_app_secret)
+            self._readState = client_state
+            return new_cl_app_secret, sr_app_secret
+
+    def calcTLS1_3KeyUpdate_reciever(self, cipherSuite, cl_app_secret,
+                                     sr_app_secret):
+        if self.client:
+            new_cl_app_secret, client_state = self._calcTLS1_3KeyUpdate(
+                cipherSuite, cl_app_secret)
+            self._writeState = client_state
+            return new_cl_app_secret, sr_app_secret
+        else:
+            new_sr_app_secret, server_state = self._calcTLS1_3KeyUpdate(
+                cipherSuite, sr_app_secret)
+            self._writeState = server_state
+            return cl_app_secret, new_sr_app_secret
