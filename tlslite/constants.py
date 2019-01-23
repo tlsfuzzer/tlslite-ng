@@ -122,6 +122,7 @@ class HandshakeType(TLSEnum):
     client_key_exchange = 16
     finished = 20
     certificate_status = 22
+    key_update = 24
     next_protocol = 67
     message_hash = 254  # TLS 1.3
 
@@ -389,6 +390,13 @@ class HeartbeatMessageType(TLSEnum):
 
     heartbeat_request = 1
     heartbeat_response = 2
+
+
+class KeyUpdateMessageType(TLSEnum):
+    """Types of keyupdate messages from RFC 8446"""
+
+    update_not_requested = 0
+    update_requested = 1
 
 
 class AlertLevel(TLSEnum):
