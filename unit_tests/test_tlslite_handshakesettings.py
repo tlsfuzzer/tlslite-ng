@@ -436,6 +436,31 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIsNone(hs.record_size_limit)
 
+    def test_ticket_count_zero(self):
+        hs = HandshakeSettings()
+        hs.ticket_count = 0
+
+        hs = hs.validate()
+
+        self.assertIsNotNone(hs.ticket_count, 0)
+
+    def test_ticket_count_200(self):
+        hs = HandshakeSettings()
+        hs.ticket_count = 200
+
+        hs = hs.validate()
+
+        self.assertIsNotNone(hs.ticket_count, 200)
+
+    def test_ticket_count_negative(self):
+        hs = HandshakeSettings()
+        hs.ticket_count = -1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn("new session tickets", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()
