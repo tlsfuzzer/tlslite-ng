@@ -70,6 +70,7 @@ Implemented TLS features include:
 * X25519 and X448 ECDHE key exchange
 * (experimental) TACK extension
 * heartbeat extension and protocol
+* Record Size Limit extension
 
 2 Licenses/Acknowledgements
 ============================
@@ -581,7 +582,7 @@ at your own risk.
 tlslite-ng **CANNOT** verify certificates - you must use external means to
 check if the certificate is the expected one.
 
-Because python execution environmnet uses hash tables to store variables (that
+Because python execution environment uses hash tables to store variables (that
 includes functions, objects and classes) it's very hard to create
 implementations that are timing attack resistant. Additionally, all integers
 use arbitrary precision arithmentic, so binary operations
@@ -632,6 +633,9 @@ calculate GCM tag, see #301)
   * 0-RTT handshake tolerance (the early data will be ignored but handshake
     will succeed)
   * cookie extension
+  * downgrade sentinels in ServerHello.random
+  * TLS Keying Material Exporter support in TLS 1.3 (Simo Sorce)
+  * client certificate support (Simo Sorce)
 * fix minor compatibility issue with Jython2.7 (Filip Goldefus)
 * higher precision of throughput measurement on non-Linux platforms
   (Efthimis Iosifidis)
@@ -654,6 +658,9 @@ calculate GCM tag, see #301)
 * clearly state in documentation that inputs to signature and verification
   methods of RSA keys need to be bytes-like objects
 * support for setting maximum supported version in tls.py server and client
+* support for record_size_limit extension from RFC 8449
+* make the number of session tickets sent to client configurable (TLS 1.3
+  specific)
 
 0.7.0 - 2017-07-31
 
