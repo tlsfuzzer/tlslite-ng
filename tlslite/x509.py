@@ -11,7 +11,7 @@ from .utils.cryptomath import *
 from .utils.keyfactory import _createPublicRSAKey
 from .utils.pem import *
 from ecdsa.keys import VerifyingKey
-from ecdsa.curves import NIST256p, NIST384p
+from ecdsa.curves import NIST256p, NIST384p, NIST521p
 
 class X509(object):
     """
@@ -117,6 +117,8 @@ class X509(object):
                 self._ecdsa_pubkey_parsing(subject_public_key_info, NIST256p)
             elif list(curveId.value) == [43, 129, 4, 0, 34]:
                 self._ecdsa_pubkey_parsing(subject_public_key_info, NIST384p)
+            elif list(curveId.value) == [43, 129, 4, 0, 35]:
+                self._ecdsa_pubkey_parsing(subject_public_key_info, NIST521p)
             else:
                 raise SyntaxError("Unknown elliptic curve")
             return

@@ -492,6 +492,86 @@ class TestServerKeyExchangeP384(unittest.TestCase):
                                             [(HashAlgorithm.sha256,
                                               SignatureAlgorithm.ecdsa)])
 
+class TestServerKeyExchangeP521(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        certificate = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIB9DCCAVegAwIBAgIJALLS/7HVXjvLMAkGByqGSM49BAEwFDESMBAGA1UEAwwJ\n"
+            "bG9jYWxob3N0MB4XDTE3MTAyNDA5MzI1OVoXDTE3MTEyMzA5MzI1OVowFDESMBAG\n"
+            "A1UEAwwJbG9jYWxob3N0MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQA2W4PjcS5\n"
+            "O2XC/BePOpu3qLrIKdEYPTbXPz3kX1KAMUKb7Mndl8gYhmt3orymNfyvw/TjUBeT\n"
+            "D9C/kH87MM0MTdIADcZOQ8Kaq1KB33bNbsXtkV29SF+070tE6B0AdbKkA51Ak1G8\n"
+            "FWmEZtf01e8ajcfsDLzkQenY8nD9/jdXonyRMD6jUDBOMB0GA1UdDgQWBBT8H+nt\n"
+            "DHosWy5fTjmDltyvBB6JUjAfBgNVHSMEGDAWgBT8H+ntDHosWy5fTjmDltyvBB6J\n"
+            "UjAMBgNVHRMEBTADAQH/MAkGByqGSM49BAEDgYsAMIGHAkIB8rNy9Uq2ZZwFwbdw\n"
+            "FBjteJEkJS26E7m3bLf5YmCmdH6wyQd+EjoPVBwOrQxcH0eR/vYEmouTlsBGxdRN\n"
+            "1eIm4DQCQUVPccfLbGV4KK3tkij1GH9ej9AQvLpjVMkyhwNadmGadOcIpbciQyll\n"
+            "+m9uHWVCSntAeSzf2A6nnVBvRvGbZu1w\n"
+            "-----END CERTIFICATE-----\n")
+
+        x509 = X509()
+        x509.parse(certificate)
+
+        cls.x509 = x509
+
+    def test_verify_ecdsa_signature_in_TLS1_2_SHA384(self):
+        skemsg = a2b_hex(
+            "0000d3030017410402f8552b8fb2ce583f6572a872373857de5a4f179c00870"
+            "9305391e847416a894d523759e73205b94c64a683bb61f8a6c01c7fee180591"
+            "24f47e77aad3b32ada0503008a30818702420153e2b6526452f2174c4b70f9c"
+            "de18c63bc8a70bfde5f313e7608fb799893fea45d414e9ff176a9a0a7cd1b8c"
+            "0d659d147501ea6482d8d43ac75e0ce6864674196102415e6f6ac717dad1b10"
+            "cd20e9dc3d4f6d1e483a349cc7d37ecdb68231b3b41dd60cff9068e38cbd62d"
+            "1203be11556991c85c6b9348b958318a91cdaa2e249ea1cb9e")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+                (3, 3))
+        ske.parse(parser)
+
+        client_random = a2b_hex("ccef6eefa66dda9e90c5e56dc3efa1ec"
+                                "259485ebcd2ec736ad2bcb3598ac3615")
+        server_random = a2b_hex("739fd50e4ecbb177f882536a71828f8e"
+                                "bcbcf3a3217da24fa3eb6f7d7b009401")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            [(HashAlgorithm.sha384,
+                                              SignatureAlgorithm.ecdsa)])
+
+    def test_verify_ecdsa_signature_in_TLS1_2_SHA512(self):
+        skemsg = a2b_hex(
+            "0000d3030017410402f8552b8fb2ce583f6572a872373857de5a4f179c0087"
+            "09305391e847416a894d523759e73205b94c64a683bb61f8a6c01c7fee180591"
+            "24f47e77aad3b32ada0603008a308187024200c1ab9d049e28cdd107b7c180d4"
+            "dc8f78970edcee88a8b8fbd1a68572d342d97fa0ad1a7d1285ae8ea387c00d2d"
+            "f56dcd36146460ccba99e1323078888364604c3202412388817fea69babcb482"
+            "cacfe92056507cb85cd840c6a19c3fbf079e67399d72c81642b11b9e89612405"
+            "57e39a617f25efeebcfdcf3bf68c792f3a91318b0bd695")
+
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+                (3, 3))
+        ske.parse(parser)
+
+        client_random = a2b_hex("455c9402792ab4443cacc8f3bc2c9815"
+                                "7a3f3e1026a49e50fc04a9a3d2ba18d3")
+        server_random = a2b_hex("ae2c2a0b6f65209c10a6766e8d230eb6"
+                                "465927ae363950430ec049d6e32cae24")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            [(HashAlgorithm.sha512,
+                                              SignatureAlgorithm.ecdsa)])
+
 
 class TestCalcVerifyBytes(unittest.TestCase):
     def setUp(self):
