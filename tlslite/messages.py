@@ -1537,7 +1537,8 @@ class ServerKeyExchange(HandshakeMsg):
         """
         writer = Writer()
         writer.bytes += self.writeParams()
-        if self.cipherSuite in CipherSuite.certAllSuites:
+        if self.cipherSuite in CipherSuite.certAllSuites or \
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
             if self.version >= (3, 3):
                 assert self.hashAlg != 0 and self.signAlg != 0
                 writer.add(self.hashAlg, 1)
