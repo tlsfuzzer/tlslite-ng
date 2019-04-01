@@ -208,6 +208,9 @@ class SignatureScheme(TLSEnum):
     rsa_pkcs1_sha256 = (4, 1)
     rsa_pkcs1_sha384 = (5, 1)
     rsa_pkcs1_sha512 = (6, 1)
+    ecdsa_secp256r1_sha256 = (4, 3)
+    ecdsa_secp384r1_sha384 = (5, 3)
+    ecdsa_secp521r1_sha512 = (6, 3)
     rsa_pss_rsae_sha256 = (8, 4)
     rsa_pss_rsae_sha384 = (8, 5)
     rsa_pss_rsae_sha512 = (8, 6)
@@ -273,7 +276,7 @@ class SignatureScheme(TLSEnum):
             kType, _, hName = vals
         else:
             kType, _, _, hName = vals
-        assert kType == 'rsa'
+        assert kType in ('rsa', 'ecdsa')
         return hName
 
 
