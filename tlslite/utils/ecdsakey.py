@@ -135,7 +135,7 @@ class ECDSAKey(object):
         :rtype: bytearray
         :returns: An ECDSA signature on the passed-in data.
         """
-        sigBytes = self._sign(bytes)
+        sigBytes = self._sign(bytes, hashAlg)
         return sigBytes
 
     def verify(self, sigBytes, bytes, padding=None, hashAlg=None,
