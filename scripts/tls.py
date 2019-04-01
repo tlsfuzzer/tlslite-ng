@@ -493,7 +493,8 @@ def serverCmd(argv):
     settings = HandshakeSettings()
     settings.useExperimentalTackExtension=True
     settings.dhParams = dhparam
-    settings.ticket_count = tickets or settings.ticket_count
+    if tickets is not None:
+        settings.ticket_count = tickets
     if psk:
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
     settings.ticketKeys = [getRandomBytes(32)]

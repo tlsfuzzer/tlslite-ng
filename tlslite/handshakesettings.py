@@ -483,7 +483,7 @@ class HandshakeSettings(object):
         if not 0 < other.max_early_data <= 2**64:
             raise ValueError("max_early_data must be between 0 and 2GiB")
 
-        if not 0 < other.ticket_count < 2**16:
+        if not 0 <= other.ticket_count < 2**16:
             raise ValueError("Incorrect amount for number of new session "
                              "tickets to send")
 
