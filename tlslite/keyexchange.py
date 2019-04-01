@@ -73,6 +73,32 @@ class KeyExchange(object):
         """Process the server KEX and return premaster secret"""
         raise NotImplementedError()
 
+    def _tls12_sign_ecdsa_SKE(self, serverKeyExchange, sigHash=None):
+        try:
+            serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
+                    getattr(SignatureScheme, sigHash)
+            hashName = SignatureScheme.getHash(sigHash)
+        except AttributeError:
+            serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
+            serverKeyExchange.signAlg = SignatureAlgorithm.ecdsa
+            hashName = sigHash
+
+        hash_bytes = serverKeyExchange.hash(self.clientHello.random,
+                                            self.serverHello.random)
+
+        hash_bytes = hash_bytes[:self.privateKey.private_key.curve.baselen]
+
+        serverKeyExchange.signature = \
+            self.privateKey.sign(hash_bytes, hashAlg=hashName)
+
+        if not serverKeyExchange.signature:
+            raise TLSInternalError("Empty signature")
+
+        if not self.privateKey.verify(serverKeyExchange.signature,
+                                             hash_bytes,
+                                             ecdsa.util.sigdecode_der):
+            raise TLSInternalError("signature validation failure")
+
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
         """Sign a TLSv1.2 SKE message."""
         try:
@@ -131,7 +157,10 @@ class KeyExchange(object):
                                           hashBytes):
                 raise TLSInternalError("Server Key Exchange signature invalid")
         else:
-            self._tls12_signSKE(serverKeyExchange, sigHash)
+            if self.privateKey.key_type == "ecdsa":
+                self._tls12_sign_ecdsa_SKE(serverKeyExchange, sigHash)
+            else:
+                self._tls12_signSKE(serverKeyExchange, sigHash)
 
     @staticmethod
     def _tls12_verify_ecdsa_SKE(serverKeyExchange, publicKey, clientRandom,
