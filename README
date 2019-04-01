@@ -35,6 +35,7 @@ Functionality implemented include:
  - Application-Layer Protocol Negotiation Extension (RFC 7301)
  - FFDHE prime/group negotiation (RFC 7919)
  - Heartbeat Extension (RFC 6520)
+ - Record Size Limit (RFC 8449)
 
 
 tlslite-ng aims to be a drop-in replacement for tlslite while providing more
