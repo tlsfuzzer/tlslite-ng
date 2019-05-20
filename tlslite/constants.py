@@ -171,6 +171,7 @@ class ExtensionType(TLSEnum):
     supported_versions = 43  # TLS 1.3
     cookie = 44  # TLS 1.3
     psk_key_exchange_modes = 45  # TLS 1.3
+    post_handshake_auth = 49  # TLS 1.3
     signature_algorithms_cert = 50  # TLS 1.3
     key_share = 51  # TLS 1.3
     supports_npn = 13172
