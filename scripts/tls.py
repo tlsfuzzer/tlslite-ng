@@ -31,7 +31,7 @@ if __name__ != "__main__":
 
 from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
-        GroupName, SignatureScheme
+        GroupName, SignatureScheme, KeyUpdateMessageType
 from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
@@ -561,7 +561,14 @@ def serverCmd(argv):
                     return False
                 else:
                     raise
-                
+            for result in connection.send_keyupdate_request(KeyUpdateMessageType.update_requested):
+                if result in (0, 1):
+                    continue
+                else:
+                    print("unexpected result from send_keyupdate_request: {0}"
+                          .format(result))
+                    return False
+
             connection.ignoreAbruptClose = True
             printGoodConnection(connection, stop-start)
             printExporter(connection, expLabel, expLength)
