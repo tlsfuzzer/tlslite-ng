@@ -37,6 +37,7 @@ from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
+from tlslite.constants import KeyUpdateMessageType
 
 try:
     from tack.structures.Tack import Tack
@@ -530,9 +531,21 @@ def serverCmd(argv):
         settings.maxVersion = max_ver
     settings.virtual_hosts = virtual_hosts
 
-    class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
+    class MySimpleHTTPHandler(SimpleHTTPRequestHandler, object):
         """Buffer the header and body of HTTP message."""
         wbufsize = -1
+
+        def do_GET(self):
+            """Simple override to send KeyUpdate to client."""
+            if self.path.startswith('/keyupdate'):
+                for i in self.connection.send_keyupdate_request(
+                        KeyUpdateMessageType.update_requested):
+                    if i in (0, 1):
+                        continue
+                    else:
+                        raise ValueError("Invalid return from "
+                                         "send_keyupdate_request")
+            return super(MySimpleHTTPHandler, self).do_GET()
 
     class MyHTTPServer(ThreadingMixIn, TLSSocketServerMixIn, HTTPServer):
         def handshake(self, connection):
@@ -588,7 +601,7 @@ def serverCmd(argv):
                     return False
                 else:
                     raise
-                
+
             connection.ignoreAbruptClose = True
             printGoodConnection(connection, stop-start)
             printExporter(connection, expLabel, expLength)
