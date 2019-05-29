@@ -21,7 +21,6 @@ Table of Contents
 1. Using tlslite-ng with smtplib
 1. Using tlslite-ng with SocketServer
 1. Using tlslite-ng with asyncore
-1. SECURITY CONSIDERATIONS
 1. History
 
 1 Introduction
@@ -46,6 +45,10 @@ project's main page at [GitHub](https://github.com/tomato42/tlslite-ng), see
 file for more information.
 
 tlslite-ng aims to be a drop in replacement for the original TLS Lite.
+
+Security policy of the project is available in the
+[SECURITY.md](https://github.com/tomato42/tlslite-ng/blob/master/SECURITY.md)
+file.
 
 Implemented TLS features include:
 
@@ -573,35 +576,7 @@ tlslite-ng can be used with subclasses of asyncore.dispatcher.  See the comments
 in TLSAsyncDispatcherMixIn.py for details.  This is still experimental, and
 may not work with all asyncore.dispatcher subclasses.
 
-11 Security Considerations
-===========================
-
-tlslite-ng is beta-quality code. It hasn't received much security analysis. Use
-at your own risk.
-
-tlslite-ng **CANNOT** verify certificates - you must use external means to
-check if the certificate is the expected one.
-
-Because python execution environment uses hash tables to store variables (that
-includes functions, objects and classes) it's very hard to create
-implementations that are timing attack resistant. Additionally, all integers
-use arbitrary precision arithmentic, so binary operations
-are data dependant (see Hubert Kario
-[blog post](https://securitypitfalls.wordpress.com/2018/08/03/constant-time-compare-in-python/)
-on this topic). This means that CBC MAC-then-encrypt de-padding leaks timing
-information and all pure python cipher implementations will leak timing
-information. None of the included cipher implementations are written in a way
-that even tries to hide the data dependance.
-
-In other words, pure-python (tlslite-ng internal) implementations of all
-ciphers, as well as all CBC mode ciphers working in MAC-then-encrypt mode
-are **NOT** secure. Don't use them. In addition to that, use AEAD ciphersuites
-(AES-GCM) or encrypt-then-MAC mode for CBC ciphers.
-
-(Note: PyCrypto aes-gcm cipher is also not secure as it uses Python to
-calculate GCM tag, see #301)
-
-12 History
+11 History
 ===========
 
 0.8.0 - wip
