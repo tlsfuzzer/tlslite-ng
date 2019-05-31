@@ -482,7 +482,7 @@ class CipherSuite:
     :cvar aes128Suites: ciphersuites which use AES symmetric cipher in CBC mode
         with 128 bit key
     :cvar aes256Suites: ciphersuites which use AES symmetric cipher in CBC mode
-        with 128 bit key
+        with 256 bit key
     :cvar rc4Suites: ciphersuites which use RC4 symmetric cipher with 128 bit
         key
     :cvar shaSuites: ciphersuites which use SHA-1 HMAC integrity mechanism
