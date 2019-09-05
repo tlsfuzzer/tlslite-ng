@@ -629,7 +629,9 @@ def makeK(N, g):
 
 def createHMAC(k, digestmod=hashlib.sha1):
     h = hmac.HMAC(k, digestmod=digestmod)
-    h.block_size = digestmod().block_size
+    if not hasattr(h, 'block_size'):
+        h.block_size = digestmod().block_size
+    assert h.block_size == digestmod().block_size
     return h
 
 def createMAC_SSL(k, digestmod=None):
