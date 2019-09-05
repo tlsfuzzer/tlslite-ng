@@ -12,8 +12,7 @@ from .utils.compat import *
 from .utils.cryptomath import *
 from .constants import CipherSuite
 from .utils import tlshashlib as hashlib
-
-import hmac
+from .utils import tlshmac as hmac
 
 # 1024, 1536, 2048, 3072, 4096, 6144, and 8192 bit groups
 # Formatted to match lines in RFC
