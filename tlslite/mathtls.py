@@ -12,8 +12,7 @@ from .utils.compat import *
 from .utils.cryptomath import *
 from .constants import CipherSuite
 from .utils import tlshashlib as hashlib
-
-import hmac
+from .utils import tlshmac as hmac
 
 # 1024, 1536, 2048, 3072, 4096, 6144, and 8192 bit groups
 # Formatted to match lines in RFC
@@ -629,7 +628,9 @@ def makeK(N, g):
 
 def createHMAC(k, digestmod=hashlib.sha1):
     h = hmac.HMAC(k, digestmod=digestmod)
-    h.block_size = digestmod().block_size
+    if not hasattr(h, 'block_size'):
+        h.block_size = digestmod().block_size
+    assert h.block_size == digestmod().block_size
     return h
 
 def createMAC_SSL(k, digestmod=None):

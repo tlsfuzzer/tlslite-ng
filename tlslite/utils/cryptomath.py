@@ -18,6 +18,9 @@ import sys
 from .compat import compat26Str, compatHMAC, compatLong, b2a_hex
 from .codec import Writer
 
+from . import tlshashlib as hashlib
+from . import tlshmac as hmac
+
 
 # **************************************************************************
 # Load Optional Modules
@@ -72,9 +75,6 @@ prngName = "os.urandom"
 # **************************************************************************
 # Simple hash functions
 # **************************************************************************
-
-import hmac
-from . import tlshashlib as hashlib
 
 def MD5(b):
     """Return a MD5 digest of data"""
