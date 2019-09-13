@@ -2279,6 +2279,7 @@ class Heartbeat(object):
         """
         self.message_type = p.get(1)
         self.payload = p.getVarBytes(2)
+        self.padding = p.getFixBytes(p.getRemainingLength())
         return self
 
     def write(self):

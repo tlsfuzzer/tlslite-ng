@@ -3615,13 +3615,14 @@ class TestHeartbeat(unittest.TestCase):
             b'\x01' +       # request
             b'\x00\x01' +   # payload length
             b'\x00' +       # payload
-            b'\x00'         # padding
+            b'\xff'         # padding
             ))
 
         heartbeat_msg = heartbeat_msg.parse(parser)
 
         self.assertEqual(heartbeat_msg.message_type, 1)
         self.assertEqual(heartbeat_msg.payload, b'\x00')
+        self.assertEqual(heartbeat_msg.padding, b'\xff')
 
     def test_parse_with_missing_data(self):
         heartbeat_msg = Heartbeat()
