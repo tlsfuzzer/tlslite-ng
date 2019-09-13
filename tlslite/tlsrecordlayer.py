@@ -845,9 +845,12 @@ class TLSRecordLayer(object):
                                             "Received heartbeat_request to "
                                             "peer_not_allowed_to_send mode"):
                                         yield result
-                                else:
-                                    heartbeat_response = heartbeat_message.\
-                                        create_response()
+                                if len(heartbeat_message.padding) < 16:
+                                    # per RFC, silently ignore if the message
+                                    # is malformed
+                                    continue
+                                heartbeat_response = heartbeat_message.\
+                                    create_response()
                                 for result in self._sendMsg(
                                         heartbeat_response):
                                     yield result
@@ -855,10 +858,11 @@ class TLSRecordLayer(object):
                             # check, if its payload is same as payload of
                             # request we sent
                             elif heartbeat_message.message_type == \
-                                    HeartbeatMessageType.heartbeat_response:
+                                    HeartbeatMessageType.heartbeat_response \
+                                    and self.heartbeat_response_callback:
                                 self.heartbeat_response_callback(
                                     heartbeat_message)
-                        except socket.error:
+                        except (socket.error, SyntaxError):
                             pass
                         continue
 
