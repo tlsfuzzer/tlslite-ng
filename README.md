@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha26 (2019-01-18)
+tlslite-ng version 0.8.0-alpha27 (2019-09-16)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -636,6 +636,9 @@ may not work with all asyncore.dispatcher subclasses.
 * support for record_size_limit extension from RFC 8449
 * make the number of session tickets sent to client configurable (TLS 1.3
   specific)
+* reimplement HMAC in pure python to work-around platforms that disable MD5
+  HMAC in python (this goes against FIPS requirements)
+* fix few minor bugs in handling heartbeat messages
 
 0.7.0 - 2017-07-31
 
