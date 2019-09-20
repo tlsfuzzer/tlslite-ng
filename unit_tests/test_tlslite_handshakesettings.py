@@ -235,14 +235,22 @@ class TestHandshakeSettings(unittest.TestCase):
     def test_no_signature_hashes_set_with_TLS1_2(self):
         hs = HandshakeSettings()
         hs.rsaSigHashes = []
+        hs.ecdsaSigHashes = []
         with self.assertRaises(ValueError):
             hs.validate()
 
     def test_no_signature_hashes_set_with_TLS1_1(self):
         hs = HandshakeSettings()
         hs.rsaSigHashes = []
+        hs.ecdsaSigHashes = []
         hs.maxVersion = (3, 2)
         self.assertIsNotNone(hs.validate())
+
+    def test_invalid_signature_ecdsa_algorithm(self):
+        hs = HandshakeSettings()
+        hs.ecdsaSigHashes += ['md5']
+        with self.assertRaises(ValueError):
+            hs.validate()
 
     def test_invalid_curve_name(self):
         hs = HandshakeSettings()

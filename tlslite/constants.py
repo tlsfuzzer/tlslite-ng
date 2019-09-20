@@ -80,6 +80,9 @@ class ClientCertificateType(TLSEnum):
     dss_sign = 2
     rsa_fixed_dh = 3
     dss_fixed_dh = 4
+    ecdsa_sign = 64  # RFC 8422
+    rsa_fixed_ecdh = 65  # RFC 8422
+    ecdsa_fixed_ecdh = 66  # RFC 8422
 
 
 class SSL2HandshakeType(TLSEnum):
@@ -208,6 +211,9 @@ class SignatureScheme(TLSEnum):
     rsa_pkcs1_sha256 = (4, 1)
     rsa_pkcs1_sha384 = (5, 1)
     rsa_pkcs1_sha512 = (6, 1)
+    ecdsa_secp256r1_sha256 = (4, 3)
+    ecdsa_secp384r1_sha384 = (5, 3)
+    ecdsa_secp521r1_sha512 = (6, 3)
     rsa_pss_rsae_sha256 = (8, 4)
     rsa_pss_rsae_sha384 = (8, 5)
     rsa_pss_rsae_sha512 = (8, 6)
@@ -273,7 +279,7 @@ class SignatureScheme(TLSEnum):
             kType, _, hName = vals
         else:
             kType, _, _, hName = vals
-        assert kType == 'rsa'
+        assert kType in ('rsa', 'ecdsa')
         return hName
 
 
@@ -764,12 +770,16 @@ class CipherSuite:
     # ChaCha20/Poly1305 based Cipher Suites for TLS1.2
     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_draft_00 = 0xCCA1
     ietfNames[0xCCA1] = 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_draft_00'
+    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_draft_00 = 0xCCA2
+    ietfNames[0xCCA2] = 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_draft_00'
     TLS_DHE_RSA_WITH_CHACHA20_POLY1305_draft_00 = 0xCCA3
     ietfNames[0xCCA3] = 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_draft_00'
 
     # RFC 7905 - ChaCha20-Poly1305 Cipher Suites for TLS
     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 = 0xCCA8
     ietfNames[0xCCA8] = 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256'
+    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 = 0xCCA9
+    ietfNames[0xCCA9] = 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256'
     TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 = 0xCCAA
     ietfNames[0xCCAA] = 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256'
 
@@ -780,7 +790,7 @@ class CipherSuite:
 
     #: 3DES CBC ciphers
     tripleDESSuites = []
-    tripleDESSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)  # unsupp
+    tripleDESSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
     tripleDESSuites.append(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA)  # unsupported
     tripleDESSuites.append(TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA)  # unsupported
     tripleDESSuites.append(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA)
@@ -801,8 +811,8 @@ class CipherSuite:
     aes128Suites.append(TLS_RSA_WITH_AES_128_CBC_SHA256)
     aes128Suites.append(TLS_DHE_RSA_WITH_AES_128_CBC_SHA256)
     aes128Suites.append(TLS_DH_ANON_WITH_AES_128_CBC_SHA256)
-    aes128Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256)  # unsupp
-    aes128Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)  # unsupported
+    aes128Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256)
+    aes128Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
     aes128Suites.append(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256)  # unsupported
     aes128Suites.append(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA)  # unsupported
     aes128Suites.append(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256)  # unsupported
@@ -821,8 +831,8 @@ class CipherSuite:
     aes256Suites.append(TLS_RSA_WITH_AES_256_CBC_SHA256)
     aes256Suites.append(TLS_DHE_RSA_WITH_AES_256_CBC_SHA256)
     aes256Suites.append(TLS_DH_ANON_WITH_AES_256_CBC_SHA256)
-    aes256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)  # unsupported
-    aes256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)  # unsupported
+    aes256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)
+    aes256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
     aes256Suites.append(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384)  # unsupported
     aes256Suites.append(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA)  # unsupported
     aes256Suites.append(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384)  # unsupported
@@ -836,7 +846,7 @@ class CipherSuite:
     aes128GcmSuites.append(TLS_RSA_WITH_AES_128_GCM_SHA256)
     aes128GcmSuites.append(TLS_DHE_RSA_WITH_AES_128_GCM_SHA256)
     aes128GcmSuites.append(TLS_DH_ANON_WITH_AES_128_GCM_SHA256)
-    aes128GcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)  # unsupp
+    aes128GcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
     aes128GcmSuites.append(TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256)  # unsupp
     aes128GcmSuites.append(TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256)  # unsupp
     aes128GcmSuites.append(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
@@ -847,7 +857,7 @@ class CipherSuite:
     aes256GcmSuites.append(TLS_RSA_WITH_AES_256_GCM_SHA384)
     aes256GcmSuites.append(TLS_DHE_RSA_WITH_AES_256_GCM_SHA384)
     aes256GcmSuites.append(TLS_DH_ANON_WITH_AES_256_GCM_SHA384)
-    aes256GcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)  # unsupp
+    aes256GcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)
     aes256GcmSuites.append(TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384)  # unsupp
     aes256GcmSuites.append(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384)  # unsupported
     aes256GcmSuites.append(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)
@@ -856,18 +866,21 @@ class CipherSuite:
     #: CHACHA20 cipher, 00'th IETF draft (implicit POLY1305 authenticator)
     chacha20draft00Suites = []
     chacha20draft00Suites.append(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_draft_00)
+    chacha20draft00Suites.append(
+        TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_draft_00)
     chacha20draft00Suites.append(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_draft_00)
 
     #: CHACHA20 cipher (implicit POLY1305 authenticator, SHA256 PRF)
     chacha20Suites = []
     chacha20Suites.append(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256)
+    chacha20Suites.append(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256)
     chacha20Suites.append(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256)
     chacha20Suites.append(TLS_CHACHA20_POLY1305_SHA256)
 
     #: RC4 128 stream cipher
     rc4Suites = []
     rc4Suites.append(TLS_ECDHE_RSA_WITH_RC4_128_SHA)
-    rc4Suites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)  # unsupported
+    rc4Suites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
     rc4Suites.append(TLS_ECDH_ECDSA_WITH_RC4_128_SHA)  # unsupported
     rc4Suites.append(TLS_ECDH_RSA_WITH_RC4_128_SHA)  # unsupported
     rc4Suites.append(TLS_DH_ANON_WITH_RC4_128_MD5)
@@ -880,7 +893,7 @@ class CipherSuite:
     nullSuites.append(TLS_RSA_WITH_NULL_MD5)
     nullSuites.append(TLS_RSA_WITH_NULL_SHA)
     nullSuites.append(TLS_RSA_WITH_NULL_SHA256)
-    nullSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)  # unsupported
+    nullSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
     nullSuites.append(TLS_ECDH_ECDSA_WITH_NULL_SHA)  # unsupported
     nullSuites.append(TLS_ECDH_RSA_WITH_NULL_SHA)  # unsupported
     nullSuites.append(TLS_ECDHE_RSA_WITH_NULL_SHA)
@@ -905,11 +918,11 @@ class CipherSuite:
     shaSuites.append(TLS_DH_ANON_WITH_AES_256_CBC_SHA)
     shaSuites.append(TLS_DH_ANON_WITH_3DES_EDE_CBC_SHA)
     shaSuites.append(TLS_RSA_WITH_NULL_SHA)
-    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)  # unsupported
-    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)  # unsupported
-    shaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)  # unsupported
-    shaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)  # unsupported
-    shaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)  # unsupported
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
+    shaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
     shaSuites.append(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA)  # unsupported
     shaSuites.append(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA)  # unsupported
     shaSuites.append(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA)  # unsupported
@@ -940,14 +953,14 @@ class CipherSuite:
     sha256Suites.append(TLS_RSA_WITH_NULL_SHA256)
     sha256Suites.append(TLS_DH_ANON_WITH_AES_128_CBC_SHA256)
     sha256Suites.append(TLS_DH_ANON_WITH_AES_256_CBC_SHA256)
-    sha256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256)  # unsupported
+    sha256Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256)
     sha256Suites.append(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256)  # unsupported
     sha256Suites.append(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256)  # unsupported
     sha256Suites.append(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
 
     #: SHA-384 HMAC, SHA-384 PRF
     sha384Suites = []
-    sha384Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)  # unsupported
+    sha384Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)
     sha384Suites.append(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384)  # unsupported
     sha384Suites.append(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384)  # unsupported
     sha384Suites.append(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384)
@@ -1012,6 +1025,28 @@ class CipherSuite:
         return [s for s in suites if s in includeSuites]
 
     @staticmethod
+    def filter_for_certificate(suites, cert_chain):
+        """Return a copy of suites without ciphers incompatible with the cert.
+        """
+        includeSuites = set([])
+        includeSuites.update(CipherSuite.tls13Suites)
+        if cert_chain:
+            if cert_chain.x509List[0].certAlg in ("rsa", "rsa-pss"):
+                includeSuites.update(CipherSuite.certAllSuites)
+            if cert_chain.x509List[0].certAlg == "rsa-pss":
+                # suites in which RSA encryption is used can't be used with
+                # rsa-pss
+                includeSuites.symmetric_difference_update(
+                    CipherSuite.certSuites)
+            if cert_chain.x509List[0].certAlg == "ecdsa":
+                includeSuites.update(CipherSuite.ecdheEcdsaSuites)
+        else:
+            includeSuites.update(CipherSuite.srpSuites)
+            includeSuites.update(CipherSuite.anonSuites)
+            includeSuites.update(CipherSuite.ecdhAnonSuites)
+        return [s for s in suites if s in includeSuites]
+
+    @staticmethod
     def _filterSuites(suites, settings, version=None):
         if version is None:
             version = settings.maxVersion
@@ -1059,6 +1094,8 @@ class CipherSuite:
             keyExchangeSuites += CipherSuite.dheCertSuites
         if "ecdhe_rsa" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.ecdheCertSuites
+        if "ecdhe_ecdsa" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.ecdheEcdsaSuites
         if "srp_sha" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.srpSuites
         if "srp_sha_rsa" in keyExchangeNames:
@@ -1167,6 +1204,8 @@ class CipherSuite:
 
     #: ECDHE key exchange, ECDSA authentication
     ecdheEcdsaSuites = []
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256)
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_draft_00)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)
@@ -1176,6 +1215,12 @@ class CipherSuite:
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
+
+    @classmethod
+    def getEcdsaSuites(cls, settings, version=None):
+        """Provide ECDSA authenticated ciphersuites matching settings"""
+        return cls._filterSuites(CipherSuite.ecdheEcdsaSuites,
+                                 settings, version)
 
     #: anon FFDHE key exchange
     anonSuites = []
