@@ -134,6 +134,24 @@ class KeyExchange(object):
             self._tls12_signSKE(serverKeyExchange, sigHash)
 
     @staticmethod
+    def _tls12_verify_ecdsa_SKE(serverKeyExchange, publicKey, clientRandom,
+                                serverRandom, validSigAlgs):
+        hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
+        if not hashName:
+            raise TLSIllegalParameterException("Unknown hash algorithm")
+
+        hashBytes = serverKeyExchange.hash(clientRandom, serverRandom)
+
+        hashBytes = hashBytes[:publicKey.public_key.curve.baselen]
+
+        if not publicKey.verify(serverKeyExchange.signature, hashBytes,
+                                padding=None,
+                                hashAlg=hashName,
+                                saltLen=None):
+            raise TLSDecryptionFailed("Server Key Exchange signature "
+                                      "invalid")
+
+    @staticmethod
     def _tls12_verify_SKE(serverKeyExchange, publicKey, clientRandom,
                           serverRandom, validSigAlgs):
         """Verify TLSv1.2 version of SKE."""
@@ -142,6 +160,12 @@ class KeyExchange(object):
             raise TLSIllegalParameterException("Server selected "
                                                "invalid signature "
                                                "algorithm")
+        if serverKeyExchange.signAlg == SignatureAlgorithm.ecdsa:
+            return KeyExchange._tls12_verify_ecdsa_SKE(serverKeyExchange,
+                                                       publicKey,
+                                                       clientRandom,
+                                                       serverRandom,
+                                                       validSigAlgs)
         schemeID = (serverKeyExchange.hashAlg,
                     serverKeyExchange.signAlg)
         scheme = SignatureScheme.toRepr(schemeID)

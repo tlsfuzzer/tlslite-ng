@@ -4,8 +4,9 @@ from functools import partial
 from .ecdsakey import ECDSAKey
 from ecdsa.curves import curves
 from ecdsa.util import sigencode_der, sigdecode_der
-from ecdsa.keys import VerifyingKey, SigningKey
+from ecdsa.keys import VerifyingKey, SigningKey, BadSignatureError
 from ecdsa.ellipticcurve import Point
+from ecdsa.der import UnexpectedDER
 from .tlshashlib import new
 from .cryptomath import numBits
 from .compat import compatHMAC
@@ -85,6 +86,10 @@ class Python_ECDSAKey(ECDSAKey):
                                                    sigencode=sigencode_der)
 
     def _verify(self, signature, hash_bytes):
-        return self.public_key.verify_digest(compatHMAC(signature),
-                                             compatHMAC(hash_bytes),
-                                             sigdecode_der)
+        try:
+            return self.public_key.verify_digest(compatHMAC(signature),
+                                                 compatHMAC(hash_bytes),
+                                                 sigdecode_der)
+        # https://github.com/warner/python-ecdsa/issues/114
+        except (BadSignatureError, UnexpectedDER, IndexError, AssertionError):
+            return False

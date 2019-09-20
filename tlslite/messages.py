@@ -1455,6 +1455,7 @@ class ServerKeyExchange(HandshakeMsg):
         self.curve_type = curve_type
         self.named_curve = named_curve
         self.ecdh_Ys = point
+        return self
 
     def parse(self, parser):
         """
@@ -1488,7 +1489,8 @@ class ServerKeyExchange(HandshakeMsg):
         else:
             raise AssertionError()
 
-        if self.cipherSuite in CipherSuite.certAllSuites:
+        if self.cipherSuite in CipherSuite.certAllSuites or\
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
             if self.version == (3, 3):
                 self.hashAlg = parser.get(1)
                 self.signAlg = parser.get(1)
@@ -1536,7 +1538,8 @@ class ServerKeyExchange(HandshakeMsg):
         """
         writer = Writer()
         writer.bytes += self.writeParams()
-        if self.cipherSuite in CipherSuite.certAllSuites:
+        if self.cipherSuite in CipherSuite.certAllSuites or \
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
             if self.version >= (3, 3):
                 assert self.hashAlg != 0 and self.signAlg != 0
                 writer.add(self.hashAlg, 1)
@@ -1561,6 +1564,10 @@ class ServerKeyExchange(HandshakeMsg):
             else:
                 hashAlg = SignatureScheme.getHash(sigScheme)
             return secureHash(bytesToHash, hashAlg)
+        # ECDSA ciphers in TLS 1.1 and earlier sign the messages using
+        # SHA-1 only
+        if self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
+            return SHA1(bytesToHash)
         return MD5(bytesToHash) + SHA1(bytesToHash)
 
 
