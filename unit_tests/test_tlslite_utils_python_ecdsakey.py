@@ -11,6 +11,7 @@ except ImportError:
     import unittest.mock as mock
     from unittest.mock import call
 
+from tlslite.utils.python_key import Python_Key
 from tlslite.utils.python_ecdsakey import Python_ECDSAKey
 
 class TestECDSAKey(unittest.TestCase):
@@ -27,6 +28,20 @@ class TestECDSAKey(unittest.TestCase):
                           b'{@\x18\xc8\x02 <\x80\x1a\xfa\x14\xd2\\\x02\xfe'
                           b'\x1a\xb7\x07X\xba\xd8`\xd4\x1d\xa9\x9cm\xc7\xcd'
                           b'\x11\xbb\x1b\xd1A\xcdO\xa2?')
+
+    def test_parse_from_pem(self):
+        key = (
+            "-----BEGIN EC PRIVATE KEY-----\n"
+            "MHcCAQEEIAjma9Dr7NHgpoflzEFg2FabEPrCXY4qv4raf5GJ1jUmoAoGCCqGSM49\n"
+            "AwEHoUQDQgAEyDRjEAJe3F5T62MyZbhjoJnPLGL2nrTthLFymBupZ2IbnWYnqVWD\n"
+            "kT/L6i8sQhf2zCLrlSjj1kn7ERqPx/KZyg==\n"
+            "-----END EC PRIVATE KEY-----\n")
+
+        parsed_key = Python_Key.parsePEM(key)
+        self.assertIsInstance(parsed_key, Python_ECDSAKey)
+        self.assertTrue(parsed_key.hasPrivateKey())
+        self.assertFalse(parsed_key.acceptsPassword())
+        self.assertEqual(len(parsed_key), 256)
 
     def test_python_ecdsa_fields(self):
         self.assertIsInstance(self.key, Python_ECDSAKey)
