@@ -38,6 +38,12 @@ if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
                       "ffdhe8192"]
+CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
+                 "secp384r1": ('NIST384p', 'P-384'),
+                 "secp521r1": ('NIST521p', 'P-521'),
+                 "secp256k1": ('SECP256k1',),
+                 "secp192r1": ('NIST192p', 'P-192'),
+                 "secp224r1": ('NIST224p', 'P-224')}
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
