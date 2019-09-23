@@ -73,6 +73,32 @@ class KeyExchange(object):
         """Process the server KEX and return premaster secret"""
         raise NotImplementedError()
 
+    def _tls12_sign_ecdsa_SKE(self, serverKeyExchange, sigHash=None):
+        try:
+            serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
+                    getattr(SignatureScheme, sigHash)
+            hashName = SignatureScheme.getHash(sigHash)
+        except AttributeError:
+            serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
+            serverKeyExchange.signAlg = SignatureAlgorithm.ecdsa
+            hashName = sigHash
+
+        hash_bytes = serverKeyExchange.hash(self.clientHello.random,
+                                            self.serverHello.random)
+
+        hash_bytes = hash_bytes[:self.privateKey.private_key.curve.baselen]
+
+        serverKeyExchange.signature = \
+            self.privateKey.sign(hash_bytes, hashAlg=hashName)
+
+        if not serverKeyExchange.signature:
+            raise TLSInternalError("Empty signature")
+
+        if not self.privateKey.verify(serverKeyExchange.signature,
+                                             hash_bytes,
+                                             ecdsa.util.sigdecode_der):
+            raise TLSInternalError("signature validation failure")
+
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
         """Sign a TLSv1.2 SKE message."""
         try:
@@ -119,6 +145,8 @@ class KeyExchange(object):
         :param sigHash: name of the signature hash to be used for signing
         """
         if self.serverHello.server_version < (3, 3):
+            if self.privateKey.key_type == "ecdsa":
+                serverKeyExchange.signAlg = SignatureAlgorithm.ecdsa
             hashBytes = serverKeyExchange.hash(self.clientHello.random,
                                                self.serverHello.random)
 
@@ -131,7 +159,10 @@ class KeyExchange(object):
                                           hashBytes):
                 raise TLSInternalError("Server Key Exchange signature invalid")
         else:
-            self._tls12_signSKE(serverKeyExchange, sigHash)
+            if self.privateKey.key_type == "ecdsa":
+                self._tls12_sign_ecdsa_SKE(serverKeyExchange, sigHash)
+            else:
+                self._tls12_signSKE(serverKeyExchange, sigHash)
 
     @staticmethod
     def _tls12_verify_ecdsa_SKE(serverKeyExchange, publicKey, clientRandom,
@@ -225,7 +256,7 @@ class KeyExchange(object):
     @staticmethod
     def calcVerifyBytes(version, handshakeHashes, signatureAlg,
                         premasterSecret, clientRandom, serverRandom,
-                        prf_name = None, peer_tag=b'client'):
+                        prf_name = None, peer_tag=b'client', key_type="rsa"):
         """Calculate signed bytes for Certificate Verify"""
         if version == (3, 0):
             masterSecret = calcMasterSecret(version,
@@ -235,15 +266,22 @@ class KeyExchange(object):
                                             serverRandom)
             verifyBytes = handshakeHashes.digestSSL(masterSecret, b"")
         elif version in ((3, 1), (3, 2)):
-            verifyBytes = handshakeHashes.digest()
-        elif version == (3, 3):
-            scheme = SignatureScheme.toRepr(signatureAlg)
-            if scheme is None:
-                hashName = HashAlgorithm.toRepr(signatureAlg[0])
-                padding = 'pkcs1'
+            if key_type != "ecdsa":
+                verifyBytes = handshakeHashes.digest()
             else:
-                hashName = SignatureScheme.getHash(scheme)
-                padding = SignatureScheme.getPadding(scheme)
+                verifyBytes = handshakeHashes.digest("sha1")
+        elif version == (3, 3):
+            if signatureAlg[1] != SignatureAlgorithm.ecdsa:
+                scheme = SignatureScheme.toRepr(signatureAlg)
+                if scheme is None:
+                    hashName = HashAlgorithm.toRepr(signatureAlg[0])
+                    padding = 'pkcs1'
+                else:
+                    hashName = SignatureScheme.getHash(scheme)
+                    padding = SignatureScheme.getPadding(scheme)
+            else:
+                padding = None
+                hashName = HashAlgorithm.toRepr(signatureAlg[0])
             verifyBytes = handshakeHashes.digest(hashName)
             if padding == 'pkcs1':
                 verifyBytes = RSAKey.addPKCS1Prefix(verifyBytes, hashName)
@@ -262,7 +300,7 @@ class KeyExchange(object):
                           handshakeHashes.digest(prf_name)
             verifyBytes = secureHash(verifyBytes, hash_name)
         else:
-            raise ValueError("Unsupported TLS version {}".format(version))
+            raise ValueError("Unsupported TLS version {0}".format(version))
         return verifyBytes
 
     @staticmethod
@@ -284,6 +322,8 @@ class KeyExchange(object):
             SSLv3
         """
         signatureAlgorithm = None
+        if privateKey.key_type == "ecdsa" and version < (3, 3):
+            signatureAlgorithm = (HashAlgorithm.sha1, SignatureAlgorithm.ecdsa)
         # in TLS 1.2 we must decide which algorithm to use for signing
         if version == (3, 3):
             serverSigAlgs = certificateRequest.supported_signature_algs
@@ -295,19 +335,27 @@ class KeyExchange(object):
                                                   signatureAlgorithm,
                                                   premasterSecret,
                                                   clientRandom,
-                                                  serverRandom)
-        scheme = SignatureScheme.toRepr(signatureAlgorithm)
-        # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
-        # that was already done by calcVerifyBytes
-        hashName = None
-        saltLen = 0
-        if scheme is None:
-            padding = 'pkcs1'
+                                                  serverRandom,
+                                                  privateKey.key_type)
+        if signatureAlgorithm and \
+                signatureAlgorithm[1] == SignatureAlgorithm.ecdsa:
+            padding = None
+            hashName = HashAlgorithm.toRepr(signatureAlgorithm[0])
+            saltLen = None
+            verifyBytes = verifyBytes[:privateKey.private_key.curve.baselen]
         else:
-            padding = SignatureScheme.getPadding(scheme)
-            if padding == 'pss':
-                hashName = SignatureScheme.getHash(scheme)
-                saltLen = getattr(hashlib, hashName)().digest_size
+            scheme = SignatureScheme.toRepr(signatureAlgorithm)
+            # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
+            # that was already done by calcVerifyBytes
+            hashName = None
+            saltLen = 0
+            if scheme is None:
+                padding = 'pkcs1'
+            else:
+                padding = SignatureScheme.getPadding(scheme)
+                if padding == 'pss':
+                    hashName = SignatureScheme.getHash(scheme)
+                    saltLen = getattr(hashlib, hashName)().digest_size
 
         signedBytes = privateKey.sign(verifyBytes,
                                       padding,
@@ -320,6 +368,7 @@ class KeyExchange(object):
         certificateVerify.create(signedBytes, signatureAlgorithm)
 
         return certificateVerify
+
 
 class AuthenticatedKeyExchange(KeyExchange):
     """

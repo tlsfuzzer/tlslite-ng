@@ -94,8 +94,20 @@ def parsePEMKey(s, private=False, public=False, passwordCallback=None,
 
     :raises SyntaxError: If the key is not properly formatted.
     """
+    # as old versions of openssl can't handle RSA-PSS or ECDSA keys, first
+    # try to detect what kind of key it is (we ignore errors as the python
+    # code can't handle encrypted key files while m2crypto/openssl can)
+    key_type = "rsa"
+    try:
+        key = Python_RSAKey.parsePEM(s)
+        key_type = key.key_type
+        del key
+    except Exception:
+        pass
+
     for implementation in implementations:
-        if implementation == "openssl" and cryptomath.m2cryptoLoaded:
+        if implementation == "openssl" and cryptomath.m2cryptoLoaded \
+                and key_type == "rsa":
             key = OpenSSL_RSAKey.parse(s, passwordCallback)
             break
         elif implementation == "python":

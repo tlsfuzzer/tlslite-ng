@@ -84,6 +84,27 @@ srv_raw_certificate = str(
     "-----END CERTIFICATE-----\n"\
     )
 
+srv_raw_ec_key = str(
+    "-----BEGIN PRIVATE KEY-----\n"
+    "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgCOZr0Ovs0eCmh+XM\n"
+    "QWDYVpsQ+sJdjiq/itp/kYnWNSahRANCAATINGMQAl7cXlPrYzJluGOgmc8sYvae\n"
+    "tO2EsXKYG6lnYhudZiepVYORP8vqLyxCF/bMIuuVKOPWSfsRGo/H8pnK\n"
+    "-----END PRIVATE KEY-----\n"
+    )
+
+srv_raw_ec_certificate = str(
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIBbTCCARSgAwIBAgIJAPM58cskyK+yMAkGByqGSM49BAEwFDESMBAGA1UEAwwJ\n"
+    "bG9jYWxob3N0MB4XDTE3MTAyMzExNDI0MVoXDTE3MTEyMjExNDI0MVowFDESMBAG\n"
+    "A1UEAwwJbG9jYWxob3N0MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyDRjEAJe\n"
+    "3F5T62MyZbhjoJnPLGL2nrTthLFymBupZ2IbnWYnqVWDkT/L6i8sQhf2zCLrlSjj\n"
+    "1kn7ERqPx/KZyqNQME4wHQYDVR0OBBYEFPfFTUg9o3t6ehLsschSnC8Te8oaMB8G\n"
+    "A1UdIwQYMBaAFPfFTUg9o3t6ehLsschSnC8Te8oaMAwGA1UdEwQFMAMBAf8wCQYH\n"
+    "KoZIzj0EAQNIADBFAiA6p0YM5ZzfW+klHPRU2r13/IfKgeRfDR3dtBngmPvxUgIh\n"
+    "APTeSDeJvYWVBLzyrKTeSerNDKKHU2Rt7sufipv76+7s\n"
+    "-----END CERTIFICATE-----\n"
+    )
+
 class TestKeyExchange(unittest.TestCase):
 
     expected_sha1_SKE = bytearray(
@@ -107,6 +128,20 @@ class TestKeyExchange(unittest.TestCase):
             b'\n3\x9d5\x14\x05\x06nA\xa0\x19\xd5\xaa\x9d\xd1\x16\xb3\xb9\xae'
             b'\xd1\xe4\xc04\xc1h\xc3\xf5/\xb2\xf6P\r\x1b"\xe9\xc9\x84&\xe1Z')
 
+    expected_tls1_1_ecdsa_SKE = bytearray(
+            b'\x0c\x00\x00P\x03\x00\x17\x03\x04\xff\xfa\x00G0E\x02!\x00\xc6'
+            b'\xa5\x83\xab\x13\xb83"P\xdcl\x817\xcbS\xab\xebxo\x91K@\x19\xe0'
+            b'#\xfe,M\xd7R\'\xb0\x02 <\xd6\x03\xdd\x1fS\x12o\xaaa\x9e\x7f\xf1'
+            b')\x93\xa9cr\xa1\xb3\xa7\r\xdb\xbbV\xb2\xac\xf6ZJ\xe3\x0e'
+            )
+    expected_tls1_2_ecdsa_SKE = bytearray(
+            b'\x0c\x00\x00R\x03\x00\x17\x03\x04\xff\xfa\x02\x03\x00G0E\x02!'
+            b'\x00\xc6\xa5\x83\xab\x13\xb83"P\xdcl\x817\xcbS\xab\xebxo\x91K@'
+            b'\x19\xe0#\xfe,M\xd7R\'\xb0\x02 <\xd6\x03\xdd\x1fS\x12o\xaaa\x9e'
+            b'\x7f\xf1)\x93\xa9cr\xa1\xb3\xa7\r\xdb\xbbV\xb2\xac\xf6ZJ\xe3\x0e'
+            )
+
+class TestKeyExchangeBasics(TestKeyExchange):
     def test___init__(self):
         keyExchange = KeyExchange(0, None, None, None)
 
@@ -172,6 +207,52 @@ class TestKeyExchange(unittest.TestCase):
 
         self.assertEqual(server_key_exchange.write(), self.expected_tls1_1_SKE)
 
+    def test_signServerKeyExchange_with_sha1_ecdsa_in_TLS1_2(self):
+        srv_private_key = parsePEMKey(srv_raw_ec_key, private=True)
+        client_hello = ClientHello()
+        cipher_suite = CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+        server_hello = ServerHello().create((3, 3),
+                                            bytearray(32),
+                                            bytearray(0),
+                                            cipher_suite)
+        keyExchange = KeyExchange(cipher_suite,
+                                  client_hello,
+                                  server_hello,
+                                  srv_private_key)
+
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 3))\
+                              .createECDH(ECCurveType.named_curve,
+                                          GroupName.secp256r1,
+                                          bytearray(b'\x04\xff\xfa'))
+
+        keyExchange.signServerKeyExchange(server_key_exchange, 'sha1')
+
+        self.maxDiff = None
+        self.assertEqual(server_key_exchange.write(),
+                         self.expected_tls1_2_ecdsa_SKE)
+
+    def test_signServerKeyExchange_in_TLS1_1_with_ecdsa(self):
+        srv_private_key = parsePEMKey(srv_raw_ec_key, private=True)
+        client_hello = ClientHello()
+        cipher_suite = CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+        server_hello = ServerHello().create((3, 2),
+                                            bytearray(32),
+                                            bytearray(0),
+                                            cipher_suite)
+        keyExchange = KeyExchange(cipher_suite,
+                                  client_hello,
+                                  server_hello,
+                                  srv_private_key)
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 2))\
+                              .createECDH(ECCurveType.named_curve,
+                                          GroupName.secp256r1,
+                                          bytearray(b'\x04\xff\xfa'))
+
+        keyExchange.signServerKeyExchange(server_key_exchange)
+
+        self.maxDiff = None
+        self.assertEqual(bytearray(server_key_exchange.write()),
+                         self.expected_tls1_1_ecdsa_SKE)
 
     def test_signServerKeyExchange_in_TLS1_1_signature_invalid(self):
         srv_private_key = parsePEMKey(srv_raw_key, private=True)
