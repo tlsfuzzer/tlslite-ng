@@ -568,12 +568,27 @@ def clientTestCmd(argv):
 
     synchro.recv(1)
     connection = connect()
-    # TODO add client certificate support in TLS 1.3
-    settings = HandshakeSettings()
-    settings.maxVersion = (3, 3)
-    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    connection.handshakeClientCert(x509Chain, x509Key)
     testConnClient(connection)
     assert isinstance(connection.session.serverCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual ECDSA X.509".format(test_no))
+    with open(os.path.join(dir, "clientECCert.pem")) as f:
+        x509Cert = X509().parse(f.read())
+    x509Chain = X509CertChain([x509Cert])
+    with open(os.path.join(dir, "clientECKey.pem")) as f:
+        x509Key = parsePEMKey(f.read(), private=True)
+
+    synchro.recv(1)
+    connection = connect()
+    connection.handshakeClientCert(x509Chain, x509Key)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert len(connection.session.serverCertChain.getEndEntityPublicKey()) ==\
+            256
     connection.close()
 
     test_no += 1
@@ -1688,6 +1703,19 @@ def serverTestCmd(argv):
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True)
     testConnServer(connection)
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual ECDSA X.509".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509ecdsaChain,
+                               privateKey=x509ecdsaKey, reqCert=True)
+    testConnServer(connection)
+    assert(isinstance(connection.session.clientCertChain, X509CertChain))
+    assert len(connection.session.clientCertChain.getEndEntityPublicKey()) ==\
+            256
     connection.close()
 
     test_no += 1
