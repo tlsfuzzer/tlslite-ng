@@ -1253,6 +1253,7 @@ class TLSConnection(TLSRecordLayer):
             assert isinstance(certificate_verify, CertificateVerify)
 
             signature_scheme = certificate_verify.signatureAlgorithm
+            self.serverSigAlg = signature_scheme
 
             signature_context = KeyExchange.calcVerifyBytes((3, 4),
                                                             srv_cert_verify_hh,
@@ -1270,6 +1271,16 @@ class TLSConnection(TLSRecordLayer):
             if signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 padType = None
                 hashName = HashAlgorithm.toRepr(signature_scheme[0])
+                if publicKey.curve_name == "NIST256p" and \
+                        hashName != "sha256" or \
+                        publicKey.curve_name == "NIST384p" and \
+                        hashName != "sha384" or \
+                        publicKey.curve_name == "NIST521p" and \
+                        hashName != "sha512":
+                    raise TLSIllegalParameterException(
+                        "server selected signature method invalid for the "
+                        "certificate it presented (curve mismatch)")
+
                 saltLen = None
             else:
                 scheme = SignatureScheme.toRepr(signature_scheme)
@@ -1470,7 +1481,7 @@ class TLSConnection(TLSRecordLayer):
                             bytearray(b''),  # no session_id in TLS 1.3
                             serverHello.cipher_suite,
                             None,  # no SRP
-                            None,  # no client cert chain
+                            clientCertChain,
                             certificate.cert_chain if certificate else None,
                             None,  # no TACK
                             False,  # no TACK in hello
@@ -1766,15 +1777,13 @@ class TLSConnection(TLSRecordLayer):
             yield result
         yield masterSecret
 
-    def _clientGetKeyFromChain(self, certificate, settings, tackExt=None):
-        #Get and check cert chain from the Certificate message
-        cert_chain = certificate.cert_chain
-        if not cert_chain or cert_chain.getNumCerts() == 0:
-            for result in self._sendError(AlertDescription.illegal_parameter,
-                    "Other party sent a Certificate message without "\
-                    "certificates"):
-                yield result
+    def _check_certchain_with_settings(self, cert_chain, settings):
+        """
+        Verify that the key parameters match enabled ones.
 
+        Checks if the certificate key size matches the minimum and maximum
+        sizes set or that it uses curves enabled in settings
+        """
         #Get and check public key from the cert chain
         publicKey = cert_chain.getEndEntityPublicKey()
         cert_type = cert_chain.x509List[0].certAlg
@@ -1826,23 +1835,42 @@ class TLSConnection(TLSRecordLayer):
                         "Other party's public key too large: %d" %
                         len(publicKey)):
                     yield result
+        yield publicKey
+
+    def _clientGetKeyFromChain(self, certificate, settings, tack_ext=None):
+        #Get and check cert chain from the Certificate message
+        cert_chain = certificate.cert_chain
+        if not cert_chain or cert_chain.getNumCerts() == 0:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Other party sent a Certificate message without "\
+                    "certificates"):
+                yield result
+
+        for result in self._check_certchain_with_settings(
+                cert_chain,
+                settings):
+            if result in (0, 1):
+                yield result
+            else: break
+        public_key = result
 
         # If there's no TLS Extension, look for a TACK cert
         if tackpyLoaded:
-            if not tackExt:
-                tackExt = cert_chain.getTackExt()
+            if not tack_ext:
+                tack_ext = cert_chain.getTackExt()
          
             # If there's a TACK (whether via TLS or TACK Cert), check that it
             # matches the cert chain   
-            if tackExt and tackExt.tacks:
-                for tack in tackExt.tacks: 
+            if tack_ext and tack_ext.tacks:
+                for tack in tack_ext.tacks:
                     if not cert_chain.checkTack(tack):
                         for result in self._sendError(  
                                 AlertDescription.illegal_parameter,
                                 "Other party's TACK doesn't match their public key"):
                                 yield result
 
-        yield publicKey, cert_chain, tackExt
+        yield public_key, cert_chain, tack_ext
 
 
     #*********************************************************
@@ -2701,12 +2729,17 @@ class TLSConnection(TLSRecordLayer):
                                             signature_scheme, None, None, None,
                                             prf_name, b'client')
 
-            scheme = SignatureScheme.toRepr(signature_scheme)
-            pad_type = SignatureScheme.getPadding(scheme)
-            hash_name = SignatureScheme.getHash(scheme)
-            salt_len = getattr(hashlib, hash_name)().digest_size
-
             public_key = client_cert_chain.getEndEntityPublicKey()
+
+            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+                hash_name = HashAlgorithm.toRepr(signature_scheme[0])
+                pad_type = None
+                salt_len = None
+            else:
+                scheme = SignatureScheme.toRepr(signature_scheme)
+                pad_type = SignatureScheme.getPadding(scheme)
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = getattr(hashlib, hash_name)().digest_size
 
             if not public_key.verify(certificate_verify.signature,
                                      signature_context,
@@ -3704,7 +3737,8 @@ class TLSConnection(TLSRecordLayer):
             if not reqCAs:
                 reqCAs = []
             valid_sig_algs = self._sigHashesToList(settings)
-            certificateRequest.create([ClientCertificateType.rsa_sign],
+            certificateRequest.create([ClientCertificateType.rsa_sign,
+                                       ClientCertificateType.ecdsa_sign],
                                       reqCAs,
                                       valid_sig_algs)
             msgs.append(certificateRequest)
@@ -3792,46 +3826,56 @@ class TLSConnection(TLSRecordLayer):
                             "Verify"):
                         yield result
                 signatureAlgorithm = certificateVerify.signatureAlgorithm
+            if not signatureAlgorithm and \
+                    clientCertChain.x509List[0].certAlg == "ecdsa":
+                signatureAlgorithm = (HashAlgorithm.sha1,
+                                      SignatureAlgorithm.ecdsa)
 
             cvhh = self._certificate_verify_handshake_hash
-            verifyBytes = KeyExchange.calcVerifyBytes(self.version,
-                                                      cvhh,
-                                                      signatureAlgorithm,
-                                                      premasterSecret,
-                                                      clientHello.random,
-                                                      serverHello.random)
-            publicKey = clientCertChain.getEndEntityPublicKey()
-            if len(publicKey) < settings.minKeySize:
-                for result in self._sendError(\
-                        AlertDescription.handshake_failure,
-                        "Client's public key too small: %d" % len(publicKey)):
-                    yield result
+            verify_bytes = KeyExchange.calcVerifyBytes(
+                self.version,
+                cvhh,
+                signatureAlgorithm,
+                premasterSecret,
+                clientHello.random,
+                serverHello.random,
+                key_type=clientCertChain.x509List[0].certAlg)
 
-            if len(publicKey) > settings.maxKeySize:
-                for result in self._sendError(\
-                        AlertDescription.handshake_failure,
-                        "Client's public key too large: %d" % len(publicKey)):
+            for result in self._check_certchain_with_settings(
+                    clientCertChain,
+                    settings):
+                if result in (0, 1):
                     yield result
+                else: break
+            public_key = result
 
-            scheme = SignatureScheme.toRepr(signatureAlgorithm)
-            # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
-            # that was already done by calcVerifyBytes
-            hashName = None
-            saltLen = 0
-            if scheme is None:
-                padding = 'pkcs1'
+            if not signatureAlgorithm or \
+                    signatureAlgorithm[1] != SignatureAlgorithm.ecdsa:
+                scheme = SignatureScheme.toRepr(signatureAlgorithm)
+                # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
+                # that was already done by calcVerifyBytes
+                hash_name = None
+                salt_len = 0
+                if scheme is None:
+                    padding = 'pkcs1'
+                else:
+                    padding = SignatureScheme.getPadding(scheme)
+                    if padding == 'pss':
+                        hash_name = SignatureScheme.getHash(scheme)
+                        salt_len = getattr(hashlib, hash_name)().digest_size
             else:
-                padding = SignatureScheme.getPadding(scheme)
-                if padding == 'pss':
-                    hashName = SignatureScheme.getHash(scheme)
-                    saltLen = getattr(hashlib, hashName)().digest_size
+                hash_name = HashAlgorithm.toStr(signatureAlgorithm[0])
+                verify_bytes = verify_bytes[
+                    :public_key.public_key.curve.baselen]
+                padding = None
+                salt_len = None
 
-            if not publicKey.verify(certificateVerify.signature,
-                                    verifyBytes,
-                                    padding,
-                                    hashName,
-                                    saltLen):
-                for result in self._sendError(\
+            if not public_key.verify(certificateVerify.signature,
+                                     verify_bytes,
+                                     padding,
+                                     hash_name,
+                                     salt_len):
+                for result in self._sendError(
                         AlertDescription.decrypt_error,
                         "Signature failed to verify"):
                     yield result
@@ -4090,14 +4134,12 @@ class TLSConnection(TLSRecordLayer):
 
                 # in TLS 1.3 ECDSA key curve is bound to hash
                 if publicKey and version > (3, 3):
-                    size = len(publicKey)
-                    size, r = divmod(size, 8)
-                    size += int(bool(r))
-                    if size == 32 and hashName != "sha256":
+                    curve = publicKey.curve_name
+                    if curve == "NIST256p" and hashName != "sha256":
                         continue
-                    if size == 48 and hashName != "sha384":
+                    if curve == "NIST384p" and hashName != "sha384":
                         continue
-                    if size == 65 and hashName != "sha512":
+                    if curve == "NIST521p" and hashName != "sha512":
                         continue
 
                 sigAlgs.append((getattr(HashAlgorithm, hashName),
