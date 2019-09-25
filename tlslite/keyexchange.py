@@ -336,7 +336,7 @@ class KeyExchange(object):
                                                   premasterSecret,
                                                   clientRandom,
                                                   serverRandom,
-                                                  privateKey.key_type)
+                                                  key_type=privateKey.key_type)
         if signatureAlgorithm and \
                 signatureAlgorithm[1] == SignatureAlgorithm.ecdsa:
             padding = None
