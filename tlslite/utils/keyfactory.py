@@ -7,6 +7,7 @@ from .compat import *
 
 from .rsakey import RSAKey
 from .python_rsakey import Python_RSAKey
+from .python_ecdsakey import Python_ECDSAKey
 from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
@@ -93,8 +94,20 @@ def parsePEMKey(s, private=False, public=False, passwordCallback=None,
 
     :raises SyntaxError: If the key is not properly formatted.
     """
+    # as old versions of openssl can't handle RSA-PSS or ECDSA keys, first
+    # try to detect what kind of key it is (we ignore errors as the python
+    # code can't handle encrypted key files while m2crypto/openssl can)
+    key_type = "rsa"
+    try:
+        key = Python_RSAKey.parsePEM(s)
+        key_type = key.key_type
+        del key
+    except Exception:
+        pass
+
     for implementation in implementations:
-        if implementation == "openssl" and cryptomath.m2cryptoLoaded:
+        if implementation == "openssl" and cryptomath.m2cryptoLoaded \
+                and key_type == "rsa":
             key = OpenSSL_RSAKey.parse(s, passwordCallback)
             break
         elif implementation == "python":
@@ -193,3 +206,30 @@ def _createPrivateRSAKey(n, e, d, p, q, dP, dQ, qInv, key_type,
                                  key_type=key_type)
     raise ValueError("No acceptable implementations")
 # pylint: enable=invalid-name
+
+
+def _create_public_ecdsa_key(point_x, point_y, curve_name,
+                             implementations=("python",)):
+    """
+    Convert public key parameters into concrete implementation of verifier.
+
+    The public key in ECDSA is a point on elliptic curve, so it consists of
+    two integers that identify the point and the name of the curve on which
+    it needs to lie on.
+
+    :type point_x: int
+    :param point_x: the 'x' coordinate of the point
+    :type point_y: int
+    :param point_y: the 'y' coordinate of the point
+    :type curve_name: str
+    :param curve_name: well known name of the curve (e.g. 'NIST256p' or
+        'SECP256k1')
+    :type implementations: iterable of str
+    :param implementations: list of implementations that can be used as the
+        concrete implementation of the verifying key (only 'python' is
+        supported currently)
+    """
+    for impl in implementations:
+        if impl == "python":
+            return Python_ECDSAKey(point_x, point_y, curve_name)
+    raise ValueError("No acceptable implementation")

@@ -29,7 +29,7 @@ from .utils.lists import getFirstMatching
 from .errors import *
 from .messages import *
 from .mathtls import *
-from .handshakesettings import HandshakeSettings, KNOWN_VERSIONS
+from .handshakesettings import HandshakeSettings, KNOWN_VERSIONS, CURVE_ALIASES
 from .handshakehashes import HandshakeHashes
 from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
@@ -659,6 +659,7 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getSrpAllSuites(settings)
         elif certParams:
             cipherSuites += CipherSuite.getTLS13Suites(settings)
+            cipherSuites += CipherSuite.getEcdsaSuites(settings)
             cipherSuites += CipherSuite.getEcdheCertSuites(settings)
             cipherSuites += CipherSuite.getDheCertSuites(settings)
             cipherSuites += CipherSuite.getCertSuites(settings)
@@ -1259,12 +1260,22 @@ class TLSConnection(TLSRecordLayer):
                                                             None, None, None,
                                                             prfName, b'server')
 
-            scheme = SignatureScheme.toRepr(signature_scheme)
-            padType = SignatureScheme.getPadding(scheme)
-            hashName = SignatureScheme.getHash(scheme)
-            saltLen = getattr(hashlib, hashName)().digest_size
+            for result in self._clientGetKeyFromChain(certificate, settings):
+                if result in (0, 1):
+                    yield result
+                else:
+                    break
+            publicKey, serverCertChain, tackExt = result
 
-            publicKey = certificate.cert_chain.getEndEntityPublicKey()
+            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+                padType = None
+                hashName = HashAlgorithm.toRepr(signature_scheme[0])
+                saltLen = None
+            else:
+                scheme = SignatureScheme.toRepr(signature_scheme)
+                padType = SignatureScheme.getPadding(scheme)
+                hashName = SignatureScheme.getHash(scheme)
+                saltLen = getattr(hashlib, hashName)().digest_size
 
             if not publicKey.verify(certificate_verify.signature,
                                     signature_context,
@@ -1348,9 +1359,14 @@ class TLSConnection(TLSRecordLayer):
                                                 signature_scheme, None, None,
                                                 None, prfName, b'client')
 
-                pad_type = SignatureScheme.getPadding(scheme)
-                hash_name = SignatureScheme.getHash(scheme)
-                salt_len = getattr(hashlib, hash_name)().digest_size
+                if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+                    pad_type = None
+                    hash_name = HashAlgorithm.toRepr(signature_scheme[0])
+                    salt_len = None
+                else:
+                    pad_type = SignatureScheme.getPadding(scheme)
+                    hash_name = SignatureScheme.getHash(scheme)
+                    salt_len = getattr(hashlib, hash_name)().digest_size
 
                 signature = privateKey.sign(signature_context,
                                             pad_type,
@@ -1533,7 +1549,8 @@ class TLSConnection(TLSRecordLayer):
                            keyExchange):
         """Perform the client side of key exchange"""
         # if server chose cipher suite with authentication, get the certificate
-        if cipherSuite in CipherSuite.certAllSuites:
+        if cipherSuite in CipherSuite.certAllSuites or \
+                cipherSuite in CipherSuite.ecdheEcdsaSuites:
             for result in self._getMsg(ContentType.handshake,
                                        HandshakeType.certificate,
                                        certificateType):
@@ -1568,6 +1585,7 @@ class TLSConnection(TLSRecordLayer):
 
             #abort if Certificate Request with inappropriate ciphersuite
             if cipherSuite not in CipherSuite.certAllSuites \
+                and cipherSuite not in CipherSuite.ecdheEcdsaSuites \
                 or cipherSuite in CipherSuite.srpAllSuites:
                 for result in self._sendError(\
                         AlertDescription.unexpected_message,
@@ -1584,7 +1602,8 @@ class TLSConnection(TLSRecordLayer):
 
         serverCertChain = None
         publicKey = None
-        if cipherSuite in CipherSuite.certAllSuites:
+        if cipherSuite in CipherSuite.certAllSuites or \
+                cipherSuite in CipherSuite.ecdheEcdsaSuites:
             # get the certificate
             for result in self._clientGetKeyFromChain(serverCertificate,
                                                       settings,
@@ -1618,7 +1637,8 @@ class TLSConnection(TLSRecordLayer):
         if serverKeyExchange:
             # store key exchange metadata for user applications
             if self.version >= (3, 3) \
-                    and cipherSuite in CipherSuite.certAllSuites \
+                    and (cipherSuite in CipherSuite.certAllSuites or
+                         cipherSuite in CipherSuite.ecdheEcdsaSuites) \
                     and cipherSuite not in CipherSuite.certSuites:
                 self.serverSigAlg = (serverKeyExchange.hashAlg,
                                      serverKeyExchange.signAlg)
@@ -1757,15 +1777,56 @@ class TLSConnection(TLSRecordLayer):
 
         #Get and check public key from the cert chain
         publicKey = cert_chain.getEndEntityPublicKey()
-        if len(publicKey) < settings.minKeySize:
-            for result in self._sendError(AlertDescription.handshake_failure,
-                    "Other party's public key too small: %d" % len(publicKey)):
-                yield result
-        if len(publicKey) > settings.maxKeySize:
-            for result in self._sendError(AlertDescription.handshake_failure,
-                    "Other party's public key too large: %d" % len(publicKey)):
-                yield result
-        
+        cert_type = cert_chain.x509List[0].certAlg
+        if cert_type == "ecdsa":
+            curve_name = publicKey.curve_name
+            for name, aliases in CURVE_ALIASES.items():
+                if curve_name in aliases:
+                    curve_name = name
+                    break
+
+            if self.version <= (3, 3) and curve_name not in settings.eccCurves:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Peer sent certificate with curve we did not "
+                        "advertise support for: {0}".format(curve_name)):
+                    yield result
+            if self.version >= (3, 4):
+                if curve_name not in ('secp256r1', 'secp384r1', 'secp521r1'):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Peer sent certificate with curve not supported "
+                            "in TLS 1.3: {0}".format(curve_name)):
+                        yield result
+                if curve_name == 'secp256r1':
+                    sig_alg_for_curve = 'sha256'
+                elif curve_name == 'secp384r1':
+                    sig_alg_for_curve = 'sha384'
+                else:
+                    assert curve_name == 'secp521r1'
+                    sig_alg_for_curve = 'sha512'
+                if sig_alg_for_curve not in settings.ecdsaSigHashes:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Peer selected certificate with ECDSA curve we "
+                            "did not advertise support for: {0}"
+                            .format(curve_name)):
+                        yield result
+        else:
+            # for RSA keys
+            if len(publicKey) < settings.minKeySize:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Other party's public key too small: %d" %
+                        len(publicKey)):
+                    yield result
+            if len(publicKey) > settings.maxKeySize:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Other party's public key too large: %d" %
+                        len(publicKey)):
+                    yield result
+
         # If there's no TLS Extension, look for a TACK cert
         if tackpyLoaded:
             if not tackExt:
@@ -1997,7 +2058,8 @@ class TLSConnection(TLSRecordLayer):
             nextProtos = None
 
         # If not doing a certificate-based suite, discard the TACK
-        if not cipherSuite in CipherSuite.certAllSuites:
+        if not cipherSuite in CipherSuite.certAllSuites and \
+                not cipherSuite in CipherSuite.ecdheEcdsaSuites:
             tacks = None
 
         # Prepare a TACK Extension if requested
@@ -2112,7 +2174,8 @@ class TLSConnection(TLSRecordLayer):
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
               cipherSuite in CipherSuite.dheCertSuites or
-              cipherSuite in CipherSuite.ecdheCertSuites):
+              cipherSuite in CipherSuite.ecdheCertSuites or
+              cipherSuite in CipherSuite.ecdheEcdsaSuites):
             if cipherSuite in CipherSuite.certSuites:
                 keyExchange = RSAKeyExchange(cipherSuite,
                                              clientHello,
@@ -2126,7 +2189,8 @@ class TLSConnection(TLSRecordLayer):
                                                  privateKey,
                                                  settings.dhParams,
                                                  dhGroups)
-            elif cipherSuite in CipherSuite.ecdheCertSuites:
+            elif cipherSuite in CipherSuite.ecdheCertSuites or \
+                    cipherSuite in CipherSuite.ecdheEcdsaSuites:
                 acceptedCurves = self._curveNamesToList(settings)
                 defaultCurve = getattr(GroupName, settings.defaultCurve)
                 keyExchange = ECDHE_RSAKeyExchange(cipherSuite,
@@ -2179,7 +2243,8 @@ class TLSConnection(TLSRecordLayer):
 
         #Create the session object
         self.session = Session()
-        if cipherSuite in CipherSuite.certAllSuites:        
+        if cipherSuite in CipherSuite.certAllSuites or \
+                cipherSuite in CipherSuite.ecdheEcdsaSuites:
             serverCertChain = cert_chain
         else:
             serverCertChain = None
@@ -2536,9 +2601,14 @@ class TLSConnection(TLSRecordLayer):
                                             signature_scheme, None, None, None,
                                             prf_name, b'server')
 
-            padType = SignatureScheme.getPadding(scheme)
-            hashName = SignatureScheme.getHash(scheme)
-            saltLen = getattr(hashlib, hashName)().digest_size
+            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+                hashName = HashAlgorithm.toRepr(signature_scheme[0])
+                padType = None
+                saltLen = None
+            else:
+                padType = SignatureScheme.getPadding(scheme)
+                hashName = SignatureScheme.getHash(scheme)
+                saltLen = getattr(hashlib, hashName)().digest_size
 
             signature = privateKey.sign(signature_context,
                                         padType,
@@ -3112,6 +3182,7 @@ class TLSConnection(TLSRecordLayer):
                 cipherSuites += CipherSuite.getTLS13Suites(settings,
                                                            version)
             if ecGroupIntersect:
+                cipherSuites += CipherSuite.getEcdsaSuites(settings, version)
                 cipherSuites += CipherSuite.getEcdheCertSuites(settings,
                                                                version)
             if ffGroupIntersect:
@@ -3130,6 +3201,8 @@ class TLSConnection(TLSRecordLayer):
         cipherSuites = CipherSuite.filterForVersion(cipherSuites,
                                                     minVersion=version,
                                                     maxVersion=version)
+        cipherSuites = CipherSuite.filter_for_certificate(cipherSuites,
+                                                          cert_chain)
         #If resumption was requested and we have a session cache...
         if clientHello.session_id and sessionCache:
             session = None
@@ -3327,8 +3400,10 @@ class TLSConnection(TLSRecordLayer):
                 yield result
 
         #If an RSA suite is chosen, check for certificate type intersection
-        if cipherSuite in CipherSuite.certAllSuites and CertificateType.x509 \
-                                not in clientHello.certificate_types:
+        if (cipherSuite in CipherSuite.certAllSuites or
+            cipherSuite in CipherSuite.ecdheEcdsaSuites) \
+                    and CertificateType.x509 \
+                    not in clientHello.certificate_types:
             for result in self._sendError(\
                     AlertDescription.handshake_failure,
                     "the client doesn't support my certificate type"):
@@ -3549,8 +3624,12 @@ class TLSConnection(TLSRecordLayer):
         try:
             serverKeyExchange = keyExchange.makeServerKeyExchange(sigHash)
         except TLSUnknownPSKIdentity:
-            for result in self._sendError(\
+            for result in self._sendError(
                     AlertDescription.unknown_psk_identity):
+                yield result
+        except TLSInsufficientSecurity:
+            for result in self._sendError(
+                    AlertDescription.insufficient_security):
                 yield result
 
         #Send ServerHello[, Certificate], ServerKeyExchange,
@@ -3606,7 +3685,18 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.handshake_failure,
                     str(alert)):
                 yield result
-        serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
+        try:
+            serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
+        except TLSInternalError as alert:
+            for result in self._sendError(
+                    AlertDescription.internal_error,
+                    str(alert)):
+                yield result
+        except TLSInsufficientSecurity as alert:
+            for result in self._sendError(
+                    AlertDescription.insufficient_security,
+                    str(alert)):
+                yield result
         if serverKeyExchange is not None:
             msgs.append(serverKeyExchange)
         if reqCert:
@@ -3970,7 +4060,8 @@ class TLSConnection(TLSRecordLayer):
         for schemeID in supported:
             if schemeID in hashAndAlgsExt.sigalgs:
                 name = SignatureScheme.toRepr(schemeID)
-                if not name and schemeID[1] == SignatureAlgorithm.rsa:
+                if not name and schemeID[1] in (SignatureAlgorithm.rsa,
+                                                SignatureAlgorithm.ecdsa):
                     name = HashAlgorithm.toRepr(schemeID[0])
 
                 if name:
@@ -3984,41 +4075,66 @@ class TLSConnection(TLSRecordLayer):
                          version=(3, 3)):
         """Convert list of valid signature hashes to array of tuples"""
         certType = None
+        publicKey = None
         if certList:
             certType = certList.x509List[0].certAlg
+            publicKey = certList.x509List[0].publicKey
 
         sigAlgs = []
-        for schemeName in settings.rsaSchemes:
-            # pkcs#1 v1.5 signatures are not allowed in TLS 1.3
-            if version > (3, 3) and schemeName == "pkcs1":
-                continue
 
-            for hashName in settings.rsaSigHashes:
-                # rsa-pss certificates can't be used to make PKCS#1 v1.5
-                # signatures
-                if certType == "rsa-pss" and schemeName == "pkcs1":
+        if not certType or certType == "ecdsa":
+            for hashName in settings.ecdsaSigHashes:
+                # only SHA256, SHA384 and SHA512 are allowed in TLS 1.3
+                if version > (3, 3) and hashName in ("sha1", "sha224"):
                     continue
-                try:
-                    # 1024 bit keys are too small to create valid
-                    # rsa-pss-SHA512 signatures
-                    if schemeName == 'pss' and hashName == 'sha512'\
-                            and privateKey and privateKey.n < 2**2047:
+
+                # in TLS 1.3 ECDSA key curve is bound to hash
+                if publicKey and version > (3, 3):
+                    size = len(publicKey)
+                    size, r = divmod(size, 8)
+                    size += int(bool(r))
+                    if size == 32 and hashName != "sha256":
                         continue
-                    # advertise support for both rsaEncryption and RSA-PSS OID
-                    # key type
-                    if certType != 'rsa-pss':
-                        sigAlgs.append(getattr(SignatureScheme,
-                                               "rsa_{0}_rsae_{1}"
-                                               .format(schemeName, hashName)))
-                    if certType != 'rsa':
-                        sigAlgs.append(getattr(SignatureScheme,
-                                               "rsa_{0}_pss_{1}"
-                                               .format(schemeName, hashName)))
-                except AttributeError:
-                    if schemeName == 'pkcs1':
-                        sigAlgs.append((getattr(HashAlgorithm, hashName),
-                                        SignatureAlgorithm.rsa))
+                    if size == 48 and hashName != "sha384":
+                        continue
+                    if size == 65 and hashName != "sha512":
+                        continue
+
+                sigAlgs.append((getattr(HashAlgorithm, hashName),
+                                SignatureAlgorithm.ecdsa))
+
+        if not certType or certType in ("rsa", "rsa-pss"):
+            for schemeName in settings.rsaSchemes:
+                # pkcs#1 v1.5 signatures are not allowed in TLS 1.3
+                if version > (3, 3) and schemeName == "pkcs1":
                     continue
+
+                for hashName in settings.rsaSigHashes:
+                    # rsa-pss certificates can't be used to make PKCS#1 v1.5
+                    # signatures
+                    if certType == "rsa-pss" and schemeName == "pkcs1":
+                        continue
+                    try:
+                        # 1024 bit keys are too small to create valid
+                        # rsa-pss-SHA512 signatures
+                        if schemeName == 'pss' and hashName == 'sha512'\
+                                and privateKey and privateKey.n < 2**2047:
+                            continue
+                        # advertise support for both rsaEncryption and RSA-PSS OID
+                        # key type
+                        if certType != 'rsa-pss':
+                            sigAlgs.append(getattr(SignatureScheme,
+                                                   "rsa_{0}_rsae_{1}"
+                                                   .format(schemeName, hashName)))
+                        if certType != 'rsa':
+                            sigAlgs.append(getattr(SignatureScheme,
+                                                   "rsa_{0}_pss_{1}"
+                                                   .format(schemeName, hashName)))
+                    except AttributeError:
+                        if schemeName == 'pkcs1':
+                            sigAlgs.append((getattr(HashAlgorithm, hashName),
+                                            SignatureAlgorithm.rsa))
+                        continue
         return sigAlgs
 
     @staticmethod

@@ -21,11 +21,12 @@ ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
 # Don't allow "md5" by default
 MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
 ALL_MAC_NAMES = MAC_NAMES + ["md5"]
-KEY_EXCHANGE_NAMES = ["rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha", "srp_sha_rsa",
-                      "ecdh_anon", "dh_anon"]
+KEY_EXCHANGE_NAMES = ["ecdhe_ecdsa", "rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha",
+                      "srp_sha_rsa", "ecdh_anon", "dh_anon"]
 CIPHER_IMPLEMENTATIONS = ["openssl", "pycrypto", "python"]
 CERTIFICATE_TYPES = ["x509"]
 RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
+ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
 RSA_SCHEMES = ["pss", "pkcs1"]
 # while secp521r1 is the most secure, it's also much slower than the others
@@ -37,6 +38,12 @@ if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
                       "ffdhe8192"]
+CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
+                 "secp384r1": ('NIST384p', 'P-384'),
+                 "secp521r1": ('NIST521p', 'P-521'),
+                 "secp256k1": ('SECP256k1',),
+                 "secp192r1": ('NIST192p', 'P-192'),
+                 "secp224r1": ('NIST224p', 'P-224')}
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
@@ -145,6 +152,16 @@ class HandshakeSettings(object):
         The allowed hashes are: "md5", "sha1", "sha224", "sha256",
         "sha384" and "sha512". The default list does not include md5.
 
+    :vartype ecdsaSigHashes: list
+    :ivar ecdsaSigHashes: List of hashes supported (and advertised as such) for
+        TLS 1.2 signatures over Server Key Exchange or Certificate Verify with
+        ECDSA signature algorithm.
+
+        The list is sorted from most wanted to least wanted algorithm.
+
+        The allowed hashes are: "sha1", "sha224", "sha256",
+        "sha384" and "sha512".
+
     :vartype eccCurves: list
     :ivar eccCurves: List of named curves that are to be supported
 
@@ -225,6 +242,10 @@ class HandshakeSettings(object):
         1.2 or lower is the highest enabled version. Must not be set to values
         smaller than 64. Set to None to disable support for the extension.
         See also: RFC 8449.
+
+    :vartype keyExchangeNames: list
+    :ivar keyExchangeNames: Enabled key exchange types for the connection,
+        influences selected cipher suites.
     """
 
     def _init_key_settings(self):
@@ -249,6 +270,7 @@ class HandshakeSettings(object):
         self.useExperimentalTackExtension = False
         self.sendFallbackSCSV = False
         self.useEncryptThenMAC = True
+        self.ecdsaSigHashes = list(ECDSA_SIGNATURE_HASHES)
         self.usePaddingExtension = True
         self.useExtendedMasterSecret = True
         self.requireExtendedMasterSecret = False
@@ -340,6 +362,12 @@ class HandshakeSettings(object):
             raise ValueError("Key shares for not enabled groups specified: {0}"
                              .format(nonAdvertisedGroup))
 
+        unknownSigHash = not_matching(other.ecdsaSigHashes,
+                                      ECDSA_SIGNATURE_HASHES)
+        if unknownSigHash:
+            raise ValueError("Unknown ECDSA signature hash: '{0}'".\
+                             format(unknownSigHash))
+
         unknownDHGroup = not_matching(other.dhGroups, ALL_DH_GROUP_NAMES)
         if unknownDHGroup:
             raise ValueError("Unknown FFDHE group name: '{0}'"
@@ -388,7 +416,8 @@ class HandshakeSettings(object):
             raise ValueError("Unknown RSA padding mode: '{0}'"
                              .format(unknownRSAPad))
 
-        if not other.rsaSigHashes and other.maxVersion >= (3, 3):
+        if not other.rsaSigHashes and not other.ecdsaSigHashes and \
+                other.maxVersion >= (3, 3):
             raise ValueError("TLS 1.2 requires signature algorithms to be set")
 
     @staticmethod
@@ -544,6 +573,7 @@ class HandshakeSettings(object):
         other.certificateTypes = self.certificateTypes
         other.rsaSigHashes = self.rsaSigHashes
         other.rsaSchemes = self.rsaSchemes
+        other.ecdsaSigHashes = self.ecdsaSigHashes
         # DH key params
         other.eccCurves = self.eccCurves
         other.dhParams = self.dhParams

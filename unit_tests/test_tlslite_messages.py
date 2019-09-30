@@ -2376,6 +2376,21 @@ class TestServerKeyExchange(unittest.TestCase):
             b'\x8e?YW\xcd\xad\xc6\x83\x91\x1d.fe,\x17y' +
             b'=\xc4T\x89'))
 
+    def test_hash_with_ecdsa_in_tls1_1(self):
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+                (3, 2))
+
+        ske.createECDH(ECCurveType.named_curve,
+                       named_curve=GroupName.secp256r1,
+                       point=bytearray(b'\x04\xff\xab'))
+
+        hash1 = ske.hash(bytearray(32), bytearray(32))
+
+        self.assertEqual(hash1,
+                         bytearray(b' \xa0\xc1P5\xf7K/\xednd'
+                                   b'\xbaQ\xedo\xa13Z\xa5}'))
+
     def test_hash_with_rsa_pss_sha256(self):
         ske = ServerKeyExchange(
                 CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA,

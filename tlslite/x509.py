@@ -6,10 +6,13 @@
 
 """Class representing an X.509 certificate."""
 
+from ecdsa.keys import VerifyingKey
+
 from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import *
-from .utils.keyfactory import _createPublicRSAKey
+from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key
 from .utils.pem import *
+from .utils.compat import compatHMAC
 
 
 class X509(object):
@@ -26,8 +29,8 @@ class X509(object):
     :ivar subject: The DER-encoded ASN.1 subject distinguished name.
 
     :vartype certAlg: str
-    :ivar certAlg: algorithm of the public key, "rsa" for RSASSA-PKCS#1 v1.5
-        and "rsa-pss" for RSASSA-PSS
+    :ivar certAlg: algorithm of the public key, "rsa" for RSASSA-PKCS#1 v1.5,
+        "rsa-pss" for RSASSA-PSS, "ecdsa" for ECDSA
     """
 
     def __init__(self):
@@ -90,11 +93,13 @@ class X509(object):
 
         # first item of AlgorithmIdentifier is the algorithm
         alg = alg_identifier.getChild(0)
-        rsa_oid = alg.value
-        if list(rsa_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
+        alg_oid = alg.value
+        if list(alg_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
             self.certAlg = "rsa"
-        elif list(rsa_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
+        elif list(alg_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
             self.certAlg = "rsa-pss"
+        elif list(alg_oid) == [42, 134, 72, 206, 61, 2, 1]:
+            self.certAlg = "ecdsa"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
@@ -106,9 +111,22 @@ class X509(object):
             if params.value != bytearray(0):
                 raise SyntaxError("Unexpected non-NULL parameters in "
                                   "AlgorithmIdentifier")
+        elif self.certAlg == "ecdsa":
+            self._ecdsa_pubkey_parsing(
+                tbs_certificate.getChildBytes(subject_public_key_info_index))
+            return
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
 
+        self._rsa_pubkey_parsing(subject_public_key_info)
+
+    def _rsa_pubkey_parsing(self, subject_public_key_info):
+        """
+        Parse the RSA public key from the certificate.
+
+        :param subject_public_key_info: ASN1Parser object with subject
+            public key info of X.509 certificate
+        """
 
         # Get the subjectPublicKey
         subject_public_key = subject_public_key_info.getChild(1)
@@ -134,6 +152,26 @@ class X509(object):
         # Create a public key instance
         self.publicKey = _createPublicRSAKey(n, e, self.certAlg)
         # pylint: enable=invalid-name
+
+    def _ecdsa_pubkey_parsing(self, subject_public_key_info):
+        """
+        Convert the raw DER encoded ECDSA parameters into public key object
+
+        :param subject_public_key_info: bytes like object with DER encoded
+            public key in it
+        """
+        try:
+            # python ecdsa knows how to parse curve OIDs so re-use that
+            # code
+            public_key = VerifyingKey.from_der(compatHMAC(
+                subject_public_key_info))
+        except Exception:
+            raise SyntaxError("Malformed or unsupported public key in "
+                              "certificate")
+        x = public_key.pubkey.point.x()
+        y = public_key.pubkey.point.y()
+        curve_name = public_key.curve.name
+        self.publicKey = _create_public_ecdsa_key(x, y, curve_name)
 
     def getFingerprint(self):
         """

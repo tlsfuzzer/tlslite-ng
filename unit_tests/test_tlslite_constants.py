@@ -8,6 +8,12 @@ try:
     import unittest2 as unittest
 except ImportError:
     import unittest
+try:
+    import mock
+    from mock import call
+except ImportError:
+    import unittest.mock as mock
+    from unittest.mock import call
 
 from tlslite.handshakesettings import HandshakeSettings
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
@@ -157,6 +163,17 @@ class TestCipherSuite(unittest.TestCase):
         self.assertEqual(filtered,
                          [CipherSuite.TLS_AES_128_GCM_SHA256])
 
+    def test_getEcdsaSuites(self):
+        hs = HandshakeSettings()
+        hs.keyExchangeNames = ["ecdhe_ecdsa"]
+        hs.cipherNames = ["aes128"]
+
+        filtered = CipherSuite.getEcdsaSuites(hs)
+
+        self.assertEqual(filtered,
+                         [CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+                          CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA])
+
     def test_getTLS13Suites(self):
         hs = HandshakeSettings()
         hs.maxVersion = (3, 4)
@@ -170,6 +187,75 @@ class TestCipherSuite(unittest.TestCase):
         hs.maxVersion = (3, 4)
         self.assertEqual(CipherSuite.getTLS13Suites(hs, (3, 3)),
                          [])
+
+    def test_filter_for_certificate_with_no_cert(self):
+        orig_ciphers = [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDH_ANON_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_AES_128_GCM_SHA256]
+
+        new_ciphers = CipherSuite.filter_for_certificate(
+            orig_ciphers,
+            None)
+
+        self.assertFalse(orig_ciphers is new_ciphers)
+        self.assertEqual(new_ciphers,
+                         [CipherSuite.TLS_ECDH_ANON_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_AES_128_GCM_SHA256])
+
+    def test_filter_for_certificate_with_rsa(self):
+        cert_list = mock.MagicMock()
+        cert = mock.MagicMock()
+        cert.certAlg = "rsa"
+        cert_list.x509List = [cert]
+
+        orig_ciphers = [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_AES_128_GCM_SHA256]
+
+        new_ciphers = CipherSuite.filter_for_certificate(
+            orig_ciphers, cert_list)
+
+        self.assertEqual(new_ciphers,
+                         [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_AES_128_GCM_SHA256])
+
+    def test_filter_for_certificate_with_rsa_pss(self):
+        cert_list = mock.MagicMock()
+        cert = mock.MagicMock()
+        cert.certAlg = "rsa-pss"
+        cert_list.x509List = [cert]
+
+        orig_ciphers = [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_AES_128_GCM_SHA256]
+
+        new_ciphers = CipherSuite.filter_for_certificate(
+            orig_ciphers, cert_list)
+
+        self.assertEqual(new_ciphers,
+                         [CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_AES_128_GCM_SHA256])
+
+    def test_filter_for_certificate_with_ecdsa(self):
+        cert_list = mock.MagicMock()
+        cert = mock.MagicMock()
+        cert.certAlg = "ecdsa"
+        cert_list.x509List = [cert]
+
+        orig_ciphers = [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_AES_128_GCM_SHA256]
+
+        new_ciphers = CipherSuite.filter_for_certificate(
+            orig_ciphers, cert_list)
+
+        self.assertEqual(new_ciphers,
+                         [CipherSuite.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_AES_128_GCM_SHA256])
 
 
 class TestSignatureScheme(unittest.TestCase):
