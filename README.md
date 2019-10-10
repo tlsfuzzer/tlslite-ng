@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha27 (2019-09-16)
+tlslite-ng version 0.8.0-alpha28 (2019-10-10)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -64,7 +64,7 @@ Implemented TLS features include:
 * Extended master secret
 * padding extension
 * keying material exporter
-* RSA-PSS signatures in TLSv1.2, RSA-PSS in certificates (TLSv1.3 extension)
+* RSA, RSA-PSS and ECDSA certificates
 * ticket based session resumption in TLSv1.3
 * 1-RTT handshake, Hello Retry Request, middlebox compatibility mode and
   cookie extension
@@ -639,6 +639,7 @@ may not work with all asyncore.dispatcher subclasses.
 * reimplement HMAC in pure python to work-around platforms that disable MD5
   HMAC in python (this goes against FIPS requirements)
 * fix few minor bugs in handling heartbeat messages
+* support for ECDSA certificates (server and client, all versions of TLS)
 
 0.7.0 - 2017-07-31
 
