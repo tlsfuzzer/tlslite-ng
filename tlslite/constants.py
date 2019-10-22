@@ -187,6 +187,7 @@ class HashAlgorithm(TLSEnum):
     sha256 = 4
     sha384 = 5
     sha512 = 6
+    intrinsic = 8  # RFC 8422
 
 
 class SignatureAlgorithm(TLSEnum):
@@ -196,6 +197,8 @@ class SignatureAlgorithm(TLSEnum):
     rsa = 1
     dsa = 2
     ecdsa = 3
+    ed25519 = 7  # RFC 8422
+    ed448 = 8  # RFC 8422
 
 
 class SignatureScheme(TLSEnum):
@@ -217,6 +220,8 @@ class SignatureScheme(TLSEnum):
     rsa_pss_rsae_sha256 = (8, 4)
     rsa_pss_rsae_sha384 = (8, 5)
     rsa_pss_rsae_sha512 = (8, 6)
+    ed25519 = (8, 7)  # RFC 8422
+    ed448 = (8, 8)  # RFC 8422
     rsa_pss_pss_sha256 = (8, 9)
     rsa_pss_pss_sha384 = (8, 10)
     rsa_pss_pss_sha512 = (8, 11)
@@ -243,6 +248,9 @@ class SignatureScheme(TLSEnum):
 
         E.g. for "rsa_pkcs1_sha1" it returns "rsa"
         """
+        # they need to be threated as ECDSA algorithms, see RFC 8422
+        if scheme in ("ed25519", "ed448"):
+            return "ecdsa"
         try:
             getattr(SignatureScheme, scheme)
         except AttributeError:
@@ -269,6 +277,9 @@ class SignatureScheme(TLSEnum):
     @staticmethod
     def getHash(scheme):
         """Return the name of hash used in signature scheme."""
+        # there is no explicit hash in the EDDSA, see RFC 8422
+        if scheme in ("ed25519", "ed448"):
+            return "intrinsic"
         try:
             getattr(SignatureScheme, scheme)
         except AttributeError:
