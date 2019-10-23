@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha28 (2019-10-10)
+tlslite-ng version 0.8.0-alpha29 (2019-10-23)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
