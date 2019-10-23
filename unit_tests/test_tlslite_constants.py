@@ -315,3 +315,13 @@ class TestSignatureScheme(unittest.TestCase):
         ret = SignatureScheme.getPadding('rsa_pss_pss_sha256')
 
         self.assertEqual(ret, 'pss')
+
+    def test_getKeyType_with_eddsa(self):
+        ret = SignatureScheme.getKeyType('ed25519')
+
+        self.assertEqual(ret, 'ecdsa')
+
+    def test_getHash_with_eddsa(self):
+        ret = SignatureScheme.getHash('ed25519')
+
+        self.assertEqual(ret, 'intrinsic')
