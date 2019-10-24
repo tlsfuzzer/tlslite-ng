@@ -49,6 +49,80 @@ TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
 
 
+class Keypair(object):
+    """
+    Key, certificate and related data.
+
+    Stores also certificate associate data like OCSPs and transparency info.
+    TODO: add the above
+
+    First certificate in certificates needs to match key, remaining should
+    build a trust path to a root CA.
+
+    :vartype key: RSAKey or ECDSAKey
+    :ivar key: private key
+
+    :vartype certificates: list of X509
+    :ivar certificates: the certificates to send to peer if the key is selected
+        for use. The first one MUST include the public key of the ``key``
+    """
+    def __init__(self, key=None, certificates=tuple()):
+        self.key = key
+        self.certificates = certificates
+
+    def validate(self):
+        """Sanity check the keypair."""
+        if not self.key or not self.certificates:
+            raise ValueError("Key or certificate missing in Keypair")
+
+
+class VirtualHost(object):
+    """
+    Configuration of keys and certs for a single virual server.
+
+    This class encapsulates keys and certificates for hosts specified by
+    server_name (SNI) and ALPN extensions.
+
+    TODO: support SRP as alternative to certificates
+    TODO: support PSK as alternative to certificates
+
+    :vartype keys: list of :ref:`~Keypair`
+    :ivar keys: List of certificates and keys to be used in this
+        virtual host. First keypair able to server ClientHello will be used.
+
+    :vartype hostnames: set of bytes
+    :ivar hostnames: all the hostnames that server supports
+        please use :ref:`matches_hostname` to verify if the VirtualHost
+        can serve a request to a given hostname as that allows wildcard hosts
+        that always reply True.
+
+    :vartype trust_anchors: list of X509
+    :ivar trust_anchors: list of CA certificates supported for client
+        certificate authentication, sent in CertificateRequest
+
+    :ivar app_protocols: all the application protocols that the server supports
+        (for ALPN)
+    """
+
+    def __init__(self):
+        """Set up default configuration."""
+        self.keys = []
+        self.hostnames = set()
+        self.trust_anchors = []
+        self.app_protocols = []
+
+    def matches_hostname(self, hostname):
+        """Checks if the virtual host can serve hostname"""
+        return hostname in self.hostnames
+
+    def validate(self):
+        """Sanity check the settings"""
+        if not self.keys:
+            raise ValueError("Virtual host missing keys")
+        for i in self.keys:
+            i.validate()
+
+
 class HandshakeSettings(object):
     """
     This class encapsulates various parameters that can be used with
@@ -254,6 +328,7 @@ class HandshakeSettings(object):
         self.maxKeySize = 8193
         self.rsaSigHashes = list(RSA_SIGNATURE_HASHES)
         self.rsaSchemes = list(RSA_SCHEMES)
+        self.virtual_hosts = []
         # DH key settings
         self.eccCurves = list(CURVE_NAMES)
         self.dhParams = None
@@ -312,6 +387,9 @@ class HandshakeSettings(object):
             raise ValueError("maxKeySize too large")
         if other.maxKeySize < other.minKeySize:
             raise ValueError("maxKeySize smaller than minKeySize")
+        # check also keys of virtual hosts
+        for i in other.virtual_hosts:
+            i.validate()
 
     @staticmethod
     def _not_matching(values, sieve):
@@ -575,6 +653,7 @@ class HandshakeSettings(object):
         other.rsaSigHashes = self.rsaSigHashes
         other.rsaSchemes = self.rsaSchemes
         other.ecdsaSigHashes = self.ecdsaSigHashes
+        other.virtual_hosts = self.virtual_hosts
         # DH key params
         other.eccCurves = self.eccCurves
         other.dhParams = self.dhParams
