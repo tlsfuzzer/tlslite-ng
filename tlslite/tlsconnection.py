@@ -2013,8 +2013,12 @@ class TLSConnection(TLSRecordLayer):
 
         self._handshakeStart(client=False)
 
+        if not settings:
+            settings = HandshakeSettings()
+        settings = settings.validate()
+
         if (not verifierDB) and (not cert_chain) and not anon and \
-                not settings.pskConfigs:
+                not settings.pskConfigs and not settings.virtual_hosts:
             raise ValueError("Caller passed no authentication credentials")
         if cert_chain and not privateKey:
             raise ValueError("Caller passed a cert_chain but no privateKey")
@@ -2029,14 +2033,11 @@ class TLSConnection(TLSRecordLayer):
         if tacks:
             if not tackpyLoaded:
                 raise ValueError("tackpy is not loaded")
-            if not settings or not settings.useExperimentalTackExtension:
+            if not settings.useExperimentalTackExtension:
                 raise ValueError("useExperimentalTackExtension not enabled")
         if alpn is not None and not alpn:
             raise ValueError("Empty list of ALPN protocols")
 
-        if not settings:
-            settings = HandshakeSettings()
-        settings = settings.validate()
         self.sock.padding_cb = settings.padding_cb
 
         # OK Start exchanging messages
