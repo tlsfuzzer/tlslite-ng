@@ -2039,7 +2039,8 @@ class TLSConnection(TLSRecordLayer):
         # ******************************
         
         # Handle ClientHello and resumption
-        for result in self._serverGetClientHello(settings, cert_chain,
+        for result in self._serverGetClientHello(settings, privateKey,
+                                                 cert_chain,
                                                  verifierDB, sessionCache,
                                                  anon, alpn, sni):
             if result in (0,1): yield result
@@ -2047,7 +2048,7 @@ class TLSConnection(TLSRecordLayer):
                 self._handshakeDone(resumed=True)                
                 return # Handshake was resumed, we're done 
             else: break
-        (clientHello, cipherSuite, version, scheme) = result
+        (clientHello, version, cipherSuite, sig_scheme) = result
 
         # in TLS 1.3 the handshake is completely different
         # (extensions go into different messages, format of messages is
@@ -2056,7 +2057,7 @@ class TLSConnection(TLSRecordLayer):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
                                                      privateKey, cert_chain,
-                                                     version, scheme,
+                                                     version, sig_scheme,
                                                      alpn, reqCert):
                 if result in (0, 1):
                     yield result
@@ -2823,7 +2824,8 @@ class TLSConnection(TLSRecordLayer):
 
         yield "finished"
 
-    def _serverGetClientHello(self, settings, cert_chain, verifierDB,
+    def _serverGetClientHello(self, settings, private_key, cert_chain,
+                              verifierDB,
                               sessionCache, anon, alpn, sni):
         # Tentatively set version to most-desirable version, so if an error
         # occurs parsing the ClientHello, this will be the version we'll use
@@ -3070,6 +3072,7 @@ class TLSConnection(TLSRecordLayer):
                 self._recordLayer.max_early_data = settings.max_early_data
                 self._recordLayer.early_data_ok = True
 
+        # negotiate the protocol version for the connection
         high_ver = None
         if ver_ext:
             high_ver = getFirstMatching(settings.versions,
@@ -3107,13 +3110,13 @@ class TLSConnection(TLSRecordLayer):
         # TODO when TLS 1.3 is final, check the client hello random for
         # downgrade too
 
-        scheme = None
+        sig_scheme = None
         if version >= (3, 4):
             try:
-                scheme = self._pickServerKeyExchangeSig(settings,
-                                                        clientHello,
-                                                        cert_chain,
-                                                        version)
+                sig_scheme = self._pickServerKeyExchangeSig(settings,
+                                                            clientHello,
+                                                            cert_chain,
+                                                            version)
             except TLSHandshakeFailure as alert:
                 for result in self._sendError(
                         AlertDescription.handshake_failure,
@@ -3628,7 +3631,7 @@ class TLSConnection(TLSRecordLayer):
         # we have no session cache, or
         # the client's session_id was not found in cache:
 #pylint: disable = undefined-loop-variable
-        yield (clientHello, cipherSuite, version, scheme)
+        yield (clientHello, version, cipherSuite, sig_scheme)
 #pylint: enable = undefined-loop-variable
 
     def _serverSRPKeyExchange(self, clientHello, serverHello, verifierDB,
