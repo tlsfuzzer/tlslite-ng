@@ -1910,11 +1910,13 @@ class TLSConnection(TLSRecordLayer):
 
         :type certChain: ~tlslite.x509certchain.X509CertChain
         :param certChain: The certificate chain to be used if the
-            client requests server certificate authentication.
+            client requests server certificate authentication and no virtual
+            host defined in HandshakeSettings matches ClientHello.
 
         :type privateKey: ~tlslite.utils.rsakey.RSAKey
         :param privateKey: The private key to be used if the client
-            requests server certificate authentication.
+            requests server certificate authentication and no virtual host
+            defined in HandshakeSettings matches ClientHello.
 
         :type reqCert: bool
         :param reqCert: Whether to request client certificate
@@ -1941,21 +1943,23 @@ class TLSConnection(TLSRecordLayer):
 
         :type reqCAs: list of bytearray
         :param reqCAs: A collection of DER-encoded DistinguishedNames that
-            will be sent along with a certificate request. This does not affect
-            verification.
+            will be sent along with a certificate request to help client pick
+            a certificates. This does not affect verification.
 
         :type nextProtos: list of str
         :param nextProtos: A list of upper layer protocols to expose to the
             clients through the Next-Protocol Negotiation Extension,
-            if they support it.
+            if they support it. Deprecated, use the `virtual_hosts` in
+            HandshakeSettings.
 
         :type alpn: list of bytearray
         :param alpn: names of application layer protocols supported.
             Note that it will be used instead of NPN if both were advertised by
-            client.
+            client. Deprecated, use the `virtual_hosts` in HandshakeSettings.
 
         :type sni: bytearray
-        :param sni: expected virtual name hostname.
+        :param sni: expected virtual name hostname. Deprecated, use the
+            `virtual_hosts` in HandshakeSettings.
 
         :raises socket.error: If a socket error occurs.
         :raises tlslite.errors.TLSAbruptCloseError: If the socket is closed
