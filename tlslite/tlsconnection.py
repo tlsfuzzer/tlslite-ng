@@ -2846,6 +2846,8 @@ class TLSConnection(TLSRecordLayer):
             else: break
         clientHello = result
 
+        # check if the ClientHello and its extensions are well-formed
+
         #If client's version is too low, reject it
         real_version = clientHello.client_version
         if real_version >= (3, 3):
@@ -2931,12 +2933,6 @@ class TLSConnection(TLSRecordLayer):
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,
                         "Host name in SNI is not valid DNS name"):
-                    yield result
-            # warn the client if the name didn't match the expected value
-            if sni and sni != name:
-                alert = Alert().create(AlertDescription.unrecognized_name,
-                                       AlertLevel.warning)
-                for result in self._sendMsg(alert):
                     yield result
 
         # sanity check the EMS extension
@@ -3114,6 +3110,18 @@ class TLSConnection(TLSRecordLayer):
 
         # TODO when TLS 1.3 is final, check the client hello random for
         # downgrade too
+
+        # start negotiating the parameters of the connection
+
+        sni_ext = clientHello.getExtension(ExtensionType.server_name)
+        if sni_ext:
+            name = sni_ext.hostNames[0].decode('ascii', 'strict')
+            # warn the client if the name didn't match the expected value
+            if sni and sni != name:
+                alert = Alert().create(AlertDescription.unrecognized_name,
+                                       AlertLevel.warning)
+                for result in self._sendMsg(alert):
+                    yield result
 
         sig_scheme = None
         if version >= (3, 4):
