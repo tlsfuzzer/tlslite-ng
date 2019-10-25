@@ -530,6 +530,7 @@ class HandshakeSettings(object):
         """Copy values of settings related to extensions."""
         other.useExtendedMasterSecret = self.useExtendedMasterSecret
         other.requireExtendedMasterSecret = self.requireExtendedMasterSecret
+        other.useExperimentalTackExtension = self.useExperimentalTackExtension
         other.sendFallbackSCSV = self.sendFallbackSCSV
         other.useEncryptThenMAC = self.useEncryptThenMAC
         other.usePaddingExtension = self.usePaddingExtension
