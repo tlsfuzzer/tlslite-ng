@@ -2207,6 +2207,17 @@ class TLSConnection(TLSRecordLayer):
               cipherSuite in CipherSuite.dheCertSuites or
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
+            try:
+                sig_hash_alg = self._pickServerKeyExchangeSig(settings,
+                                                              clientHello,
+                                                              cert_chain,
+                                                              privateKey)
+            except TLSHandshakeFailure as alert:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        str(alert)):
+                    yield result
+
             if cipherSuite in CipherSuite.certSuites:
                 keyExchange = RSAKeyExchange(cipherSuite,
                                              clientHello,
@@ -2232,8 +2243,8 @@ class TLSConnection(TLSRecordLayer):
                                                    defaultCurve)
             else:
                 assert(False)
-            for result in self._serverCertKeyExchange(clientHello, serverHello, 
-                                        cert_chain, keyExchange,
+            for result in self._serverCertKeyExchange(clientHello, serverHello,
+                                        sig_hash_alg, cert_chain, keyExchange,
                                         reqCert, reqCAs, cipherSuite,
                                         settings):
                 if result in (0,1): yield result
@@ -3129,6 +3140,7 @@ class TLSConnection(TLSRecordLayer):
                 sig_scheme = self._pickServerKeyExchangeSig(settings,
                                                             clientHello,
                                                             cert_chain,
+                                                            private_key,
                                                             version)
             except TLSHandshakeFailure as alert:
                 for result in self._sendError(
@@ -3659,7 +3671,8 @@ class TLSConnection(TLSRecordLayer):
 
         try:
             sigHash = self._pickServerKeyExchangeSig(settings, clientHello,
-                                                     serverCertChain)
+                                                     serverCertChain,
+                                                     privateKey)
         except TLSHandshakeFailure as alert:
             for result in self._sendError(
                     AlertDescription.handshake_failure,
@@ -3710,7 +3723,7 @@ class TLSConnection(TLSRecordLayer):
 
         yield premasterSecret
 
-    def _serverCertKeyExchange(self, clientHello, serverHello, 
+    def _serverCertKeyExchange(self, clientHello, serverHello, sigHashAlg,
                                 serverCertChain, keyExchange,
                                 reqCert, reqCAs, cipherSuite,
                                 settings):
@@ -3723,14 +3736,6 @@ class TLSConnection(TLSRecordLayer):
 
         msgs.append(serverHello)
         msgs.append(Certificate(CertificateType.x509).create(serverCertChain))
-        try:
-            sigHashAlg = self._pickServerKeyExchangeSig(settings, clientHello,
-                                                        serverCertChain)
-        except TLSHandshakeFailure as alert:
-            for result in self._sendError(
-                    AlertDescription.handshake_failure,
-                    str(alert)):
-                yield result
         try:
             serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
         except TLSInternalError as alert:
@@ -4094,6 +4099,7 @@ class TLSConnection(TLSRecordLayer):
 
     @staticmethod
     def _pickServerKeyExchangeSig(settings, clientHello, certList=None,
+                                  private_key=None,
                                   version=(3, 3)):
         """Pick a hash that matches most closely the supported ones"""
         hashAndAlgsExt = clientHello.getExtension(
