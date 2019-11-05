@@ -2053,7 +2053,8 @@ class TLSConnection(TLSRecordLayer):
                 self._handshakeDone(resumed=True)                
                 return # Handshake was resumed, we're done 
             else: break
-        (clientHello, version, cipherSuite, sig_scheme) = result
+        (clientHello, version, cipherSuite, sig_scheme, privateKey,
+            cert_chain) = result
 
         # in TLS 1.3 the handshake is completely different
         # (extensions go into different messages, format of messages is
@@ -2200,7 +2201,7 @@ class TLSConnection(TLSRecordLayer):
                 if result in (0, 1):
                     yield result
                 else: break
-            premasterSecret = result
+            premasterSecret, privateKey, cert_chain = result
 
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
@@ -2208,10 +2209,11 @@ class TLSConnection(TLSRecordLayer):
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
             try:
-                sig_hash_alg = self._pickServerKeyExchangeSig(settings,
-                                                              clientHello,
-                                                              cert_chain,
-                                                              privateKey)
+                sig_hash_alg, cert_chain, privateKey = \
+                    self._pickServerKeyExchangeSig(settings,
+                                                   clientHello,
+                                                   cert_chain,
+                                                   privateKey)
             except TLSHandshakeFailure as alert:
                 for result in self._sendError(
                         AlertDescription.handshake_failure,
@@ -3137,11 +3139,12 @@ class TLSConnection(TLSRecordLayer):
         sig_scheme = None
         if version >= (3, 4):
             try:
-                sig_scheme = self._pickServerKeyExchangeSig(settings,
-                                                            clientHello,
-                                                            cert_chain,
-                                                            private_key,
-                                                            version)
+                sig_scheme, cert_chain, private_key = \
+                    self._pickServerKeyExchangeSig(settings,
+                                                   clientHello,
+                                                   cert_chain,
+                                                   private_key,
+                                                   version)
             except TLSHandshakeFailure as alert:
                 for result in self._sendError(
                         AlertDescription.handshake_failure,
@@ -3656,28 +3659,30 @@ class TLSConnection(TLSRecordLayer):
         # we have no session cache, or
         # the client's session_id was not found in cache:
 #pylint: disable = undefined-loop-variable
-        yield (clientHello, version, cipherSuite, sig_scheme)
+        yield (clientHello, version, cipherSuite, sig_scheme, private_key,
+               cert_chain)
 #pylint: enable = undefined-loop-variable
 
     def _serverSRPKeyExchange(self, clientHello, serverHello, verifierDB,
                               cipherSuite, privateKey, serverCertChain,
                               settings):
         """Perform the server side of SRP key exchange"""
-        keyExchange = SRPKeyExchange(cipherSuite,
-                                     clientHello,
-                                     serverHello,
-                                     privateKey,
-                                     verifierDB)
-
         try:
-            sigHash = self._pickServerKeyExchangeSig(settings, clientHello,
-                                                     serverCertChain,
-                                                     privateKey)
+            sigHash, serverCertChain, privateKey = \
+                self._pickServerKeyExchangeSig(settings, clientHello,
+                                               serverCertChain,
+                                               privateKey)
         except TLSHandshakeFailure as alert:
             for result in self._sendError(
                     AlertDescription.handshake_failure,
                     str(alert)):
                 yield result
+
+        keyExchange = SRPKeyExchange(cipherSuite,
+                                     clientHello,
+                                     serverHello,
+                                     privateKey,
+                                     verifierDB)
 
         #Create ServerKeyExchange, signing it if necessary
         try:
@@ -3721,7 +3726,7 @@ class TLSConnection(TLSRecordLayer):
                                           str(alert)):
                 yield result
 
-        yield premasterSecret
+        yield premasterSecret, privateKey, serverCertChain
 
     def _serverCertKeyExchange(self, clientHello, serverHello, sigHashAlg,
                                 serverCertChain, keyExchange,
@@ -4109,12 +4114,12 @@ class TLSConnection(TLSRecordLayer):
             if not hashAndAlgsExt:
                 # the error checking was done before hand, likely we're
                 # doing PSK key exchange
-                return
+                return None, certList, private_key
 
         if hashAndAlgsExt is None or hashAndAlgsExt.sigalgs is None:
             # RFC 5246 states that if there are no hashes advertised,
             # sha1 should be picked
-            return "sha1"
+            return "sha1", certList, private_key
 
         supported = TLSConnection._sigHashesToList(settings,
                                                    certList=certList,
@@ -4128,7 +4133,7 @@ class TLSConnection(TLSRecordLayer):
                     name = HashAlgorithm.toRepr(schemeID[0])
 
                 if name:
-                    return name
+                    return name, certList, private_key
 
         # if no match, we must abort per RFC 5246
         raise TLSHandshakeFailure("No common signature algorithms")
