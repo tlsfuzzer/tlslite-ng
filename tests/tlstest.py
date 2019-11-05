@@ -33,6 +33,7 @@ from tlslite import TLSConnection, Fault, HandshakeSettings, \
     AlertDescription, HTTPTLSConnection, TLSSocketServerMixIn, \
     POP3_TLS, m2cryptoLoaded, pycryptoLoaded, gmpyLoaded, tackpyLoaded, \
     Checker, __version__
+from tlslite.handshakesettings import VirtualHost, Keypair
 
 from tlslite.errors import *
 from tlslite.utils.cryptomath import prngName, getRandomBytes
@@ -356,6 +357,84 @@ def clientTestCmd(argv):
     assert isinstance(connection.session.serverCertChain, X509CertChain)
     assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
             == 521
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good RSA and ECDSA, TLSv1.3, rsa"
+          .format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.tls13Suites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "rsa"
+    assert connection.version == (3, 4)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good RSA and ECDSA, TLSv1.3, ecdsa"
+          .format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    settings.rsaSigHashes = []
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.tls13Suites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "ecdsa"
+    assert connection.version == (3, 4)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good RSA and ECDSA, TLSv1.2, rsa"
+          .format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.ecdheCertSuites, connection.session.cipherSuite
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "rsa"
+    assert connection.version == (3, 3)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good RSA and ECDSA, TLSv1.2, ecdsa"
+          .format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    settings.rsaSigHashes = []
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.ecdheEcdsaSuites, connection.session.cipherSuite
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "ecdsa"
+    assert connection.version == (3, 3)
     connection.close()
 
     test_no += 1
@@ -1501,6 +1580,28 @@ def serverTestCmd(argv):
     connection.close()
 
     test_no += 1
+
+    for prot in ["TLSv1.3", "TLSv1.2"]:
+        for c_type, exp_chain in (("rsa", x509Chain),
+                                  ("ecdsa", x509ecdsaChain)):
+            print("Test {0} - good RSA and ECDSA, {2}, {1}"
+                  .format(test_no, c_type, prot))
+            synchro.send(b'R')
+            connection = connect()
+            settings = HandshakeSettings()
+            settings.minVersion = (3, 3)
+            settings.maxVersion = (3, 4)
+            v_host = VirtualHost()
+            v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
+            settings.virtual_hosts = [v_host]
+            connection.handshakeServer(certChain=x509Chain,
+                                       privateKey=x509Key, settings=settings)
+            assert connection.extendedMasterSecret
+            assert connection.session.serverCertChain == exp_chain
+            testConnServer(connection)
+            connection.close()
+
+            test_no += 1
 
     print("Test {0} - good X.509, mismatched key_share".format(test_no))
     synchro.send(b'R')

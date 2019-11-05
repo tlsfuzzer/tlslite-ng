@@ -3136,20 +3136,18 @@ class TLSConnection(TLSRecordLayer):
                 for result in self._sendMsg(alert):
                     yield result
 
-        sig_scheme = None
-        if version >= (3, 4):
-            try:
-                sig_scheme, cert_chain, private_key = \
-                    self._pickServerKeyExchangeSig(settings,
-                                                   clientHello,
-                                                   cert_chain,
-                                                   private_key,
-                                                   version)
-            except TLSHandshakeFailure as alert:
-                for result in self._sendError(
-                        AlertDescription.handshake_failure,
-                        str(alert)):
-                    yield result
+        try:
+            sig_scheme, cert_chain, private_key = \
+                self._pickServerKeyExchangeSig(settings,
+                                               clientHello,
+                                               cert_chain,
+                                               private_key,
+                                               version)
+        except TLSHandshakeFailure as alert:
+            for result in self._sendError(
+                    AlertDescription.handshake_failure,
+                    str(alert)):
+                yield result
 
         #Check if there's intersection between supported curves by client and
         #server
@@ -4121,19 +4119,23 @@ class TLSConnection(TLSRecordLayer):
             # sha1 should be picked
             return "sha1", certList, private_key
 
-        supported = TLSConnection._sigHashesToList(settings,
-                                                   certList=certList,
-                                                   version=version)
+        alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
+                     settings.virtual_hosts for i in vh.keys)
 
-        for schemeID in supported:
-            if schemeID in hashAndAlgsExt.sigalgs:
-                name = SignatureScheme.toRepr(schemeID)
-                if not name and schemeID[1] in (SignatureAlgorithm.rsa,
-                                                SignatureAlgorithm.ecdsa):
-                    name = HashAlgorithm.toRepr(schemeID[0])
+        for certs, key in chain([(certList, private_key)], alt_certs):
+            supported = TLSConnection._sigHashesToList(settings,
+                                                       certList=certs,
+                                                       version=version)
 
-                if name:
-                    return name, certList, private_key
+            for schemeID in supported:
+                if schemeID in hashAndAlgsExt.sigalgs:
+                    name = SignatureScheme.toRepr(schemeID)
+                    if not name and schemeID[1] in (SignatureAlgorithm.rsa,
+                                                    SignatureAlgorithm.ecdsa):
+                        name = HashAlgorithm.toRepr(schemeID[0])
+
+                    if name:
+                        return name, certs, key
 
         # if no match, we must abort per RFC 5246
         raise TLSHandshakeFailure("No common signature algorithms")
