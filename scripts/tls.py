@@ -32,6 +32,7 @@ if __name__ != "__main__":
 from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
         GroupName, SignatureScheme
+from tlslite.handshakesettings import Keypair, VirtualHost
 from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
@@ -74,13 +75,13 @@ def printUsage(s=None):
     print("""Commands:
 
   server  
-    [-k KEY] [-c CERT] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
+    [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT]
     HOST:PORT
 
   client
-    [-k KEY] [-c CERT] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
+    [-c CERT] [-k KEY] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
     [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
     [--max-ver VER]
     HOST:PORT
@@ -98,6 +99,10 @@ def printUsage(s=None):
         "tls1.3"
   --tickets COUNT - how many tickets should server send after handshake is
                     finished
+  CERT, KEY - the file with key and certificates that will be used by client or
+        server. The server can accept multiple pairs of `-c` and `-k` options
+        to configure different certificates (like RSA and ECDSA)
+
 """)
     sys.exit(-1)
 
@@ -131,6 +136,8 @@ def handleArgs(argv, argString, flagsList=[]):
     # Default values if arg not present  
     privateKey = None
     cert_chain = None
+    virtual_hosts = []
+    v_host_cert = None
     username = None
     password = None
     tacks = None
@@ -155,14 +162,30 @@ def handleArgs(argv, argString, flagsList=[]):
             if sys.version_info[0] >= 3:
                 s = str(s, 'utf-8')
             # OpenSSL/m2crypto does not support RSASSA-PSS certificates
-            privateKey = parsePEMKey(s, private=True,
-                                     implementations=["python"])
+            if not privateKey:
+                privateKey = parsePEMKey(s, private=True,
+                                         implementations=["python"])
+            else:
+                if not v_host_cert:
+                    raise ValueError("Virtual host certificate missing "
+                                     "(must be listed before key)")
+                p_key = parsePEMKey(s, private=True,
+                                    implementations=["python"])
+                if not virtual_hosts:
+                    virtual_hosts.append(VirtualHost())
+                virtual_hosts[0].keys.append(
+                    Keypair(p_key, v_host_cert.x509List))
+                v_host_cert = None
         elif opt == "-c":
             s = open(arg, "rb").read()
             if sys.version_info[0] >= 3:
                 s = str(s, 'utf-8')
-            cert_chain = X509CertChain()
-            cert_chain.parsePemList(s)
+            if not cert_chain:
+                cert_chain = X509CertChain()
+                cert_chain.parsePemList(s)
+            else:
+                v_host_cert = X509CertChain()
+                v_host_cert.parsePemList(s)
         elif opt == "-u":
             username = arg
         elif opt == "-p":
@@ -228,6 +251,7 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(privateKey)
     if "c" in argString:
         retList.append(cert_chain)
+        retList.append(virtual_hosts)
     if "u" in argString:
         retList.append(username)
     if "p" in argString:
@@ -323,7 +347,8 @@ def printExporter(connection, expLabel, expLength):
 
     
 def clientCmd(argv):
-    (address, privateKey, cert_chain, username, password, expLabel,
+    (address, privateKey, cert_chain, virtual_hosts, username, password,
+            expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
             max_ver) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
@@ -455,7 +480,8 @@ def clientCmd(argv):
 
 
 def serverCmd(argv):
-    (address, privateKey, cert_chain, tacks, verifierDB, directory, reqCert,
+    (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
+            directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
             max_ver, tickets) = \
         handleArgs(argv, "kctbvdlL",
@@ -502,6 +528,7 @@ def serverCmd(argv):
         settings.minVersion = (3, 0)
     if max_ver:
         settings.maxVersion = max_ver
+    settings.virtual_hosts = virtual_hosts
 
     class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
         """Buffer the header and body of HTTP message."""
