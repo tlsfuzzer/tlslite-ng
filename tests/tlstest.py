@@ -767,7 +767,8 @@ def clientTestCmd(argv):
 
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
-        for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
+        for cipher in ["aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8",
+                       "aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
                        "rc4", "chacha20-poly1305_draft00",
                        "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
@@ -778,7 +779,8 @@ def clientTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
+                    "aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8") \
                     and implementation not in ("python", ):
                 continue
 
@@ -791,7 +793,8 @@ def clientTestCmd(argv):
             settings = HandshakeSettings()
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
-            if cipher not in ("aes128gcm", "aes256gcm", "chacha20-poly1305"):
+            if cipher not in ("aes128ccm", "aes128ccm_8", "aes128gcm",
+                              "aes256gcm", "chacha20-poly1305"):
                 settings.maxVersion = (3, 3)
             connection.handshakeClientCert(settings=settings)
             print("%s %s:" % (connection.getCipherName(), connection.getCipherImplementation()), end=' ')
@@ -1885,7 +1888,8 @@ def serverTestCmd(argv):
 
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
-        for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
+        for cipher in ["aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8",
+                       "aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
                        "rc4", "chacha20-poly1305_draft00",
                        "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
@@ -1896,7 +1900,9 @@ def serverTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
+                         "aes128ccm", "aes128ccm_8",
+                         "aes256ccm", "aes256ccm_8") \
                     and implementation not in ("python", ):
                 continue
 

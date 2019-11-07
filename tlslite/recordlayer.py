@@ -21,8 +21,8 @@ except NameError:
 from .utils import tlshashlib as hashlib
 from .constants import ContentType, CipherSuite
 from .messages import RecordHeader3, RecordHeader2, Message
-from .utils.cipherfactory import createAESGCM, createAES, createRC4, \
-        createTripleDES, createCHACHA20
+from .utils.cipherfactory import createAESCCM, createAESCCM_8, createAESGCM,\
+        createAES, createRC4, createTripleDES, createCHACHA20
 from .utils.codec import Parser, Writer
 from .utils.compat import compatHMAC
 from .utils.cryptomath import getRandomBytes, MD5, HKDF_expand_label
@@ -1014,6 +1014,22 @@ class RecordLayer(object):
             keyLength = 16
             ivLength = 4
             createCipherFunc = createAESGCM
+        elif cipherSuite in CipherSuite.aes256Ccm_8Suites:
+            keyLength = 32
+            ivLength = 4
+            createCipherFunc = createAESCCM_8
+        elif cipherSuite in CipherSuite.aes256CcmSuites:
+            keyLength = 32
+            ivLength = 4
+            createCipherFunc = createAESCCM
+        elif cipherSuite in CipherSuite.aes128Ccm_8Suites:
+            keyLength = 16
+            ivLength = 4
+            createCipherFunc = createAESCCM_8
+        elif cipherSuite in CipherSuite.aes128CcmSuites:
+            keyLength = 16
+            ivLength = 4
+            createCipherFunc = createAESCCM
         elif cipherSuite in CipherSuite.chacha20Suites:
             keyLength = 32
             ivLength = 12
