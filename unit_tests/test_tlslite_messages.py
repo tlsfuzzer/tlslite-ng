@@ -21,7 +21,7 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         ClientMasterKey, ClientFinished, ServerFinished, CertificateStatus, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
-        NewSessionTicket, SessionTicketPayload, Heartbeat
+        NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
@@ -3666,6 +3666,47 @@ class TestHeartbeat(unittest.TestCase):
         self.assertEqual(heartbeat_response.message_type,
                          HeartbeatMessageType.heartbeat_response)
         self.assertEqual(heartbeat_request.payload, heartbeat_response.payload)
+
+
+class TestHelloRequest(unittest.TestCase):
+    def setUp(self):
+        self.msg = HelloRequest()
+
+    def test___init__(self):
+        self.assertIsNotNone(self.msg)
+        self.assertEqual(self.msg.handshakeType, 0)
+
+    def test_create(self):
+        msg = self.msg.create()
+
+        self.assertIs(msg, self.msg)
+
+    def test_write(self):
+        self.assertEqual(self.msg.write(),
+                bytearray(b'\x00'  # handshake type
+                          b'\x00\x00\x00'  # overall length
+                          ))
+
+    def test_parse(self):
+        parser = Parser(bytearray(#  b'\x00'  # type
+                                  b'\x00\x00\x00'))  # overall length
+
+        msg = self.msg.parse(parser)
+
+        self.assertIsInstance(msg, HelloRequest)
+
+    def test_parse_with_truncated_length(self):
+        parser = Parser(bytearray(#  b'\x00'  # type
+                                  b'\x00\x00'))  # overall length (truncated)
+        with self.assertRaises(SyntaxError):
+            self.msg.parse(parser)
+
+    def test_parse_with_non_zero_payload(self):
+        parser = Parser(bytearray(#  b'\x00'  # type
+                                  b'\x00\x00\x01'  # overall length
+                                  b'\xff'))  # some garbage
+        with self.assertRaises(SyntaxError):
+            self.msg.parse(parser)
 
 
 if __name__ == '__main__':

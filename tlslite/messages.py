@@ -699,6 +699,28 @@ class ClientHello(HelloMessage):
             return self._write()
 
 
+class HelloRequest(HandshakeMsg):
+    """
+    Handling of Hello Request messages.
+    """
+
+    def __init__(self):
+        super(HelloRequest, self).__init__(HandshakeType.hello_request)
+
+    def create(self):
+        return self
+
+    def write(self):
+        return self.postWrite(Writer())
+
+    def parse(self, parser):
+        # verify that the message is empty (the buffer will just contain
+        # the length from header)
+        parser.startLengthCheck(3)
+        parser.stopLengthCheck()
+        return self
+
+
 class ServerHello(HelloMessage):
     """
     Handling of Server Hello messages.
