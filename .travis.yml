@@ -18,7 +18,6 @@ addons:
 python:
   - 2.6
   - 2.7
-  - 3.2
   - 3.3
   - 3.4
   - 3.5
@@ -136,14 +135,13 @@ script:
       fi
   - make test-local
   # --appends is supported only in the new coverage (>4)
-  - if [[ $TRAVIS_PYTHON_VERSION != '3.2' ]]; then coverage combine --append; fi
+  - coverage combine --append
   - coverage report -m
   - ./setup.py install
   - make test
   # pylint doesn't work on 2.6: https://bitbucket.org/logilab/pylint/issue/390/py26-compatiblity-broken
-  # diff-quality doesn't work on 3.2: https://github.com/edx/diff-cover/issues/94
   - |
-      if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]] && [[ $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
+      if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then
         pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" tlslite > pylint_report.txt || :
         diff-quality --violations=pylint --fail-under=90 pylint_report.txt
       fi
