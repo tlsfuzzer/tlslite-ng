@@ -97,7 +97,7 @@ Currently it is distributed under Gnu LGPLv2 license.
 Requirements:
 
 * Python 2.6 or higher is required.
-* Python 3.2 or higher is supported.
+* Python 3.3 or higher is supported.
 * python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
   [PyPI](https://pypi.python.org/pypi/ecdsa))
 
@@ -586,6 +586,7 @@ may not work with all asyncore.dispatcher subclasses.
   follow this new style and new deprecations will be introduced as time goes
   on. Please run your test suite with `-Wd` to see where the depracated calls
   are being made, the python standard DeprecationWarning will be emited there)
+* Python 3.2 is not supported any more (dropped by python-ecdsa)
 * fix compatibility issue with 8192 bit SRP group from RFC 5054
 * fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
   mode
