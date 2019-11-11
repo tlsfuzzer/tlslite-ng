@@ -767,7 +767,8 @@ def clientTestCmd(argv):
 
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
-        for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
+        for cipher in ["aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8",
+                       "aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
                        "rc4", "chacha20-poly1305_draft00",
                        "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
@@ -778,7 +779,8 @@ def clientTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
+                    "aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8") \
                     and implementation not in ("python", ):
                 continue
 
@@ -791,7 +793,8 @@ def clientTestCmd(argv):
             settings = HandshakeSettings()
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
-            if cipher not in ("aes128gcm", "aes256gcm", "chacha20-poly1305"):
+            if cipher not in ("aes128ccm", "aes128ccm_8", "aes128gcm",
+                              "aes256gcm", "chacha20-poly1305"):
                 settings.maxVersion = (3, 3)
             connection.handshakeClientCert(settings=settings)
             print("%s %s:" % (connection.getCipherName(), connection.getCipherImplementation()), end=' ')
@@ -1079,6 +1082,37 @@ def clientTestCmd(argv):
     settings.keyShares = []
     connection = connect()
     connection.handshakeClientCert(x509Chain, x509Key, serverName=address[0], session=session,
+                                   settings=settings)
+    testConnClient(connection)
+    assert connection.resumed
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - resumption in TLSv1.3 with AES-CCM tickets".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    # force HRR
+    settings.keyShares = []
+    settings.ticketCipher = "aes128ccm"
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverName == address[0]
+    assert not connection.resumed
+    assert connection.session.tickets
+    connection.close()
+    session = connection.session
+
+    # resume
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.keyShares = []
+    connection = connect()
+    connection.handshakeClientCert(serverName=address[0], session=session,
                                    settings=settings)
     testConnClient(connection)
     assert connection.resumed
@@ -1885,7 +1919,8 @@ def serverTestCmd(argv):
 
     print("Test {0} - throughput test".format(test_no))
     for implementation in implementations:
-        for cipher in ["aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
+        for cipher in ["aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8",
+                       "aes128gcm", "aes256gcm", "aes128", "aes256", "3des",
                        "rc4", "chacha20-poly1305_draft00",
                        "chacha20-poly1305"]:
             # skip tests with implementations that don't support them
@@ -1896,7 +1931,9 @@ def serverTestCmd(argv):
                     implementation not in ("pycrypto",
                                            "python"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
+                         "aes128ccm", "aes128ccm_8",
+                         "aes256ccm", "aes256ccm_8") \
                     and implementation not in ("python", ):
                 continue
 
@@ -2129,6 +2166,28 @@ def serverTestCmd(argv):
                                reqCert=True, settings=settings)
     testConnServer(connection)
     assert connection.session.clientCertChain
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - resumption in TLSv1.3 with AES-CCM tickets".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3,4)
+    settings.ticketKeys = [getRandomBytes(32)]
+    settings.ticketCipher = "aes128ccm"
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    # resume
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
     connection.close()
 
     test_no += 1
