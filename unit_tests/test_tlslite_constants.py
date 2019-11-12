@@ -180,7 +180,8 @@ class TestCipherSuite(unittest.TestCase):
         self.assertEqual(CipherSuite.getTLS13Suites(hs),
                          [CipherSuite.TLS_AES_256_GCM_SHA384,
                           CipherSuite.TLS_AES_128_GCM_SHA256,
-                          CipherSuite.TLS_CHACHA20_POLY1305_SHA256])
+                          CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
+                          CipherSuite.TLS_AES_128_CCM_SHA256])
 
     def test_getTLS13Suites_with_TLS1_2(self):
         hs = HandshakeSettings()
