@@ -14,9 +14,11 @@ from .utils.compat import ecdsaAllCurves, int_types
 
 CIPHER_NAMES = ["chacha20-poly1305",
                 "aes256gcm", "aes128gcm",
+                "aes256ccm", "aes128ccm",
                 "aes256", "aes128",
                 "3des"]
 ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
+                                   "aes128ccm_8", "aes256ccm_8",
                                    "rc4", "null"]
 # Don't allow "md5" by default
 MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
@@ -45,7 +47,8 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
                  "secp192r1": ('NIST192p', 'P-192'),
                  "secp224r1": ('NIST224p', 'P-224')}
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
-TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm"]
+TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
+                  "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
 
 
