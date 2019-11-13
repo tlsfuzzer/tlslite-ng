@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha29 (2019-10-23)
+tlslite-ng version 0.8.0-alpha30 (2019-11-13)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -98,7 +98,8 @@ Requirements:
 
 * Python 2.6 or higher is required.
 * Python 3.3 or higher is supported.
-* python ecdsa library ([GitHub](https://github.com/warner/python-ecdsa),
+* python ecdsa >= 0.13.3 library
+  ([GitHub](https://github.com/warner/python-ecdsa),
   [PyPI](https://pypi.python.org/pypi/ecdsa))
 
 Options:
@@ -641,6 +642,12 @@ may not work with all asyncore.dispatcher subclasses.
   HMAC in python (this goes against FIPS requirements)
 * fix few minor bugs in handling heartbeat messages
 * support for ECDSA certificates (server and client, all versions of TLS)
+* support for multiple certificates on the server (RSA, RSA-PSS, ECDSA
+  can be configured together, including multiple instances of the same type,
+  server will select automatically the one that matches requirements from
+  ClientHello)
+* support for HelloRequest messages (only for encoding/decoding, renegotiation
+  is still unsupported)
 
 0.7.0 - 2017-07-31
 
