@@ -42,6 +42,22 @@ class X509(object):
         self.subject = None
         self.certAlg = None
 
+    def __hash__(self):
+        """Calculate hash of object."""
+        return hash(bytes(self.bytes))
+
+    def __eq__(self, other):
+        """Compare other object for equality."""
+        if not hasattr(other, "bytes"):
+            return NotImplemented
+        return self.bytes == other.bytes
+
+    def __ne__(self, other):
+        """Compare with other object for inequality."""
+        if not hasattr(other, "bytes"):
+            return NotImplemented
+        return not self == other
+
     def parse(self, s):
         """
         Parse a PEM-encoded X.509 certificate.

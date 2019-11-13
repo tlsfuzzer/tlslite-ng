@@ -1910,11 +1910,13 @@ class TLSConnection(TLSRecordLayer):
 
         :type certChain: ~tlslite.x509certchain.X509CertChain
         :param certChain: The certificate chain to be used if the
-            client requests server certificate authentication.
+            client requests server certificate authentication and no virtual
+            host defined in HandshakeSettings matches ClientHello.
 
         :type privateKey: ~tlslite.utils.rsakey.RSAKey
         :param privateKey: The private key to be used if the client
-            requests server certificate authentication.
+            requests server certificate authentication and no virtual host
+            defined in HandshakeSettings matches ClientHello.
 
         :type reqCert: bool
         :param reqCert: Whether to request client certificate
@@ -1941,21 +1943,23 @@ class TLSConnection(TLSRecordLayer):
 
         :type reqCAs: list of bytearray
         :param reqCAs: A collection of DER-encoded DistinguishedNames that
-            will be sent along with a certificate request. This does not affect
-            verification.
+            will be sent along with a certificate request to help client pick
+            a certificates. This does not affect verification.
 
         :type nextProtos: list of str
         :param nextProtos: A list of upper layer protocols to expose to the
             clients through the Next-Protocol Negotiation Extension,
-            if they support it.
+            if they support it. Deprecated, use the `virtual_hosts` in
+            HandshakeSettings.
 
         :type alpn: list of bytearray
         :param alpn: names of application layer protocols supported.
             Note that it will be used instead of NPN if both were advertised by
-            client.
+            client. Deprecated, use the `virtual_hosts` in HandshakeSettings.
 
         :type sni: bytearray
-        :param sni: expected virtual name hostname.
+        :param sni: expected virtual name hostname. Deprecated, use the
+            `virtual_hosts` in HandshakeSettings.
 
         :raises socket.error: If a socket error occurs.
         :raises tlslite.errors.TLSAbruptCloseError: If the socket is closed
@@ -2009,8 +2013,12 @@ class TLSConnection(TLSRecordLayer):
 
         self._handshakeStart(client=False)
 
+        if not settings:
+            settings = HandshakeSettings()
+        settings = settings.validate()
+
         if (not verifierDB) and (not cert_chain) and not anon and \
-                not settings.pskConfigs:
+                not settings.pskConfigs and not settings.virtual_hosts:
             raise ValueError("Caller passed no authentication credentials")
         if cert_chain and not privateKey:
             raise ValueError("Caller passed a cert_chain but no privateKey")
@@ -2025,21 +2033,19 @@ class TLSConnection(TLSRecordLayer):
         if tacks:
             if not tackpyLoaded:
                 raise ValueError("tackpy is not loaded")
-            if not settings or not settings.useExperimentalTackExtension:
+            if not settings.useExperimentalTackExtension:
                 raise ValueError("useExperimentalTackExtension not enabled")
         if alpn is not None and not alpn:
             raise ValueError("Empty list of ALPN protocols")
 
-        if not settings:
-            settings = HandshakeSettings()
-        settings = settings.validate()
         self.sock.padding_cb = settings.padding_cb
 
         # OK Start exchanging messages
         # ******************************
         
         # Handle ClientHello and resumption
-        for result in self._serverGetClientHello(settings, cert_chain,
+        for result in self._serverGetClientHello(settings, privateKey,
+                                                 cert_chain,
                                                  verifierDB, sessionCache,
                                                  anon, alpn, sni):
             if result in (0,1): yield result
@@ -2047,7 +2053,8 @@ class TLSConnection(TLSRecordLayer):
                 self._handshakeDone(resumed=True)                
                 return # Handshake was resumed, we're done 
             else: break
-        (clientHello, cipherSuite, version, scheme) = result
+        (clientHello, version, cipherSuite, sig_scheme, privateKey,
+            cert_chain) = result
 
         # in TLS 1.3 the handshake is completely different
         # (extensions go into different messages, format of messages is
@@ -2056,7 +2063,7 @@ class TLSConnection(TLSRecordLayer):
             for result in self._serverTLS13Handshake(settings, clientHello,
                                                      cipherSuite,
                                                      privateKey, cert_chain,
-                                                     version, scheme,
+                                                     version, sig_scheme,
                                                      alpn, reqCert):
                 if result in (0, 1):
                     yield result
@@ -2194,13 +2201,25 @@ class TLSConnection(TLSRecordLayer):
                 if result in (0, 1):
                     yield result
                 else: break
-            premasterSecret = result
+            premasterSecret, privateKey, cert_chain = result
 
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
               cipherSuite in CipherSuite.dheCertSuites or
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
+            try:
+                sig_hash_alg, cert_chain, privateKey = \
+                    self._pickServerKeyExchangeSig(settings,
+                                                   clientHello,
+                                                   cert_chain,
+                                                   privateKey)
+            except TLSHandshakeFailure as alert:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        str(alert)):
+                    yield result
+
             if cipherSuite in CipherSuite.certSuites:
                 keyExchange = RSAKeyExchange(cipherSuite,
                                              clientHello,
@@ -2226,8 +2245,8 @@ class TLSConnection(TLSRecordLayer):
                                                    defaultCurve)
             else:
                 assert(False)
-            for result in self._serverCertKeyExchange(clientHello, serverHello, 
-                                        cert_chain, keyExchange,
+            for result in self._serverCertKeyExchange(clientHello, serverHello,
+                                        sig_hash_alg, cert_chain, keyExchange,
                                         reqCert, reqCAs, cipherSuite,
                                         settings):
                 if result in (0,1): yield result
@@ -2823,7 +2842,8 @@ class TLSConnection(TLSRecordLayer):
 
         yield "finished"
 
-    def _serverGetClientHello(self, settings, cert_chain, verifierDB,
+    def _serverGetClientHello(self, settings, private_key, cert_chain,
+                              verifierDB,
                               sessionCache, anon, alpn, sni):
         # Tentatively set version to most-desirable version, so if an error
         # occurs parsing the ClientHello, this will be the version we'll use
@@ -2838,6 +2858,8 @@ class TLSConnection(TLSRecordLayer):
             if result in (0,1): yield result
             else: break
         clientHello = result
+
+        # check if the ClientHello and its extensions are well-formed
 
         #If client's version is too low, reject it
         real_version = clientHello.client_version
@@ -2924,12 +2946,6 @@ class TLSConnection(TLSRecordLayer):
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,
                         "Host name in SNI is not valid DNS name"):
-                    yield result
-            # warn the client if the name didn't match the expected value
-            if sni and sni != name:
-                alert = Alert().create(AlertDescription.unrecognized_name,
-                                       AlertLevel.warning)
-                for result in self._sendMsg(alert):
                     yield result
 
         # sanity check the EMS extension
@@ -3070,6 +3086,7 @@ class TLSConnection(TLSRecordLayer):
                 self._recordLayer.max_early_data = settings.max_early_data
                 self._recordLayer.early_data_ok = True
 
+        # negotiate the protocol version for the connection
         high_ver = None
         if ver_ext:
             high_ver = getFirstMatching(settings.versions,
@@ -3107,18 +3124,30 @@ class TLSConnection(TLSRecordLayer):
         # TODO when TLS 1.3 is final, check the client hello random for
         # downgrade too
 
-        scheme = None
-        if version >= (3, 4):
-            try:
-                scheme = self._pickServerKeyExchangeSig(settings,
-                                                        clientHello,
-                                                        cert_chain,
-                                                        version)
-            except TLSHandshakeFailure as alert:
-                for result in self._sendError(
-                        AlertDescription.handshake_failure,
-                        str(alert)):
+        # start negotiating the parameters of the connection
+
+        sni_ext = clientHello.getExtension(ExtensionType.server_name)
+        if sni_ext:
+            name = sni_ext.hostNames[0].decode('ascii', 'strict')
+            # warn the client if the name didn't match the expected value
+            if sni and sni != name:
+                alert = Alert().create(AlertDescription.unrecognized_name,
+                                       AlertLevel.warning)
+                for result in self._sendMsg(alert):
                     yield result
+
+        try:
+            sig_scheme, cert_chain, private_key = \
+                self._pickServerKeyExchangeSig(settings,
+                                               clientHello,
+                                               cert_chain,
+                                               private_key,
+                                               version)
+        except TLSHandshakeFailure as alert:
+            for result in self._sendError(
+                    AlertDescription.handshake_failure,
+                    str(alert)):
+                yield result
 
         #Check if there's intersection between supported curves by client and
         #server
@@ -3628,27 +3657,30 @@ class TLSConnection(TLSRecordLayer):
         # we have no session cache, or
         # the client's session_id was not found in cache:
 #pylint: disable = undefined-loop-variable
-        yield (clientHello, cipherSuite, version, scheme)
+        yield (clientHello, version, cipherSuite, sig_scheme, private_key,
+               cert_chain)
 #pylint: enable = undefined-loop-variable
 
     def _serverSRPKeyExchange(self, clientHello, serverHello, verifierDB,
                               cipherSuite, privateKey, serverCertChain,
                               settings):
         """Perform the server side of SRP key exchange"""
-        keyExchange = SRPKeyExchange(cipherSuite,
-                                     clientHello,
-                                     serverHello,
-                                     privateKey,
-                                     verifierDB)
-
         try:
-            sigHash = self._pickServerKeyExchangeSig(settings, clientHello,
-                                                     serverCertChain)
+            sigHash, serverCertChain, privateKey = \
+                self._pickServerKeyExchangeSig(settings, clientHello,
+                                               serverCertChain,
+                                               privateKey)
         except TLSHandshakeFailure as alert:
             for result in self._sendError(
                     AlertDescription.handshake_failure,
                     str(alert)):
                 yield result
+
+        keyExchange = SRPKeyExchange(cipherSuite,
+                                     clientHello,
+                                     serverHello,
+                                     privateKey,
+                                     verifierDB)
 
         #Create ServerKeyExchange, signing it if necessary
         try:
@@ -3692,9 +3724,9 @@ class TLSConnection(TLSRecordLayer):
                                           str(alert)):
                 yield result
 
-        yield premasterSecret
+        yield premasterSecret, privateKey, serverCertChain
 
-    def _serverCertKeyExchange(self, clientHello, serverHello, 
+    def _serverCertKeyExchange(self, clientHello, serverHello, sigHashAlg,
                                 serverCertChain, keyExchange,
                                 reqCert, reqCAs, cipherSuite,
                                 settings):
@@ -3707,14 +3739,6 @@ class TLSConnection(TLSRecordLayer):
 
         msgs.append(serverHello)
         msgs.append(Certificate(CertificateType.x509).create(serverCertChain))
-        try:
-            sigHashAlg = self._pickServerKeyExchangeSig(settings, clientHello,
-                                                        serverCertChain)
-        except TLSHandshakeFailure as alert:
-            for result in self._sendError(
-                    AlertDescription.handshake_failure,
-                    str(alert)):
-                yield result
         try:
             serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
         except TLSInternalError as alert:
@@ -4078,6 +4102,7 @@ class TLSConnection(TLSRecordLayer):
 
     @staticmethod
     def _pickServerKeyExchangeSig(settings, clientHello, certList=None,
+                                  private_key=None,
                                   version=(3, 3)):
         """Pick a hash that matches most closely the supported ones"""
         hashAndAlgsExt = clientHello.getExtension(
@@ -4087,26 +4112,30 @@ class TLSConnection(TLSRecordLayer):
             if not hashAndAlgsExt:
                 # the error checking was done before hand, likely we're
                 # doing PSK key exchange
-                return
+                return None, certList, private_key
 
         if hashAndAlgsExt is None or hashAndAlgsExt.sigalgs is None:
             # RFC 5246 states that if there are no hashes advertised,
             # sha1 should be picked
-            return "sha1"
+            return "sha1", certList, private_key
 
-        supported = TLSConnection._sigHashesToList(settings,
-                                                   certList=certList,
-                                                   version=version)
+        alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
+                     settings.virtual_hosts for i in vh.keys)
 
-        for schemeID in supported:
-            if schemeID in hashAndAlgsExt.sigalgs:
-                name = SignatureScheme.toRepr(schemeID)
-                if not name and schemeID[1] in (SignatureAlgorithm.rsa,
-                                                SignatureAlgorithm.ecdsa):
-                    name = HashAlgorithm.toRepr(schemeID[0])
+        for certs, key in chain([(certList, private_key)], alt_certs):
+            supported = TLSConnection._sigHashesToList(settings,
+                                                       certList=certs,
+                                                       version=version)
 
-                if name:
-                    return name
+            for schemeID in supported:
+                if schemeID in hashAndAlgsExt.sigalgs:
+                    name = SignatureScheme.toRepr(schemeID)
+                    if not name and schemeID[1] in (SignatureAlgorithm.rsa,
+                                                    SignatureAlgorithm.ecdsa):
+                        name = HashAlgorithm.toRepr(schemeID[0])
+
+                    if name:
+                        return name, certs, key
 
         # if no match, we must abort per RFC 5246
         raise TLSHandshakeFailure("No common signature algorithms")

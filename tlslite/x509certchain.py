@@ -30,6 +30,22 @@ class X509CertChain(object):
         else:
             self.x509List = []
 
+    def __hash__(self):
+        """Return hash of the object."""
+        return hash(tuple(self.x509List))
+
+    def __eq__(self, other):
+        """Compare objects with each-other."""
+        if not hasattr(other, "x509List"):
+            return NotImplemented
+        return self.x509List == other.x509List
+
+    def __ne__(self, other):
+        """Compare object for inequality."""
+        if not hasattr(other, "x509List"):
+            return NotImplemented
+        return self.x509List != other.x509List
+
     def parsePemList(self, s):
         """Parse a string containing a sequence of PEM certs.
 

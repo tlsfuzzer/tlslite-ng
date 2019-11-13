@@ -7,8 +7,12 @@ try:
     import unittest2 as unittest
 except ImportError:
     import unittest
+try:
+    import mock
+except ImportError:
+    import unittest.mock as mock
 
-from tlslite.handshakesettings import HandshakeSettings
+from tlslite.handshakesettings import HandshakeSettings, Keypair, VirtualHost
 
 class TestHandshakeSettings(unittest.TestCase):
     def test___init__(self):
@@ -468,6 +472,65 @@ class TestHandshakeSettings(unittest.TestCase):
             hs.validate()
 
         self.assertIn("new session tickets", str(e.exception))
+
+
+class TestKeypair(unittest.TestCase):
+    def test___init___(self):
+        k_p = Keypair()
+
+        self.assertIsInstance(k_p, Keypair)
+        self.assertIsNone(k_p.key)
+        self.assertIsInstance(k_p.certificates, tuple)
+
+    def test_validate_with_missing_keys(self):
+        k_p = Keypair()
+
+        with self.assertRaises(ValueError):
+            k_p.validate()
+
+    def test_validate_with_missing_certificates(self):
+        k_p = Keypair()
+        k_p.key = mock.MagicMock()
+
+        with self.assertRaises(ValueError):
+            k_p.validate()
+
+
+class TestVirtualHost(unittest.TestCase):
+    def test___init__(self):
+        v_h = VirtualHost()
+
+        self.assertIsInstance(v_h, VirtualHost)
+        self.assertEqual(v_h.keys, [])
+        self.assertEqual(v_h.hostnames, set())
+        self.assertEqual(v_h.trust_anchors, [])
+        self.assertEqual(v_h.app_protocols, [])
+
+    def test_matches_hostname_with_non_matching_name(self):
+        v_h = VirtualHost()
+        v_h.hostnames = set([b'example.com'])
+
+        self.assertFalse(v_h.matches_hostname(b'example.org'))
+
+    def test_matches_hostname_with_matching_name(self):
+        v_h = VirtualHost()
+        v_h.hostnames = set([b'example.com'])
+
+        self.assertTrue(v_h.matches_hostname(b'example.com'))
+
+    def test_validate_without_keys(self):
+        v_h = VirtualHost()
+
+        with self.assertRaises(ValueError):
+            v_h.validate()
+
+    def test_validate_with_keys(self):
+        v_h = VirtualHost()
+        v_h.keys = [mock.MagicMock()]
+
+        v_h.validate()
+
+        v_h.keys[0].validate.assert_called_once_with()
 
 
 if __name__ == '__main__':
