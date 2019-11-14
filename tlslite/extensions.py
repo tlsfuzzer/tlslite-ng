@@ -8,7 +8,7 @@ and ServerHello messages.
 
 from __future__ import generators
 from collections import namedtuple
-from .utils.codec import Writer, Parser
+from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
@@ -218,31 +218,35 @@ class TLSExtension(object):
 
         :param tlslite.util.codec.Parser p:  data to be parsed
 
-        :raises SyntaxError: when the size of the passed element doesn't match
+        :raises DecodeError: when the size of the passed element doesn't match
             the internal representation
 
         :rtype: TLSExtension
         """
         extType = p.get(2)
-        extLength = p.get(2)
+        try:
+            extLength = p.get(2)
 
-        for handler_t, handlers in (
-                (self.cert, self._certificateExtensions),
-                # (self.encExtType, self._encryptedExtensions),
-                (self.serverType, self._serverExtensions),
-                (self.hrr, self._hrrExtensions),
-                (True, self._universalExtensions)):
-            if handler_t and extType in handlers:
-                return self._parseExt(p, extType, extLength, handlers)
+            for handler_t, handlers in (
+                    (self.cert, self._certificateExtensions),
+                    # (self.encExtType, self._encryptedExtensions),
+                    (self.serverType, self._serverExtensions),
+                    (self.hrr, self._hrrExtensions),
+                    (True, self._universalExtensions)):
+                if handler_t and extType in handlers:
+                    return self._parseExt(p, extType, extLength, handlers)
 
-        # if there is no custom handler for the extension, just save the
-        # extension data as there are extensions which
-        # don't require specific handlers and indicate option by mere presence
-        # also, we need to be able to handle unrecognised extensions in
-        # ClientHello and CertificateRequest
-        self.extType = extType
-        self._extData = p.getFixBytes(extLength)
-        assert len(self._extData) == extLength
+            # if there is no custom handler for the extension, just save the
+            # extension data as there are extensions which
+            # don't require specific handlers and indicate option by mere presence
+            # also, we need to be able to handle unrecognised extensions in
+            # ClientHello and CertificateRequest
+            self.extType = extType
+            self._extData = p.getFixBytes(extLength)
+            assert len(self._extData) == extLength
+        except DecodeError as exc:
+            raise DecodeError("Malformed extension (type: {0}): {1}".format(
+                ExtensionType.toStr(extType), str(exc)))
         return self
 
     def __eq__(self, that):
@@ -388,7 +392,7 @@ class VarBytesExtension(CustomNameExtension):
         self._internal_value = parser.getVarBytes(self._length_length)
 
         if parser.getRemainingLength():
-            raise SyntaxError("Extra data after extension payload")
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -492,7 +496,7 @@ class VarListExtension(ListExtension):
                                                  self._lengthLength)
 
         if parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -556,7 +560,7 @@ class VarSeqListExtension(ListExtension):
                                                       self._elemNum,
                                                       self._lengthLength)
         if parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -621,7 +625,7 @@ class IntExtension(CustomNameExtension):
         self._internal_value = parser.get(self._elem_length)
 
         if parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -819,7 +823,7 @@ class SNIExtension(TLSExtension):
         :param tlslite.util.codec.Parser p: data to be parsed
 
         :rtype: SNIExtension
-        :raises SyntaxError: when the internal sizes don't match the attached
+        :raises DecodeError: when the internal sizes don't match the attached
             data
         """
         if p.getRemainingLength() == 0:
@@ -835,7 +839,7 @@ class SNIExtension(TLSExtension):
         p.stopLengthCheck()
 
         if p.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -932,7 +936,7 @@ class SrvSupportedVersionsExtension(TLSExtension):
         self.version = tuple(parser.getFixList(1, 2))
 
         if parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Extra data after extension payload")
 
         return self
 
@@ -998,7 +1002,7 @@ class ServerCertTypeExtension(IntExtension):
         """
         # generic code allows empty, this ext does not
         if not parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Empty payload in extension")
         return super(ServerCertTypeExtension, self).parse(parser)
 
 
@@ -1077,7 +1081,7 @@ class SRPExtension(TLSExtension):
 
         :param Parser p: data to be parsed
 
-        :raises SyntaxError: when the data is internally inconsistent
+        :raises DecodeError: when the data is internally inconsistent
 
         :rtype: SRPExtension
         """
@@ -1148,7 +1152,7 @@ class NPNExtension(TLSExtension):
 
         :param Parser p: data to be parsed
 
-        :raises SyntaxError: when the size of the passed element doesn't match
+        :raises DecodeError: when the size of the passed element doesn't match
             the internal representation
 
         :rtype: NPNExtension
@@ -1242,7 +1246,7 @@ class TACKExtension(TLSExtension):
             :param Parser p: data to be parsed
 
             :rtype: TACK
-            :raises SyntaxError: when the internal sizes don't match the
+            :raises DecodeError: when the internal sizes don't match the
                 provided data
             """
 
@@ -1487,7 +1491,7 @@ class PaddingExtension(TLSExtension):
 
         :param Parser p:  data to be parsed
 
-        :raises SyntaxError: when the size of the passed element doesn't match
+        :raises DecodeError: when the size of the passed element doesn't match
             the internal representation
 
         :rtype: TLSExtension
@@ -1582,7 +1586,7 @@ class ALPNExtension(TLSExtension):
 
         :param Parser parser: data to be parsed as extension
 
-        :raises SyntaxError: when the encoding of the extension is self
+        :raises DecodeError: when the encoding of the extension is self
             inconsistent
 
         :rtype: ALPNExtension
@@ -1594,7 +1598,7 @@ class ALPNExtension(TLSExtension):
             self.protocol_names.append(parser.getFixBytes(name_len))
         parser.stopLengthCheck()
         if parser.getRemainingLength() != 0:
-            raise SyntaxError("Trailing data after protocol_name_list")
+            raise DecodeError("Trailing data after protocol_name_list")
         return self
 
 
@@ -1700,7 +1704,7 @@ class StatusRequestExtension(TLSExtension):
         parser.stopLengthCheck()
         self.request_extensions = parser.getVarBytes(2)
         if parser.getRemainingLength() != 0:
-            raise SyntaxError("Trailing data after CertificateStatusRequest")
+            raise DecodeError("Trailing data after CertificateStatusRequest")
         return self
 
 
@@ -1726,9 +1730,9 @@ class CertificateStatusExtension(TLSExtension):
         if self.status_type == 1:
             self.response = parser.getVarBytes(3)
         else:
-            raise SyntaxError("Unrecognised type")
+            raise DecodeError("Unrecognised type")
         if parser.getRemainingLength():
-            raise SyntaxError("Trailing data")
+            raise DecodeError("Trailing data")
         return self
 
     @property
@@ -1804,7 +1808,7 @@ class HeartbeatExtension(IntExtension):
         """Deserialise the extension from on the wire data."""
         # the generic class allows for missing values, it's not allowed here
         if not parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Empty extension payload")
         return super(HeartbeatExtension, self).parse(parser)
 
 
@@ -1849,7 +1853,7 @@ class ClientKeyShareExtension(TLSExtension):
 
         :param Parser parser: data to be parsed
 
-        :raises SyntaxError: when the data does not match the definition
+        :raises DecodeError: when the data does not match the definition
 
         :rtype: ClientKeyShareExtension
         """
@@ -1866,7 +1870,7 @@ class ClientKeyShareExtension(TLSExtension):
         parser.stopLengthCheck()
 
         if parser.getRemainingLength():
-            raise SyntaxError("Trailing data in client Key Share extension")
+            raise DecodeError("Trailing data in client Key Share extension")
 
         return self
 
@@ -1915,7 +1919,7 @@ class ServerKeyShareExtension(TLSExtension):
         self.server_share = KeyShareEntry().parse(parser)
 
         if parser.getRemainingLength():
-            raise SyntaxError("Trailing data in server Key Share extension")
+            raise DecodeError("Trailing data in server Key Share extension")
 
         return self
 
@@ -1959,7 +1963,7 @@ class HRRKeyShareExtension(TLSExtension):
         self.selected_group = parser.get(2)
 
         if parser.getRemainingLength():
-            raise SyntaxError("Trailing data in HRR Key Share extension")
+            raise DecodeError("Trailing data in HRR Key Share extension")
 
         return self
 
@@ -2054,7 +2058,7 @@ class PreSharedKeyExtension(TLSExtension):
         parser.stopLengthCheck()
 
         if parser.getRemainingLength():
-            raise SyntaxError()
+            raise DecodeError("Trailing data after binders field")
         return self
 
 
