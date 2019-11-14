@@ -1014,8 +1014,7 @@ class TestServerHello(unittest.TestCase):
         with self.assertRaises(SyntaxError) as context:
             server_hello.parse(p)
 
-        # TODO the message probably could be more descriptive...
-        self.assertIsNone(context.exception.msg)
+        self.assertIn("Read past end of buffer", context.exception.msg)
 
     def test_parse_with_length_long_by_one(self):
         p = Parser(bytearray(
@@ -1033,8 +1032,7 @@ class TestServerHello(unittest.TestCase):
         with self.assertRaises(SyntaxError) as context:
             server_hello.parse(p)
 
-        # TODO the message probably could be more descriptive...
-        self.assertIsNone(context.exception.msg)
+        self.assertIn("Read past end of buffer", context.exception.msg)
 
     def test_parse_with_extensions_length_short_by_one(self):
         p = Parser(bytearray(
@@ -1061,8 +1059,9 @@ class TestServerHello(unittest.TestCase):
         with self.assertRaises(SyntaxError) as context:
             server_hello.parse(p)
 
-        # TODO the message could be more descriptive...
-        self.assertIsNone(context.exception.msg)
+        self.assertIn("Malformed extension", context.exception.msg)
+        self.assertIn("heartbeat", context.exception.msg)
+        self.assertIn("Read past end of buffer", context.exception.msg)
 
     def test_parse_with_extensions_length_long_by_one(self):
         p = Parser(bytearray(
@@ -1089,8 +1088,7 @@ class TestServerHello(unittest.TestCase):
         with self.assertRaises(SyntaxError) as context:
             server_hello.parse(p)
 
-        # TODO the message could be more descriptive...
-        self.assertIsNone(context.exception.msg)
+        self.assertIn("Read past end of buffer", context.exception.msg)
 
     def test_parse_with_cert_type_extension(self):
         p = Parser(bytearray(
