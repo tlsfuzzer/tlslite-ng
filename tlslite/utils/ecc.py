@@ -20,7 +20,11 @@ def decodeX962Point(data, curve=ecdsa.NIST256p):
     yCoord = bytesToNumber(parser.getFixBytes(bytelength))
     if parser.getRemainingLength():
         raise DecodeError("Invalid length of point encoding for curve")
-    return ecdsa.ellipticcurve.Point(curve.curve, xCoord, yCoord)
+    if not xCoord or not yCoord:
+        raise DecodeError("Zero as key share from peer")
+    if not curve.curve.contains_point(xCoord, yCoord):
+        raise DecodeError("Key share from peer is not a valid point on curve")
+    return ecdsa.ellipticcurve.PointJacobi(curve.curve, xCoord, yCoord, 1)
 
 
 def encodeX962Point(point):
