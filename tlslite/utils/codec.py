@@ -10,6 +10,11 @@ import struct
 from struct import pack
 
 
+class DecodeError(SyntaxError):
+    """Exception raised in case of decoding errors."""
+    pass
+
+
 class Writer(object):
     """Serialisation helper for complex byte-based structures."""
 
@@ -256,7 +261,7 @@ class Parser(object):
 
     Note: if the raw bytes don't match expected values (like trying to
     read a 4-byte integer from a 2-byte buffer), most methods will raise a
-    SyntaxError exception.
+    DecodeError exception.
 
     TODO: don't use an exception used by language parser to indicate errors
     in application code.
@@ -296,7 +301,7 @@ class Parser(object):
         :rtype: int
         """
         if self.index + length > len(self.bytes):
-            raise SyntaxError()
+            raise DecodeError("Read past end of buffer")
         x = 0
         for _ in range(length):
             x <<= 8
@@ -314,7 +319,7 @@ class Parser(object):
         :rtype: bytearray
         """
         if self.index + lengthBytes > len(self.bytes):
-            raise SyntaxError()
+            raise DecodeError("Read past end of buffer")
         bytes = self.bytes[self.index : self.index+lengthBytes]
         self.index += lengthBytes
         return bytes
@@ -365,7 +370,8 @@ class Parser(object):
         """
         lengthList = self.get(lengthLength)
         if lengthList % length != 0:
-            raise SyntaxError()
+            raise DecodeError("Encoded length not a multiple of element "
+                              "length")
         lengthList = lengthList // length
         l = [0] * lengthList
         for x in range(lengthList):
@@ -389,7 +395,8 @@ class Parser(object):
         """
         lengthList = self.get(lengthLength)
         if lengthList % (elemLength * elemNum) != 0:
-            raise SyntaxError()
+            raise DecodeError("Encoded length not a multiple of element "
+                              "length")
         tupleCount = lengthList // (elemLength * elemNum)
         tupleList = []
         for _ in range(tupleCount):
@@ -427,7 +434,7 @@ class Parser(object):
         processed data, raises an exception.
         """
         if (self.index - self.indexCheck) != self.lengthCheck:
-            raise SyntaxError()
+            raise DecodeError("Under- or over-flow while reading buffer")
 
     def atLengthCheck(self):
         """
@@ -444,7 +451,7 @@ class Parser(object):
         elif (self.index - self.indexCheck) == self.lengthCheck:
             return True
         else:
-            raise SyntaxError()
+            raise DecodeError("Read past end of buffer")
 
     def getRemainingLength(self):
         """Return amount of data remaining in struct being parsed."""
