@@ -116,6 +116,11 @@ before_install:
   - git fetch origin master:refs/remotes/origin/master
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
+  - pushd "$(mktemp -d)"
+  - git clone https://github.com/tomato42/python-ecdsa.git
+  - cd python-ecdsa
+  - python setup.py install
+  - popd
 
 install:
   - if [[ -e build-requirements-${TRAVIS_PYTHON_VERSION}.txt ]]; then travis_retry pip install -r build-requirements-${TRAVIS_PYTHON_VERSION}.txt; else travis_retry pip install -r build-requirements.txt; fi
