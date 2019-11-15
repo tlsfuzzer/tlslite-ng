@@ -23,6 +23,7 @@ from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
 from .utils.compat import int_types
+from .utils.codec import DecodeError
 
 
 class KeyExchange(object):
@@ -907,7 +908,7 @@ class ECDHKeyExchange(RawDHKeyExchange):
             try:
                 ecdhYc = decodeX962Point(peer_share,
                                          curve)
-            except AssertionError:
+            except (AssertionError, DecodeError):
                 raise TLSIllegalParameterException("Invalid ECC point")
 
             S = ecdhYc * private

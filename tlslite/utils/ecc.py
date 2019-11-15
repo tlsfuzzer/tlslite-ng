@@ -16,7 +16,9 @@ def decodeX962Point(data, curve=ecdsa.NIST256p):
     bytelength = getPointByteSize(curve)
     xCoord = bytesToNumber(parser.getFixBytes(bytelength))
     yCoord = bytesToNumber(parser.getFixBytes(bytelength))
-    return ecdsa.ellipticcurve.Point(curve.curve, xCoord, yCoord)
+    assert xCoord and yCoord
+    assert curve.curve.contains_point(xCoord, yCoord)
+    return ecdsa.ellipticcurve.PointJacobi(curve.curve, xCoord, yCoord, 1)
 
 def encodeX962Point(point):
     """Encode a point in X9.62 format"""
