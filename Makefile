@@ -92,12 +92,13 @@ endif
 	pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" tlslite > pylint_report.txt || :
 	diff-quality --violations=pylint --fail-under=90 pylint_report.txt
 ifdef COVERAGE2
-	coverage2 combine --append
+	coverage2 combine --append .coverage .coverage.2.server .coverage.2.client
 	coverage2 report -m
 	coverage2 xml
 	diff-cover --fail-under=90 coverage.xml
 endif
 ifdef COVERAGE3
+	coverage2 combine --append .coverage .coverage.3.server .coverage.3.client
 	coverage3 report -m
 	coverage3 xml
 	diff-cover --fail-under=90 coverage.xml
@@ -105,7 +106,7 @@ endif
 ifndef COVERAGE2
 ifndef COVERAGE3
 ifdef COVERAGE
-	coverage combine --append
+	coverage combine --append .coverage .coverage.server .coverage.client
 	coverage report -m
 	coverage xml
 	diff-cover --fail-under=90 coverage.xml
