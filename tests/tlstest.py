@@ -77,7 +77,6 @@ def testConnClient(conn):
     conn.write(b1)
     conn.write(b10)
     conn.write(b100)
-    conn.write(b1000)
     r1 = conn.read(min=1, max=1)
     assert len(r1) == 1
     assert r1 == b1
@@ -87,6 +86,7 @@ def testConnClient(conn):
     r100 = conn.read(min=100, max=100)
     assert len(r100) == 100
     assert r100 == b100
+    conn.write(b1000)
     r1000 = conn.read(min=1000, max=1000)
     assert len(r1000) == 1000
     assert r1000 == b1000
@@ -701,6 +701,20 @@ def clientTestCmd(argv):
     settings.minVersion = (3,4)
     settings.maxVersion = (3,4)
     connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509, PHA, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    synchro.recv(1)
     testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
     connection.close()
@@ -1929,6 +1943,26 @@ def serverTestCmd(argv):
     settings.maxVersion = (3,4)
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
     testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509, PHA, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    assert connection.session.clientCertChain is None
+    for result in connection.request_post_handshake_auth(settings):
+        assert result in (0, 1)
+    synchro.send(b'R')
+    testConnServer(connection)
+
+    assert connection.session.clientCertChain is not None
     assert isinstance(connection.session.clientCertChain, X509CertChain)
     connection.close()
 

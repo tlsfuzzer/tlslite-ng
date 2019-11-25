@@ -85,6 +85,7 @@ class TLSConnection(TLSRecordLayer):
         # if and how big is the limit on records peer is willing to accept
         # used only for TLS 1.2 and earlier
         self._peer_record_size_limit = None
+        self._pha_supported = False
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -2327,6 +2328,40 @@ class TLSConnection(TLSRecordLayer):
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
 
+    def request_post_handshake_auth(self, settings=None):
+        """
+        Request Post-handshake Authentication from client.
+
+        The PHA process is asynchronous, and client may send some data before
+        its certificates are added to Session object. Calling this generator
+        will only request for the new identity of client, it will not wait for
+        it.
+        """
+        if self.version != (3, 4):
+            raise ValueError("PHA is supported only in TLS 1.3")
+        if self._client:
+            raise ValueError("PHA can only be requested by server")
+        if not self._pha_supported:
+            raise ValueError("PHA not supported by client")
+
+        settings = settings or HandshakeSettings()
+        settings = settings.validate()
+
+        valid_sig_algs = self._sigHashesToList(settings)
+        if not valid_sig_algs:
+            raise ValueError("No signature algorithms enabled in "
+                             "HandshakeSettings")
+
+        context = bytes(getRandomBytes(32))
+
+        certificate_request = CertificateRequest(self.version)
+        certificate_request.create(context=context, sig_algs=valid_sig_algs)
+
+        self._cert_requests[context] = certificate_request
+
+        for result in self._sendMsg(certificate_request):
+            yield result
+
     @staticmethod
     def _derive_key_iv(nonce, user_key, settings):
         """Derive the IV and key for session ticket encryption."""
@@ -2820,6 +2855,8 @@ class TLSConnection(TLSRecordLayer):
                                                  self._handshake_hash,
                                                  prf_name)
 
+        self._first_handshake_hashes = self._handshake_hash.copy()
+
         self.session = Session()
         self.extendedMasterSecret = True
         server_name = None
@@ -2985,6 +3022,16 @@ class TLSConnection(TLSRecordLayer):
             key_share = clientHello.getExtension(ExtensionType.key_share)
             sup_groups = clientHello.getExtension(
                 ExtensionType.supported_groups)
+
+            pha = clientHello.getExtension(ExtensionType.post_handshake_auth)
+            if pha:
+                if pha.extData:
+                    for result in self._sendError(
+                            AlertDescription.decode_error,
+                            "Invalid encoding of post_handshake_auth extension"
+                            ):
+                        yield result
+                self._pha_supported = True
 
             key_exchange = None
 
