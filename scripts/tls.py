@@ -78,7 +78,7 @@ def printUsage(s=None):
   server  
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT]
+    [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--request-pha]
     HOST:PORT
 
   client
@@ -156,6 +156,7 @@ def handleArgs(argv, argString, flagsList=[]):
     ssl3 = False
     max_ver = None
     tickets = None
+    request_pha = False
 
     for opt, arg in opts:
         if opt == "-k":
@@ -227,6 +228,8 @@ def handleArgs(argv, argString, flagsList=[]):
             max_ver = ver_to_tuple(arg)
         elif opt == "--tickets":
             tickets = int(arg)
+        elif opt == "--request-pha":
+            request_pha = True
         else:
             assert(False)
 
@@ -287,6 +290,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(max_ver)
     if "tickets=" in flagsList:
         retList.append(tickets)
+    if "request-pha" in flagsList:
+        retList.append(request_pha)
     return retList
 
 
@@ -484,11 +489,11 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets) = \
+            max_ver, tickets, request_pha) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
-                    "tickets="])
+                    "tickets=", "request-pha"])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -576,6 +581,13 @@ def serverCmd(argv):
                                               sni=sni)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
+                try:
+                    if request_pha:
+                        for i in connection.request_post_handshake_auth():
+                            pass
+                except ValueError:
+                    # if we can't do PHA, we can't do it
+                    pass
                 stop = time_stamp()
             except TLSRemoteAlert as a:
                 if a.description == AlertDescription.user_canceled:
