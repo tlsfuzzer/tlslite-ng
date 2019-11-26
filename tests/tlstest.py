@@ -499,10 +499,10 @@ def clientTestCmd(argv):
         connection = connect()
         try:
             connection.handshakeClientCert(settings=settings)
-            assert(False)
+            assert False
         except TLSLocalAlert as alert:
             if alert.description != AlertDescription.illegal_parameter:
-                raise        
+                raise
         connection.close()
     else:
         test_no += 1
@@ -821,7 +821,7 @@ def clientTestCmd(argv):
         connection.handshakeClientSRP("test", "garbage",
                                       serverName=address[0],
                                       session=session, settings=settings)
-        assert(False)
+        assert False
     except TLSRemoteAlert as alert:
         if alert.description != AlertDescription.bad_record_mac:
             raise
@@ -1051,7 +1051,7 @@ def clientTestCmd(argv):
     settings.maxVersion = (3, 2)
     try:
         connection.handshakeClientCert(settings=settings)
-        assert()
+        assert False
     except TLSRemoteAlert as alert:
         if alert.description != AlertDescription.inappropriate_fallback:
             raise
@@ -1147,6 +1147,7 @@ def clientTestCmd(argv):
     try:
         connection.handshakeClientCert(serverName=address[0], session=session,
                                        settings=settings)
+        assert False
     except TLSRemoteAlert as e:
         assert(str(e) == "illegal_parameter")
     else:
@@ -1381,7 +1382,8 @@ def clientTestCmd(argv):
 
         print("Test {0}: POP3 good".format(test_no))
     except (socket.error, socket.timeout) as e:
-        print("Non-critical error: socket error trying to reach internet server: ", e)   
+        print("Non-critical error: socket error trying to reach internet "
+              "server: ", e)
 
     synchro.close()
 
@@ -1640,6 +1642,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
+        assert False
     except TLSRemoteAlert as e:
         assert "handshake_failure" in str(e)
     connection.close()
@@ -1671,6 +1674,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
+        assert False
     except TLSLocalAlert as e:
         assert "No common signature algorithms" in str(e)
     connection.close()
@@ -1777,7 +1781,7 @@ def serverTestCmd(argv):
         try:
             connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                 tacks=[tackUnrelated], settings=settings)
-            assert(False)
+            assert False
         except TLSRemoteAlert as alert:
             if alert.description != AlertDescription.illegal_parameter:
                 raise
@@ -2078,13 +2082,14 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     try:
         connection.read(min=1, max=1)
-        assert() #Client is going to close the socket without a close_notify
+        assert False #Client is going to close the socket without a close_notify
     except TLSAbruptCloseError as e:
         pass
     synchro.send(b'R')
     connection = connect()
     try:
         connection.handshakeServer(verifierDB=verifierDB, sessionCache=sessionCache)
+        assert False
     except TLSLocalAlert as alert:
         if alert.description != AlertDescription.bad_record_mac:
             raise
@@ -2293,7 +2298,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                    settings=settings)
-        assert()
+        assert False
     except TLSLocalAlert as alert:
         if alert.description != AlertDescription.inappropriate_fallback:
             raise
@@ -2356,6 +2361,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                    sessionCache=sessionCache)
+        assert False
     except TLSLocalAlert as e:
         assert(str(e) == "illegal_parameter")
     else:
