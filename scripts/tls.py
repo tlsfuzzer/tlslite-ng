@@ -564,6 +564,28 @@ def serverCmd(argv):
                     else:
                         raise ValueError("Invalid return from "
                                          "send_keyupdate_request")
+            if self.path.startswith('/secret'):
+                try:
+                    for i in self.connection.request_post_handshake_auth():
+                        pass
+                except ValueError:
+                    self.wfile.write(b'HTTP/1.0 401 Certificate authentication'
+                                     b' required\r\n')
+                    self.wfile.write(b'Connection: close\r\n')
+                    self.wfile.write(b'Content-Length: 0\r\n\r\n')
+                    return
+                self.connection.read(0, 0)
+                if self.connection.session.clientCertChain:
+                    print("   Got client certificate in post-handshake auth: "
+                          "{0}".format(self.connection.session
+                                       .clientCertChain.getFingerprint()))
+                else:
+                    print("   No certificate from client received")
+                    self.wfile.write(b'HTTP/1.0 401 Certificate authentication'
+                                     b' required\r\n')
+                    self.wfile.write(b'Connection: close\r\n')
+                    self.wfile.write(b'Content-Length: 0\r\n\r\n')
+                    return
             return super(MySimpleHTTPHandler, self).do_GET()
 
     class MyHTTPServer(ThreadingMixIn, TLSSocketServerMixIn, HTTPServer):
