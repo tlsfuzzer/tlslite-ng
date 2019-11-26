@@ -37,7 +37,8 @@ from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, \
         AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
 from .handshakehelpers import HandshakeHelpers
-from .utils.cipherfactory import createAESGCM, createCHACHA20
+from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
+        createAESGCM, createCHACHA20
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -2367,6 +2368,10 @@ class TLSConnection(TLSRecordLayer):
             if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
                 cipher = createAESGCM(key,
                                       settings.cipherImplementations)
+            elif settings.ticketCipher in ("aes128ccm", "aes256ccm"):
+                cipher = createAESCCM(key, settings.cipherImplementations)
+            elif settings.ticketCipher in ("aes128ccm_8", "aes256ccm_8"):
+                cipher = createAESCCM_8(key, settings.cipherImplementations)
             else:
                 assert settings.ticketCipher == "chacha20-poly1305"
                 cipher = createCHACHA20(key,
@@ -2401,6 +2406,10 @@ class TLSConnection(TLSRecordLayer):
             key, iv = self._derive_key_iv(nonce, user_key, settings)
             if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
                 cipher = createAESGCM(key, settings.cipherImplementations)
+            elif settings.ticketCipher in ("aes128ccm", "aes256ccm"):
+                cipher = createAESCCM(key, settings.cipherImplementations)
+            elif settings.ticketCipher in ("aes128ccm_8", "aes256ccm_8"):
+                cipher = createAESCCM_8(key, settings.cipherImplementations)
             else:
                 assert settings.ticketCipher == "chacha20-poly1305"
                 cipher = createCHACHA20(key, settings.cipherImplementations)

@@ -7,6 +7,7 @@ import os
 
 from tlslite.utils import python_aes
 from tlslite.utils import python_aesgcm
+from tlslite.utils import python_aesccm
 from tlslite.utils import python_chacha20_poly1305
 from tlslite.utils import python_rc4
 from tlslite.utils import python_tripledes
@@ -72,6 +73,44 @@ def createAESGCM(key, implList=None):
             return pycrypto_aesgcm.new(key)
         if impl == "python":
             return python_aesgcm.new(key)
+    raise NotImplementedError()
+
+def createAESCCM(key, implList=None):
+    """ Create a new AESCCM object.
+
+    :type key: bytearray
+    :param key: A 16 or 32 byte byte array to serve as key.
+
+    :rtype: tlslite.utils.AESCCM
+    :returns: An AESCCM object.
+    """
+
+    if implList is None:
+        implList = ["python"]
+
+    for impl in implList:
+        if impl == "python":
+            return python_aesccm.new(key)
+
+    raise NotImplementedError()
+
+def createAESCCM_8(key, implList=None):
+    """ Create a new AESCCM object with truncated tag.
+
+    :type key: bytearray
+    :param key: A 16 or 32 byte byte array to serve as key.
+
+    :rtype: tlslite.utils.AESCCM
+    :returns: An AESCCM object.
+    """
+
+    if implList is None:
+        implList = ["python"]
+
+    for impl in implList:
+        if impl == "python":
+            return python_aesccm.new(key, 8)
+
     raise NotImplementedError()
 
 def createCHACHA20(key, implList=None):

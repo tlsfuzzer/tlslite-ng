@@ -651,6 +651,25 @@ class CipherSuite:
     TLS_DH_ANON_WITH_AES_256_GCM_SHA384 = 0x00A7
     ietfNames[0x00A7] = 'TLS_DH_ANON_WITH_AES_256_GCM_SHA384'
 
+    # RFC 6655 - AES-CCM ciphers for TLSv1.2
+    TLS_RSA_WITH_AES_128_CCM = 0xC09C
+    ietfNames[0xC09C] = 'TLS_RSA_WITH_AES_128_CCM'
+    TLS_RSA_WITH_AES_256_CCM = 0xC09D
+    ietfNames[0xC09D] = 'TLS_RSA_WITH_AES_256_CCM'
+    TLS_DHE_RSA_WITH_AES_128_CCM = 0xC09E
+    ietfNames[0xC09E] = 'TLS_DHE_RSA_WITH_AES_128_CCM'
+    TLS_DHE_RSA_WITH_AES_256_CCM = 0xC09F
+    ietfNames[0xC09F] = 'TLS_DHE_RSA_WITH_AES_256_CCM'
+    TLS_RSA_WITH_AES_128_CCM_8 = 0xC0A0
+    ietfNames[0xC0A0] = 'TLS_RSA_WITH_AES_128_CCM_8'
+    TLS_RSA_WITH_AES_256_CCM_8 = 0xC0A1
+    ietfNames[0xC0A1] = 'TLS_RSA_WITH_AES_256_CCM_8'
+    TLS_DHE_RSA_WITH_AES_128_CCM_8 = 0xC0A2
+    ietfNames[0xC0A2] = 'TLS_DHE_RSA_WITH_AES_128_CCM_8'
+    TLS_DHE_RSA_WITH_AES_256_CCM_8 = 0xC0A3
+    ietfNames[0xC0A3] = 'TLS_DHE_RSA_WITH_AES_256_CCM_8'
+
+
     # Weird pseudo-ciphersuite from RFC 5746
     # Signals that "secure renegotiation" is supported
     # We actually don't do any renegotiation, but this
@@ -665,6 +684,10 @@ class CipherSuite:
     ietfNames[0x1302] = 'TLS_AES_256_GCM_SHA384'
     TLS_CHACHA20_POLY1305_SHA256 = 0x1303
     ietfNames[0x1303] = 'TLS_CHACHA20_POLY1305_SHA256'
+    TLS_AES_128_CCM_SHA256 = 0x1304
+    ietfNames[0x1304] = 'TLS_AES_128_CCM_SHA256'
+    TLS_AES_128_CCM_8_SHA256 = 0x1305
+    ietfNames[0x1305] = 'TLS_AES_128_CCM_8_SHA256'
 
     # RFC 7507 - Fallback Signaling Cipher Suite Value for Preventing Protocol
     # Downgrade Attacks
@@ -802,6 +825,16 @@ class CipherSuite:
     TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 = 0xCCAA
     ietfNames[0xCCAA] = 'TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256'
 
+    # RFC 7251 - AES-CCM ECC Ciphers for TLS
+    TLS_ECDHE_ECDSA_WITH_AES_128_CCM = 0xC0AC
+    ietfNames[0xC0AC] = 'TLS_ECDHE_ECDSA_WITH_AES_128_CCM'
+    TLS_ECDHE_ECDSA_WITH_AES_256_CCM = 0xC0AD
+    ietfNames[0xC0AD] = 'TLS_ECDHE_ECDSA_WITH_AES_256_CCM'
+    TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8 = 0xC0AE
+    ietfNames[0xC0AE] = 'TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8'
+    TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8 = 0xC0AF
+    ietfNames[0xC0AF] = 'TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8'
+
 #pylint: enable = invalid-name
     #
     # Define cipher suite families below
@@ -881,6 +914,32 @@ class CipherSuite:
     aes256GcmSuites.append(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384)  # unsupported
     aes256GcmSuites.append(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)
     aes256GcmSuites.append(TLS_AES_256_GCM_SHA384)
+
+    #: AES-128 CCM_8 ciphers
+    aes128Ccm_8Suites = []
+    aes128Ccm_8Suites.append(TLS_RSA_WITH_AES_128_CCM_8)
+    aes128Ccm_8Suites.append(TLS_DHE_RSA_WITH_AES_128_CCM_8)
+    aes128Ccm_8Suites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8)
+    aes128Ccm_8Suites.append(TLS_AES_128_CCM_8_SHA256)
+
+    #: AES-128 CCM ciphers
+    aes128CcmSuites = []
+    aes128CcmSuites.append(TLS_RSA_WITH_AES_128_CCM)
+    aes128CcmSuites.append(TLS_DHE_RSA_WITH_AES_128_CCM)
+    aes128CcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CCM)
+    aes128CcmSuites.append(TLS_AES_128_CCM_SHA256)
+
+    #: AES-256 CCM_8 ciphers
+    aes256Ccm_8Suites = []
+    aes256Ccm_8Suites.append(TLS_RSA_WITH_AES_256_CCM_8)
+    aes256Ccm_8Suites.append(TLS_DHE_RSA_WITH_AES_256_CCM_8)
+    aes256Ccm_8Suites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8)
+
+    # AES-256 CCM ciphers
+    aes256CcmSuites = []
+    aes256CcmSuites.append(TLS_RSA_WITH_AES_256_CCM)
+    aes256CcmSuites.append(TLS_DHE_RSA_WITH_AES_256_CCM)
+    aes256CcmSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CCM)
 
     #: CHACHA20 cipher, 00'th IETF draft (implicit POLY1305 authenticator)
     chacha20draft00Suites = []
@@ -993,6 +1052,10 @@ class CipherSuite:
     aeadSuites = []
     aeadSuites.extend(aes128GcmSuites)
     aeadSuites.extend(aes256GcmSuites)
+    aeadSuites.extend(aes128CcmSuites)
+    aeadSuites.extend(aes128Ccm_8Suites)
+    aeadSuites.extend(aes256CcmSuites)
+    aeadSuites.extend(aes256Ccm_8Suites)
     aeadSuites.extend(chacha20Suites)
     aeadSuites.extend(chacha20draft00Suites)
 
@@ -1030,6 +1093,10 @@ class CipherSuite:
     tls12Suites.remove(TLS_AES_128_GCM_SHA256)
     tls13Suites.append(TLS_CHACHA20_POLY1305_SHA256)
     tls12Suites.remove(TLS_CHACHA20_POLY1305_SHA256)
+    tls13Suites.append(TLS_AES_128_CCM_SHA256)
+    tls12Suites.remove(TLS_AES_128_CCM_SHA256)
+    tls13Suites.append(TLS_AES_128_CCM_8_SHA256)
+    tls12Suites.remove(TLS_AES_128_CCM_8_SHA256)
 
     @staticmethod
     def filterForVersion(suites, minVersion, maxVersion):
@@ -1093,6 +1160,14 @@ class CipherSuite:
             cipherSuites += CipherSuite.aes128GcmSuites
         if "aes256gcm" in cipherNames and version >= (3, 3):
             cipherSuites += CipherSuite.aes256GcmSuites
+        if "aes128ccm" in cipherNames and version >= (3, 3):
+            cipherSuites += CipherSuite.aes128CcmSuites
+        if "aes128ccm_8" in cipherNames and version >= (3, 3):
+            cipherSuites += CipherSuite.aes128Ccm_8Suites
+        if "aes256ccm" in cipherNames and version >= (3, 3):
+            cipherSuites += CipherSuite.aes256CcmSuites
+        if "aes256ccm_8" in cipherNames and version >= (3, 3):
+            cipherSuites += CipherSuite.aes256Ccm_8Suites
         if "aes128" in cipherNames:
             cipherSuites += CipherSuite.aes128Suites
         if "aes256" in cipherNames:
@@ -1166,10 +1241,14 @@ class CipherSuite:
     certSuites = []
     certSuites.append(TLS_RSA_WITH_AES_256_GCM_SHA384)
     certSuites.append(TLS_RSA_WITH_AES_128_GCM_SHA256)
+    certSuites.append(TLS_RSA_WITH_AES_256_CCM)
+    certSuites.append(TLS_RSA_WITH_AES_128_CCM)
     certSuites.append(TLS_RSA_WITH_AES_256_CBC_SHA256)
     certSuites.append(TLS_RSA_WITH_AES_128_CBC_SHA256)
     certSuites.append(TLS_RSA_WITH_AES_256_CBC_SHA)
     certSuites.append(TLS_RSA_WITH_AES_128_CBC_SHA)
+    certSuites.append(TLS_RSA_WITH_AES_256_CCM_8)
+    certSuites.append(TLS_RSA_WITH_AES_128_CCM_8)
     certSuites.append(TLS_RSA_WITH_3DES_EDE_CBC_SHA)
     certSuites.append(TLS_RSA_WITH_RC4_128_SHA)
     certSuites.append(TLS_RSA_WITH_RC4_128_MD5)
@@ -1188,10 +1267,14 @@ class CipherSuite:
     dheCertSuites.append(TLS_DHE_RSA_WITH_CHACHA20_POLY1305_draft_00)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_256_GCM_SHA384)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_128_GCM_SHA256)
+    dheCertSuites.append(TLS_DHE_RSA_WITH_AES_256_CCM)
+    dheCertSuites.append(TLS_DHE_RSA_WITH_AES_128_CCM)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_256_CBC_SHA256)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_128_CBC_SHA256)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_256_CBC_SHA)
     dheCertSuites.append(TLS_DHE_RSA_WITH_AES_128_CBC_SHA)
+    dheCertSuites.append(TLS_DHE_RSA_WITH_AES_256_CCM_8)
+    dheCertSuites.append(TLS_DHE_RSA_WITH_AES_128_CCM_8)
     dheCertSuites.append(TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA)
 
     @classmethod
@@ -1227,11 +1310,15 @@ class CipherSuite:
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_draft_00)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CCM)
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CCM)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8)
+    ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
 
@@ -1282,6 +1369,14 @@ class CipherSuite:
             return "aes128gcm"
         elif ciphersuite in CipherSuite.aes256GcmSuites:
             return "aes256gcm"
+        elif ciphersuite in CipherSuite.aes128Ccm_8Suites:
+            return "aes128ccm_8"
+        elif ciphersuite in CipherSuite.aes128CcmSuites:
+            return "aes128ccm"
+        elif ciphersuite in CipherSuite.aes256CcmSuites:
+            return "aes256ccm"
+        elif ciphersuite in CipherSuite.aes256Ccm_8Suites:
+            return "aes256ccm_8"
         elif ciphersuite in CipherSuite.aes128Suites:
             return "aes128"
         elif ciphersuite in CipherSuite.aes256Suites:
