@@ -4212,7 +4212,7 @@ class TLSConnection(TLSRecordLayer):
         """Convert list of valid signature hashes to array of tuples"""
         certType = None
         publicKey = None
-        if certList:
+        if certList and certList.x509List:
             certType = certList.x509List[0].certAlg
             publicKey = certList.x509List[0].publicKey
 

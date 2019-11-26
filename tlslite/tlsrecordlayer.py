@@ -111,6 +111,11 @@ class TLSRecordLayer(object):
 
     :vartype tickets: list of bytearray
     :ivar tickets: list of session tickets received from server, oldest first.
+
+    :vartype client_cert_required: bool
+    :ivar client_cert_required: Set to True to make the post-handshake
+        authentication fail when client doesn't provide a certificate in
+        response
     """
 
     def __init__(self, sock):
@@ -192,6 +197,10 @@ class TLSRecordLayer(object):
         # sent, the keys are the "certificate request context" from the
         # messages (which are the values)
         self._cert_requests = {}
+
+        # boolean to control if PHA needs to be aborted when the client
+        # doesn't provide a certificate
+        self.client_cert_required = False
 
     @property
     def _send_record_limit(self):
@@ -663,7 +672,7 @@ class TLSRecordLayer(object):
         msgs.append(Certificate(CertificateType.x509, self.version)
                     .create(cert, cert_request.certificate_request_context))
         handshake_context.update(msgs[0].write())
-        if p_key:
+        if cert.x509List and p_key:
             # sign the CertificateVerify only when we have a private key to do
             # that
             valid_sig_algs = cert_request.supported_signature_algs
@@ -809,6 +818,12 @@ class TLSRecordLayer(object):
                         "Signature verification failed"):
                     yield result
             handshake_context.update(cert_verify.write())
+        elif self.client_cert_required:
+            for result in self._sendError(
+                    AlertDescription.certificate_required,
+                    "Client did not provide a certificate in post-handshake "
+                    "authentication"):
+                yield result
 
         finished_key = HKDF_expand_label(self.session.cl_app_secret,
                                          b'finished', b'',

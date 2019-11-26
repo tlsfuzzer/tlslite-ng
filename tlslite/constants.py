@@ -488,6 +488,7 @@ class AlertDescription(TLSEnum):
     bad_certificate_status_response = 113  # RFC 6066
     bad_certificate_hash_value = 114  # RFC 6066
     unknown_psk_identity = 115
+    certificate_required = 116  # RFC 8446
     no_application_protocol = 120  # RFC 7301
 
 
