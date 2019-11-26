@@ -155,6 +155,7 @@ def handleArgs(argv, argString, flagsList=[]):
     ssl3 = False
     max_ver = None
     tickets = None
+    ciphers = []
 
     for opt, arg in opts:
         if opt == "-k":
@@ -226,6 +227,8 @@ def handleArgs(argv, argString, flagsList=[]):
             max_ver = ver_to_tuple(arg)
         elif opt == "--tickets":
             tickets = int(arg)
+        elif opt == "--cipherlist":
+            ciphers.append(arg)
         else:
             assert(False)
 
@@ -286,6 +289,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(max_ver)
     if "tickets=" in flagsList:
         retList.append(tickets)
+    if "cipherlist=" in flagsList:
+        retList.append(ciphers)
     return retList
 
 
@@ -350,9 +355,10 @@ def clientCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, username, password,
             expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
-            max_ver) = \
+            max_ver, cipherlist) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
-                                     "resumption", "ssl3", "max-ver="])
+                                     "resumption", "ssl3", "max-ver=",
+                                     "cipherlist="])
         
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -378,7 +384,9 @@ def clientCmd(argv):
         settings.minVersion = (3, 0)
     if max_ver:
         settings.maxVersion = max_ver
-
+    if cipherlist:
+        settings.cipherNames = [item for cipher in cipherlist
+                                for item in cipher.split(',')]
     try:
         start = time_stamp()
         if username and password:
@@ -483,11 +491,11 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets) = \
+            max_ver, tickets, cipherlist) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
-                    "tickets="])
+                    "tickets=", "cipherlist="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -529,6 +537,9 @@ def serverCmd(argv):
     if max_ver:
         settings.maxVersion = max_ver
     settings.virtual_hosts = virtual_hosts
+    if cipherlist:
+        settings.cipherNames = [item for cipher in cipherlist
+                                for item in cipher.split(',')]
 
     class MySimpleHTTPHandler(SimpleHTTPRequestHandler):
         """Buffer the header and body of HTTP message."""
