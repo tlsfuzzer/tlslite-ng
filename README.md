@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha30 (2019-11-13)
+tlslite-ng version 0.8.0-alpha31 (2019-11-26)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -55,7 +55,7 @@ Implemented TLS features include:
 * SSLv3, TLSv1.0, TLSv1.1, TLSv1.2 and TLSv1.3
 * ciphersuites with DHE, ADH, ECDHE, AECDH, RSA and SRP
   key exchange together
-  with AES (including GCM variant), 3DES, RC4 and ChaCha20 (both the official
+  with AES (CBC, GCM, CCM and CCM_8), 3DES, RC4 and ChaCha20 (both the official
   standard and the IETF draft) symmetric ciphers and NULL encryption.
 * PSK and PSK-(EC)DHE key exchange in TLSv1.3
 * Secure Renegotiation
@@ -599,7 +599,7 @@ may not work with all asyncore.dispatcher subclasses.
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
 * TLS 1.3
   * final RFC 8446 support
-  * TLS 1.3 specific ciphers (AES-GCM and Chacha20)
+  * TLS 1.3 specific ciphers (AES-GCM, AES-CCM, AES-CCM8 and Chacha20)
   * TLS 1.3 specific extensions and extension code points
   * 1-RTT handshake mode
   * HelloRetryRequest support
@@ -613,6 +613,7 @@ may not work with all asyncore.dispatcher subclasses.
   * downgrade sentinels in ServerHello.random
   * TLS Keying Material Exporter support in TLS 1.3 (Simo Sorce)
   * client certificate support (Simo Sorce)
+  * KeyUpdate support
 * fix minor compatibility issue with Jython2.7 (Filip Goldefus)
 * higher precision of throughput measurement on non-Linux platforms
   (Efthimis Iosifidis)
@@ -648,6 +649,10 @@ may not work with all asyncore.dispatcher subclasses.
   ClientHello)
 * support for HelloRequest messages (only for encoding/decoding, renegotiation
   is still unsupported)
+* nicer error messages when parsing malformed exceptions, TLS messages in
+  general
+* AES-CCM and AES-CCM8 support (in TLS 1.2 and TLS 1.3) (Ivan Nikolchev)
+* added support for configuring enabled ciphers in `tls.py` (Ivan Nikolchev)
 
 0.7.0 - 2017-07-31
 
