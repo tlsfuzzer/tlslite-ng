@@ -300,7 +300,8 @@ class TLSRecordLayer(object):
         if self.version > (3, 3):
             allowedTypes = (ContentType.application_data,
                             ContentType.handshake)
-            allowedHsTypes = HandshakeType.new_session_ticket
+            allowedHsTypes = (HandshakeType.new_session_ticket,
+                              HandshakeType.key_update)
         else:
             allowedTypes = ContentType.application_data
             allowedHsTypes = None
@@ -314,6 +315,10 @@ class TLSRecordLayer(object):
                     if isinstance(result, NewSessionTicket):
                         result.time = time.time()
                         self.tickets.append(result)
+                        continue
+                    if isinstance(result, KeyUpdate):
+                        for result in self._handle_keyupdate_request(result):
+                            yield result
                         continue
                     applicationData = result
                     self._readBuffer += applicationData.write()
@@ -947,6 +952,8 @@ class TLSRecordLayer(object):
                     yield EncryptedExtensions().parse(p)
                 elif subType == HandshakeType.new_session_ticket:
                     yield NewSessionTicket().parse(p)
+                elif subType == HandshakeType.key_update:
+                    yield KeyUpdate().parse(p)
                 else:
                     raise AssertionError()
 
@@ -1128,3 +1135,50 @@ class TLSRecordLayer(object):
         """
         for _ in self.write_heartbeat(payload, padding_length):
             pass
+
+    def _handle_keyupdate_request(self, request):
+        """Process the KeyUpdate request.
+
+        @type request: KeyUpdate
+        @param request: Recieved KeyUpdate message.
+        """
+        if request.message_type == KeyUpdateMessageType.update_not_requested or\
+                request.message_type == KeyUpdateMessageType.update_requested:
+            self.session.cl_app_secret, self.session.sr_app_secret = self._recordLayer.\
+                calcTLS1_3KeyUpdate_sender(
+                    self.session.cipherSuite,
+                    self.session.cl_app_secret,
+                    self.session.sr_app_secret)
+            if request.message_type == KeyUpdateMessageType.update_requested:
+                for result in self.send_keyupdate_request(
+                        KeyUpdateMessageType.update_not_requested):
+                    yield result
+        else:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Received KeyUpdate request with unknown message_type"):
+                yield result
+
+    def send_keyupdate_request(self, message_type):
+        """Send a KeyUpdate message.
+
+        @type payload: int
+        @param payload: Type of KeyUpdate message.
+
+        @raise socket.error: If a socket error occurs.
+        """
+        if self.closed:
+            raise TLSClosedConnectionError(
+                "attempt to write to closed connection")
+        if self.version != (3, 4):
+            raise TLSIllegalParameterException("KeyUpdate is a TLS 1.3 specific"
+                                               " feature")
+
+        keyupdate_request = KeyUpdate().create(message_type)
+        for result in self._sendMsg(keyupdate_request):
+            yield result
+        self.session.cl_app_secret, self.session.sr_app_secret = \
+            self._recordLayer.calcTLS1_3KeyUpdate_reciever(
+                    self.session.cipherSuite,
+                    self.session.cl_app_secret,
+                    self.session.sr_app_secret)
