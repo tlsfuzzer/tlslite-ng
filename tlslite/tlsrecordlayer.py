@@ -328,7 +328,14 @@ class TLSRecordLayer(object):
             allowedTypes = ContentType.application_data
             allowedHsTypes = None
         try:
-            while len(self._readBuffer) < min and not self.closed:
+            try_once = True
+            # perform a read even if we were asked to read 0 bytes, but only
+            # if the buffer is empty; this is used to trigger
+            # processing of NST, KeyUpdate and PHA
+            while (len(self._readBuffer) < min or
+                    (not self._readBuffer and try_once)) \
+                    and not self.closed:
+                try_once = False
                 try:
                     for result in self._getMsg(allowedTypes,
                                                allowedHsTypes,
@@ -338,21 +345,19 @@ class TLSRecordLayer(object):
                     if isinstance(result, NewSessionTicket):
                         result.time = time.time()
                         self.tickets.append(result)
-                        continue
                     elif isinstance(result, KeyUpdate):
                         for result in self._handle_keyupdate_request(result):
                             yield result
-                        continue
                     elif isinstance(result, Certificate):
                         for result in self._handle_srv_pha(result):
                             yield result
-                        continue
                     elif isinstance(result, CertificateRequest):
                         for result in self._handle_pha(result):
                             yield result
-                        continue
-                    applicationData = result
-                    self._readBuffer += applicationData.write()
+                    else:
+                        assert isinstance(result, ApplicationData)
+                        applicationData = result
+                        self._readBuffer += applicationData.write()
                 except TLSRemoteAlert as alert:
                     if alert.description != AlertDescription.close_notify:
                         raise

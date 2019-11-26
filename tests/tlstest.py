@@ -77,6 +77,7 @@ def testConnClient(conn):
     conn.write(b1)
     conn.write(b10)
     conn.write(b100)
+    conn.write(b1000)
     r1 = conn.read(min=1, max=1)
     assert len(r1) == 1
     assert r1 == b1
@@ -86,7 +87,6 @@ def testConnClient(conn):
     r100 = conn.read(min=100, max=100)
     assert len(r100) == 100
     assert r100 == b100
-    conn.write(b1000)
     r1000 = conn.read(min=1000, max=1000)
     assert len(r1000) == 1000
     assert r1000 == b1000
@@ -715,6 +715,8 @@ def clientTestCmd(argv):
     settings.maxVersion = (3, 4)
     connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
     synchro.recv(1)
+    b = connection.read(0, 0)
+    assert b == b''
     testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
     connection.close()
