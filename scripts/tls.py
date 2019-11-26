@@ -78,13 +78,13 @@ def printUsage(s=None):
   server  
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
-    [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT]
+    [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
     HOST:PORT
 
   client
     [-c CERT] [-k KEY] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
     [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
-    [--max-ver VER]
+    [--max-ver VER] [--cipherlist]
     HOST:PORT
 
   LABEL - TLS exporter label
@@ -100,6 +100,8 @@ def printUsage(s=None):
         "tls1.3"
   --tickets COUNT - how many tickets should server send after handshake is
                     finished
+  --cipherlist - comma separated ciphers to enable. For ex. aes128ccm,3des
+                 You can specify this option multiple times.
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
         to configure different certificates (like RSA and ECDSA)
@@ -156,6 +158,7 @@ def handleArgs(argv, argString, flagsList=[]):
     ssl3 = False
     max_ver = None
     tickets = None
+    ciphers = []
 
     for opt, arg in opts:
         if opt == "-k":
@@ -227,6 +230,8 @@ def handleArgs(argv, argString, flagsList=[]):
             max_ver = ver_to_tuple(arg)
         elif opt == "--tickets":
             tickets = int(arg)
+        elif opt == "--cipherlist":
+            ciphers.append(arg)
         else:
             assert(False)
 
@@ -287,6 +292,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(max_ver)
     if "tickets=" in flagsList:
         retList.append(tickets)
+    if "cipherlist=" in flagsList:
+        retList.append(ciphers)
     return retList
 
 
@@ -351,9 +358,10 @@ def clientCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, username, password,
             expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
-            max_ver) = \
+            max_ver, cipherlist) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
-                                     "resumption", "ssl3", "max-ver="])
+                                     "resumption", "ssl3", "max-ver=",
+                                     "cipherlist="])
         
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -379,7 +387,9 @@ def clientCmd(argv):
         settings.minVersion = (3, 0)
     if max_ver:
         settings.maxVersion = max_ver
-
+    if cipherlist:
+        settings.cipherNames = [item for cipher in cipherlist
+                                for item in cipher.split(',')]
     try:
         start = time_stamp()
         if username and password:
@@ -484,11 +494,11 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets) = \
+            max_ver, tickets, cipherlist) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
-                    "tickets="])
+                    "tickets=", "cipherlist="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -530,6 +540,9 @@ def serverCmd(argv):
     if max_ver:
         settings.maxVersion = max_ver
     settings.virtual_hosts = virtual_hosts
+    if cipherlist:
+        settings.cipherNames = [item for cipher in cipherlist
+                                for item in cipher.split(',')]
 
     class MySimpleHTTPHandler(SimpleHTTPRequestHandler, object):
         """Buffer the header and body of HTTP message."""
