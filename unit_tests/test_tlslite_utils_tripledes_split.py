@@ -22,8 +22,8 @@ class TestTripleDES(unittest.TestCase):
     _given = given(binary(24, 24),                            # key
                    binary(8, 8),                              # iv
                    binary(13 * 8, 13 * 8),                    # plaintext
-                   (tuples(integers(1, 12), integers(1, 12))  # split points
-                       .filter(lambda split_pts: split_pts[0] < split_pts[1])
+                   (tuples(integers(0, 13), integers(0, 13))  # split points
+                       .filter(lambda split_pts: split_pts[0] <= split_pts[1])
                        .map(lambda lengths: [i * 8 for i in lengths])))
 
     def split_test(self, key, iv, plaintext, split_points, make_impl=py_3des):

@@ -29,7 +29,8 @@ if m2cryptoLoaded:
             context = self._createContext(1)
             ciphertext = m2.cipher_update(context, plaintext)
             m2.cipher_ctx_free(context)
-            self.IV = ciphertext[-self.block_size:]
+            if plaintext:
+                self.IV = ciphertext[-self.block_size:]
             return bytearray(ciphertext)
 
         def decrypt(self, ciphertext):
@@ -43,5 +44,6 @@ if m2cryptoLoaded:
             #plaintext block on the end.  That's okay - the below code will ignore it.
             plaintext = plaintext[:len(ciphertext)]
             m2.cipher_ctx_free(context)
-            self.IV = ciphertext[-self.block_size:]
+            if ciphertext:
+                self.IV = ciphertext[-self.block_size:]
             return bytearray(plaintext)
