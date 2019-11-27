@@ -417,6 +417,10 @@ class Python_TripleDES(_baseDes):
         self.name = "3des"
         self.implementation = "python"
 
+        self.__key1.iv = self.iv
+        self.__key2.iv = self.iv
+        self.__key3.iv = self.iv
+
     def encrypt(self, data):
         """Encrypt data and return bytes.
 
@@ -437,9 +441,6 @@ class Python_TripleDES(_baseDes):
             raise ValueError("Invalid data length, must be a multiple "
                              "of {0} bytes".format(self.block_size))
 
-        self.__key1.iv = self.iv
-        self.__key2.iv = self.iv
-        self.__key3.iv = self.iv
         i = 0
         result = []
         while i < len(data):
@@ -473,9 +474,6 @@ class Python_TripleDES(_baseDes):
             raise ValueError("Invalid data length, must be a multiple "
                              "of {0} bytes".format(self.block_size))
 
-        self.__key1.iv = self.iv
-        self.__key2.iv = self.iv
-        self.__key3.iv = self.iv
         i = 0
         result = []
         while i < len(data):
