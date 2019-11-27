@@ -25,6 +25,7 @@ Functionality implemented include:
  - anonymous ECDH key exchange
  - PSK and PSK-DH key exchange in TLS 1.3
  - session ticket based resumption in TLS 1.3
+ - post-handshake key authentication in TLS 1.3
  - NULL encryption ciphersuites
  - FALLBACK_SCSV (RFC 7507)
  - encrypt-then-MAC mode of operation for CBC ciphersuites (RFC 7366)

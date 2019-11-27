@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha31 (2019-11-26)
+tlslite-ng version 0.8.0-alpha32 (2019-11-27)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
@@ -66,8 +66,8 @@ Implemented TLS features include:
 * keying material exporter
 * RSA, RSA-PSS and ECDSA certificates
 * ticket based session resumption in TLSv1.3
-* 1-RTT handshake, Hello Retry Request, middlebox compatibility mode and
-  cookie extension
+* 1-RTT handshake, Hello Retry Request, middlebox compatibility mode,
+  cookie extension, post-handshake authentication and KeyUpdate
   (TLS 1.3)
 * FFDHE supported_groups extension
 * X25519 and X448 ECDHE key exchange
@@ -614,6 +614,7 @@ may not work with all asyncore.dispatcher subclasses.
   * TLS Keying Material Exporter support in TLS 1.3 (Simo Sorce)
   * client certificate support (Simo Sorce)
   * KeyUpdate support
+  * post-handshake key authentication
 * fix minor compatibility issue with Jython2.7 (Filip Goldefus)
 * higher precision of throughput measurement on non-Linux platforms
   (Efthimis Iosifidis)
