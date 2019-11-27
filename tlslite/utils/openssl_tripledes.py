@@ -15,33 +15,24 @@ if m2cryptoLoaded:
 
         def __init__(self, key, mode, IV):
             TripleDES.__init__(self, key, mode, IV, "openssl")
-            self.key = key
-            self.IV = IV
-
-        def _createContext(self, encrypt):
-            context = m2.cipher_ctx_new()
             cipherType = m2.des_ede3_cbc()
-            m2.cipher_init(context, cipherType, self.key, self.IV, encrypt)
-            return context
+            self.encrypt_context = m2.cipher_ctx_new()
+            self.decrypt_context = m2.cipher_ctx_new()
+            m2.cipher_init(self.encrypt_context, cipherType, key, IV, 1)
+            m2.cipher_init(self.decrypt_context, cipherType, key, IV, 0)
+            m2.cipher_set_padding(self.encrypt_context, 0)
+            m2.cipher_set_padding(self.decrypt_context, 0)
 
         def encrypt(self, plaintext):
             TripleDES.encrypt(self, plaintext)
-            context = self._createContext(1)
-            ciphertext = m2.cipher_update(context, plaintext)
-            m2.cipher_ctx_free(context)
-            self.IV = ciphertext[-self.block_size:]
+            ciphertext = m2.cipher_update(self.encrypt_context, plaintext)
             return bytearray(ciphertext)
 
         def decrypt(self, ciphertext):
             TripleDES.decrypt(self, ciphertext)
-            context = self._createContext(0)
-            #I think M2Crypto has a bug - it fails to decrypt and return the last block passed in.
-            #To work around this, we append sixteen zeros to the string, below:
-            plaintext = m2.cipher_update(context, ciphertext+(b'\0'*16))
-
-            #If this bug is ever fixed, then plaintext will end up having a garbage
-            #plaintext block on the end.  That's okay - the below code will ignore it.
-            plaintext = plaintext[:len(ciphertext)]
-            m2.cipher_ctx_free(context)
-            self.IV = ciphertext[-self.block_size:]
+            plaintext = m2.cipher_update(self.decrypt_context, ciphertext)
             return bytearray(plaintext)
+
+        def __del__(self):
+            m2.cipher_ctx_free(self.encrypt_context)
+            m2.cipher_ctx_free(self.decrypt_context)
