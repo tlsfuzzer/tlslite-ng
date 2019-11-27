@@ -9,7 +9,7 @@ try:
 except ImportError:
     import unittest
 
-from hypothesis import given, assume
+from hypothesis import given, assume, settings
 from hypothesis.strategies import binary, integers, tuples
 
 from tlslite.utils import cryptomath
@@ -44,11 +44,13 @@ class TestTripleDES(unittest.TestCase):
         return ciphertext
 
     @_given
+    @settings(deadline=None)
     def test_python(self, key, iv, plaintext, split_points):
         self.split_test(key, iv, plaintext, split_points)
 
     @unittest.skipIf(not cryptomath.m2cryptoLoaded, "requires M2Crypto")
     @_given
+    @settings(deadline=None)
     def test_python_vs_mcrypto(self, key, iv, plaintext, split_points):
         import tlslite.utils.openssl_tripledes
         m2_3des = lambda k, iv: tlslite.utils.openssl_tripledes.new(k, 2, iv)
@@ -59,6 +61,7 @@ class TestTripleDES(unittest.TestCase):
 
     @unittest.skipIf(not cryptomath.pycryptoLoaded, "requires pycrypto")
     @_given
+    @settings(deadline=None)
     def test_python_vs_pycrypto(self, key, iv, plaintext, split_points):
         import tlslite.utils.pycrypto_tripledes
         pc_3des = lambda k, iv: tlslite.utils.pycrypto_tripledes.new(k, 2, iv)
