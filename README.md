@@ -104,12 +104,12 @@ Requirements:
 
 Options:
 
-* If you have the M2Crypto interface to OpenSSL, this will be used for fast
+* If you have the `m2crypto` interface to OpenSSL, this will be used for fast
   RSA operations and fast ciphers.
-* If you have pycrypto this will be used for fast RSA operations and fast
+* If you have `pycrypto` this will be used for fast RSA operations and fast
   ciphers.
-* If you have the GMPY interface to GMP, this will be used for fast RSA and
-  SRP operations.
+* If you have the `gmpy` interface to libgmp, this will be used for fast RSA,
+  FFDH and SRP operations.
 * These modules don't need to be present at installation - you can install
   them any time.
 
