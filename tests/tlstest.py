@@ -499,10 +499,10 @@ def clientTestCmd(argv):
         connection = connect()
         try:
             connection.handshakeClientCert(settings=settings)
-            assert(False)
+            assert False
         except TLSLocalAlert as alert:
             if alert.description != AlertDescription.illegal_parameter:
-                raise        
+                raise
         connection.close()
     else:
         test_no += 1
@@ -707,6 +707,43 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual X.509, PHA, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    synchro.recv(1)
+    b = connection.read(0, 0)
+    assert b == b''
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - mutual X.509, PHA, no client cert, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(X509CertChain(), x509Key, settings=settings)
+    synchro.recv(1)
+    b = connection.read(0, 0)
+    assert b == b''
+    try:
+        connection.read(0, 0)
+        assert False
+    except TLSRemoteAlert as e:
+        assert e.description == AlertDescription.certificate_required
+        assert "certificate_required" in str(e), str(e)
+
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good mutual X.509, TLSv1.1".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -784,7 +821,7 @@ def clientTestCmd(argv):
         connection.handshakeClientSRP("test", "garbage",
                                       serverName=address[0],
                                       session=session, settings=settings)
-        assert(False)
+        assert False
     except TLSRemoteAlert as alert:
         if alert.description != AlertDescription.bad_record_mac:
             raise
@@ -1014,7 +1051,7 @@ def clientTestCmd(argv):
     settings.maxVersion = (3, 2)
     try:
         connection.handshakeClientCert(settings=settings)
-        assert()
+        assert False
     except TLSRemoteAlert as alert:
         if alert.description != AlertDescription.inappropriate_fallback:
             raise
@@ -1110,6 +1147,7 @@ def clientTestCmd(argv):
     try:
         connection.handshakeClientCert(serverName=address[0], session=session,
                                        settings=settings)
+        assert False
     except TLSRemoteAlert as e:
         assert(str(e) == "illegal_parameter")
     else:
@@ -1344,7 +1382,8 @@ def clientTestCmd(argv):
 
         print("Test {0}: POP3 good".format(test_no))
     except (socket.error, socket.timeout) as e:
-        print("Non-critical error: socket error trying to reach internet server: ", e)   
+        print("Non-critical error: socket error trying to reach internet "
+              "server: ", e)
 
     synchro.close()
 
@@ -1603,6 +1642,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
+        assert False
     except TLSRemoteAlert as e:
         assert "handshake_failure" in str(e)
     connection.close()
@@ -1634,6 +1674,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
+        assert False
     except TLSLocalAlert as e:
         assert "No common signature algorithms" in str(e)
     connection.close()
@@ -1740,7 +1781,7 @@ def serverTestCmd(argv):
         try:
             connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                 tacks=[tackUnrelated], settings=settings)
-            assert(False)
+            assert False
         except TLSRemoteAlert as alert:
             if alert.description != AlertDescription.illegal_parameter:
                 raise
@@ -1934,6 +1975,52 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual X.509, PHA, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    assert connection.session.clientCertChain is None
+    for result in connection.request_post_handshake_auth(settings):
+        assert result in (0, 1)
+    synchro.send(b'R')
+    testConnServer(connection)
+
+    assert connection.session.clientCertChain is not None
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - mutual X.509, PHA, no client cert, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    connection.client_cert_required = True
+    assert connection.session.clientCertChain is None
+    for result in connection.request_post_handshake_auth(settings):
+        assert result in (0, 1)
+    synchro.send(b'R')
+    try:
+        testConnServer(connection)
+        assert False
+    except TLSLocalAlert as e:
+        assert "Client did not provide a certificate in post-handshake" in \
+            str(e)
+        assert e.description == AlertDescription.certificate_required
+
+    assert connection.session.clientCertChain is None
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good mutual X.509, TLSv1.1".format(test_no))
     synchro.send(b'R')
     connection = connect()
@@ -1995,13 +2082,14 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     try:
         connection.read(min=1, max=1)
-        assert() #Client is going to close the socket without a close_notify
+        assert False #Client is going to close the socket without a close_notify
     except TLSAbruptCloseError as e:
         pass
     synchro.send(b'R')
     connection = connect()
     try:
         connection.handshakeServer(verifierDB=verifierDB, sessionCache=sessionCache)
+        assert False
     except TLSLocalAlert as alert:
         if alert.description != AlertDescription.bad_record_mac:
             raise
@@ -2210,7 +2298,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                    settings=settings)
-        assert()
+        assert False
     except TLSLocalAlert as alert:
         if alert.description != AlertDescription.inappropriate_fallback:
             raise
@@ -2273,6 +2361,7 @@ def serverTestCmd(argv):
     try:
         connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                    sessionCache=sessionCache)
+        assert False
     except TLSLocalAlert as e:
         assert(str(e) == "illegal_parameter")
     else:

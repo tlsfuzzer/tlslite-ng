@@ -171,6 +171,7 @@ class ExtensionType(TLSEnum):
     supported_versions = 43  # TLS 1.3
     cookie = 44  # TLS 1.3
     psk_key_exchange_modes = 45  # TLS 1.3
+    post_handshake_auth = 49  # TLS 1.3
     signature_algorithms_cert = 50  # TLS 1.3
     key_share = 51  # TLS 1.3
     supports_npn = 13172
@@ -487,6 +488,7 @@ class AlertDescription(TLSEnum):
     bad_certificate_status_response = 113  # RFC 6066
     bad_certificate_hash_value = 114  # RFC 6066
     unknown_psk_identity = 115
+    certificate_required = 116  # RFC 8446
     no_application_protocol = 120  # RFC 7301
 
 

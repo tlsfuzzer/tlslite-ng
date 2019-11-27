@@ -79,6 +79,7 @@ def printUsage(s=None):
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
+    [--request-pha] [--require-pha]
     HOST:PORT
 
   client
@@ -102,6 +103,9 @@ def printUsage(s=None):
                     finished
   --cipherlist - comma separated ciphers to enable. For ex. aes128ccm,3des
                  You can specify this option multiple times.
+  --request-pha - ask client for post-handshake authentication
+  --require-pha - abort connection if client didn't provide certificate in
+                  post-handshake authentication
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
         to configure different certificates (like RSA and ECDSA)
@@ -159,6 +163,8 @@ def handleArgs(argv, argString, flagsList=[]):
     max_ver = None
     tickets = None
     ciphers = []
+    request_pha = False
+    require_pha = False
 
     for opt, arg in opts:
         if opt == "-k":
@@ -232,6 +238,10 @@ def handleArgs(argv, argString, flagsList=[]):
             tickets = int(arg)
         elif opt == "--cipherlist":
             ciphers.append(arg)
+        elif opt == "--request-pha":
+            request_pha = True
+        elif opt == "--require-pha":
+            require_pha = True
         else:
             assert(False)
 
@@ -294,6 +304,10 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(tickets)
     if "cipherlist=" in flagsList:
         retList.append(ciphers)
+    if "request-pha" in flagsList:
+        retList.append(request_pha)
+    if "require-pha" in flagsList:
+        retList.append(require_pha)
     return retList
 
 
@@ -494,11 +508,11 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets, cipherlist) = \
+            max_ver, tickets, cipherlist, request_pha, require_pha) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
-                    "tickets=", "cipherlist="])
+                    "tickets=", "cipherlist=", "request-pha", "require-pha"])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -558,6 +572,28 @@ def serverCmd(argv):
                     else:
                         raise ValueError("Invalid return from "
                                          "send_keyupdate_request")
+            if self.path.startswith('/secret'):
+                try:
+                    for i in self.connection.request_post_handshake_auth():
+                        pass
+                except ValueError:
+                    self.wfile.write(b'HTTP/1.0 401 Certificate authentication'
+                                     b' required\r\n')
+                    self.wfile.write(b'Connection: close\r\n')
+                    self.wfile.write(b'Content-Length: 0\r\n\r\n')
+                    return
+                self.connection.read(0, 0)
+                if self.connection.session.clientCertChain:
+                    print("   Got client certificate in post-handshake auth: "
+                          "{0}".format(self.connection.session
+                                       .clientCertChain.getFingerprint()))
+                else:
+                    print("   No certificate from client received")
+                    self.wfile.write(b'HTTP/1.0 401 Certificate authentication'
+                                     b' required\r\n')
+                    self.wfile.write(b'Connection: close\r\n')
+                    self.wfile.write(b'Content-Length: 0\r\n\r\n')
+                    return
             return super(MySimpleHTTPHandler, self).do_GET()
 
     class MyHTTPServer(ThreadingMixIn, TLSSocketServerMixIn, HTTPServer):
@@ -576,6 +612,7 @@ def serverCmd(argv):
                                       1)
                 connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
                                       struct.pack('ii', 1, 5))
+                connection.client_cert_required = require_pha
                 connection.handshakeServer(certChain=cert_chain,
                                               privateKey=privateKey,
                                               verifierDB=verifierDB,
@@ -589,6 +626,13 @@ def serverCmd(argv):
                                               sni=sni)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
+                try:
+                    if request_pha:
+                        for i in connection.request_post_handshake_auth():
+                            pass
+                except ValueError:
+                    # if we can't do PHA, we can't do it
+                    pass
                 stop = time_stamp()
             except TLSRemoteAlert as a:
                 if a.description == AlertDescription.user_canceled:

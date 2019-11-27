@@ -18,7 +18,7 @@ import socket
 from .utils.compat import *
 from .utils.cryptomath import *
 from .utils.codec import Parser
-from .utils.lists import to_str_delimiter
+from .utils.lists import to_str_delimiter, getFirstMatching
 from .errors import *
 from .messages import *
 from .mathtls import *
@@ -27,6 +27,8 @@ from .recordlayer import RecordLayer
 from .defragmenter import Defragmenter
 from .handshakehashes import HandshakeHashes
 from .bufferedsocket import BufferedSocket
+from .handshakesettings import HandshakeSettings
+from .keyexchange import KeyExchange
 
 class TLSRecordLayer(object):
     """
@@ -109,6 +111,11 @@ class TLSRecordLayer(object):
 
     :vartype tickets: list of bytearray
     :ivar tickets: list of session tickets received from server, oldest first.
+
+    :vartype client_cert_required: bool
+    :ivar client_cert_required: Set to True to make the post-handshake
+        authentication fail when client doesn't provide a certificate in
+        response
     """
 
     def __init__(self, sock):
@@ -181,6 +188,19 @@ class TLSRecordLayer(object):
 
         self._buffer_content_type = None
         self._buffer = bytearray()
+
+        # tuple with list of certificates and the private key that will be
+        # used for post handshake authentication in TLS 1.3
+        self._client_keypair = None
+
+        # dictionary with CertificateRequest messages we (as a server) have
+        # sent, the keys are the "certificate request context" from the
+        # messages (which are the values)
+        self._cert_requests = {}
+
+        # boolean to control if PHA needs to be aborted when the client
+        # doesn't provide a certificate
+        self.client_cert_required = False
 
     @property
     def _send_record_limit(self):
@@ -297,31 +317,56 @@ class TLSRecordLayer(object):
         :rtype: iterable
         :returns: A generator; see above for details.
         """
+        constructor_type = None
         if self.version > (3, 3):
             allowedTypes = (ContentType.application_data,
                             ContentType.handshake)
-            allowedHsTypes = (HandshakeType.new_session_ticket,
-                              HandshakeType.key_update)
+            if self._client_keypair:
+                allowedHsTypes = (HandshakeType.new_session_ticket,
+                                  HandshakeType.key_update,
+                                  HandshakeType.certificate_request)
+            elif self._cert_requests:
+                allowedHsTypes = (HandshakeType.new_session_ticket,
+                                  HandshakeType.key_update,
+                                  HandshakeType.certificate)
+                constructor_type = CertificateType.x509
+            else:
+                allowedHsTypes = (HandshakeType.new_session_ticket,
+                                  HandshakeType.key_update)
         else:
             allowedTypes = ContentType.application_data
             allowedHsTypes = None
         try:
-            while len(self._readBuffer) < min and not self.closed:
+            try_once = True
+            # perform a read even if we were asked to read 0 bytes, but only
+            # if the buffer is empty; this is used to trigger
+            # processing of NST, KeyUpdate and PHA
+            while (len(self._readBuffer) < min or
+                    (not self._readBuffer and try_once)) \
+                    and not self.closed:
+                try_once = False
                 try:
                     for result in self._getMsg(allowedTypes,
-                                               allowedHsTypes):
+                                               allowedHsTypes,
+                                               constructor_type):
                         if result in (0, 1):
                             yield result
                     if isinstance(result, NewSessionTicket):
                         result.time = time.time()
                         self.tickets.append(result)
-                        continue
-                    if isinstance(result, KeyUpdate):
+                    elif isinstance(result, KeyUpdate):
                         for result in self._handle_keyupdate_request(result):
                             yield result
-                        continue
-                    applicationData = result
-                    self._readBuffer += applicationData.write()
+                    elif isinstance(result, Certificate):
+                        for result in self._handle_srv_pha(result):
+                            yield result
+                    elif isinstance(result, CertificateRequest):
+                        for result in self._handle_pha(result):
+                            yield result
+                    else:
+                        assert isinstance(result, ApplicationData)
+                        applicationData = result
+                        self._readBuffer += applicationData.write()
                 except TLSRemoteAlert as alert:
                     if alert.description != AlertDescription.close_notify:
                         raise
@@ -610,6 +655,201 @@ class TLSRecordLayer(object):
      #*********************************************************
      # Public Functions END
      #*********************************************************
+
+    def _handle_pha(self, cert_request):
+        cert, p_key = self._client_keypair
+
+        handshake_context = self._first_handshake_hashes.copy()
+        handshake_context.update(cert_request.write())
+
+        prf_name = 'sha256'
+        prf_size = 32
+        if self.session.cipherSuite in CipherSuite.sha384PrfSuites:
+            prf_name = 'sha384'
+            prf_size = 48
+
+        msgs = []
+        msgs.append(Certificate(CertificateType.x509, self.version)
+                    .create(cert, cert_request.certificate_request_context))
+        handshake_context.update(msgs[0].write())
+        if cert.x509List and p_key:
+            # sign the CertificateVerify only when we have a private key to do
+            # that
+            valid_sig_algs = cert_request.supported_signature_algs
+            if not valid_sig_algs:
+                for result in self._sendError(
+                        AlertDescription.missing_extension,
+                        "No signature algorithms found in CertificateRequest"):
+                    yield result
+            avail_sig_algs = self._sigHashesToList(HandshakeSettings(), p_key,
+                                                   cert, version=(3, 4))
+            sig_scheme = getFirstMatching(avail_sig_algs, valid_sig_algs)
+            scheme = SignatureScheme.toRepr(sig_scheme)
+            sig_scheme = getattr(SignatureScheme, scheme)
+
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4),
+                                            handshake_context,
+                                            sig_scheme, None, None, None,
+                                            prf_name, b'client')
+
+            if sig_scheme[1] == SignatureAlgorithm.ecdsa:
+                pad_type = None
+                hash_name = HashAlgorithm.toRepr(sig_scheme[0])
+                salt_len = None
+            else:
+                pad_type = SignatureScheme.getPadding(scheme)
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = getattr(hashlib, hash_name)().digest_size
+
+            signature = p_key.sign(signature_context,
+                                   pad_type,
+                                   hash_name,
+                                   salt_len)
+            if not p_key.verify(signature, signature_context,
+                                pad_type,
+                                hash_name,
+                                salt_len):
+                for result in self._sendError(
+                        AlertDescription.internal_error,
+                        "Certificate Verify signature failed"):
+                    yield result
+            certificate_verify = CertificateVerify(self.version)
+            certificate_verify.create(signature, sig_scheme)
+
+            msgs.append(certificate_verify)
+            handshake_context.update(certificate_verify.write())
+
+        finished_key = HKDF_expand_label(self.session.cl_app_secret,
+                                         b"finished", b"",
+                                         prf_size, prf_name)
+        verify_data = secureHMAC(finished_key,
+                                 handshake_context.digest(prf_name),
+                                 prf_name)
+
+        finished = Finished((3, 4), prf_size)
+        finished.create(verify_data)
+        msgs.append(finished)
+
+        for result in self._sendMsgs(msgs):
+            yield result
+
+    def _handle_srv_pha(self, cert):
+        """Process the post-handshake authentication from client."""
+        prf_name = 'sha256'
+        prf_size = 32
+        if self.session.cipherSuite in CipherSuite.sha384PrfSuites:
+            prf_name = 'sha384'
+            prf_size = 48
+
+        cr_context = cert.certificate_request_context
+        if not cr_context:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Certificate Request context missing in Certificate "
+                    "message from client"):
+                yield result
+
+        try:
+            cr = self._cert_requests.pop(bytes(cr_context))
+        except KeyError:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Certificiate Request context is incorrect or was already "
+                    "handled previously"):
+                yield result
+
+        # TODO: verify that the extensions used by client were sent by us in
+        # CertificateReuest
+
+        handshake_context = self._first_handshake_hashes.copy()
+        handshake_context.update(cr.write())
+        handshake_context.update(cert.write())
+
+        if cert.cert_chain:
+            for result in self._getMsg(ContentType.handshake,
+                                       HandshakeType.certificate_verify):
+                if result in (0, 1):
+                    yield result
+                else:
+                    break
+            assert isinstance(result, CertificateVerify)
+            cert_verify = result
+
+            valid_sig_algs = cr.supported_signature_algs
+            if cert_verify.signatureAlgorithm not in valid_sig_algs:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Client selected signature algorithm we didn't "
+                        "advertise"):
+                    yield result
+            avail_sig_algs = self._sigHashesToList(HandshakeSettings(), None,
+                                                   cert.cert_chain,
+                                                   version=(3, 4))
+            if cert_verify.signatureAlgorithm not in avail_sig_algs:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Client selected signature algorithm not consistent "
+                        "with public key in its certificate"):
+                    yield result
+            scheme = SignatureScheme.toRepr(cert_verify.signatureAlgorithm)
+            sig_scheme = getattr(SignatureScheme, scheme)
+
+            signature_context = \
+                KeyExchange.calcVerifyBytes((3, 4),
+                                            handshake_context,
+                                            sig_scheme, None, None, None,
+                                            prf_name, b'client')
+
+            if sig_scheme[1] == SignatureAlgorithm.ecdsa:
+                pad_type = None
+                hash_name = HashAlgorithm.toRepr(sig_scheme[0])
+                salt_len = None
+            else:
+                pad_type = SignatureScheme.getPadding(scheme)
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = getattr(hashlib, hash_name)().digest_size
+
+            if not cert.cert_chain.getEndEntityPublicKey().verify(
+                    cert_verify.signature, signature_context, pad_type,
+                    hash_name, salt_len):
+                for result in self._sendError(
+                        AlertDescription.decrypt_error,
+                        "Signature verification failed"):
+                    yield result
+            handshake_context.update(cert_verify.write())
+        elif self.client_cert_required:
+            for result in self._sendError(
+                    AlertDescription.certificate_required,
+                    "Client did not provide a certificate in post-handshake "
+                    "authentication"):
+                yield result
+
+        finished_key = HKDF_expand_label(self.session.cl_app_secret,
+                                         b'finished', b'',
+                                         prf_size, prf_name)
+        verify_data = secureHMAC(finished_key,
+                                 handshake_context.digest(prf_name),
+                                 prf_name)
+
+        for result in self._getMsg(ContentType.handshake,
+                                   HandshakeType.finished,
+                                   prf_size):
+            if result in (0, 1):
+                yield result
+            else:
+                break
+        assert isinstance(result, Finished)
+
+        finished = result
+
+        if finished.verify_data != verify_data:
+            for result in self._sendError(
+                    AlertDescription.decrypt_error,
+                    "Invalid Finished verify_data from client"):
+                yield result
+
+        self.session.clientCertChain = cert.cert_chain
 
     def _shutdown(self, resumable):
         self._recordLayer.shutdown()

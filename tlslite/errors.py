@@ -59,34 +59,6 @@ class TLSAlert(TLSError):
 
     pass
 
-    _descriptionStr = {\
-        AlertDescription.close_notify: "close_notify",\
-        AlertDescription.unexpected_message: "unexpected_message",\
-        AlertDescription.bad_record_mac: "bad_record_mac",\
-        AlertDescription.decryption_failed: "decryption_failed",\
-        AlertDescription.record_overflow: "record_overflow",\
-        AlertDescription.decompression_failure: "decompression_failure",\
-        AlertDescription.handshake_failure: "handshake_failure",\
-        AlertDescription.no_certificate: "no certificate",\
-        AlertDescription.bad_certificate: "bad_certificate",\
-        AlertDescription.unsupported_certificate: "unsupported_certificate",\
-        AlertDescription.certificate_revoked: "certificate_revoked",\
-        AlertDescription.certificate_expired: "certificate_expired",\
-        AlertDescription.certificate_unknown: "certificate_unknown",\
-        AlertDescription.illegal_parameter: "illegal_parameter",\
-        AlertDescription.unknown_ca: "unknown_ca",\
-        AlertDescription.access_denied: "access_denied",\
-        AlertDescription.decode_error: "decode_error",\
-        AlertDescription.decrypt_error: "decrypt_error",\
-        AlertDescription.export_restriction: "export_restriction",\
-        AlertDescription.protocol_version: "protocol_version",\
-        AlertDescription.insufficient_security: "insufficient_security",\
-        AlertDescription.internal_error: "internal_error",\
-        AlertDescription.inappropriate_fallback: "inappropriate_fallback",\
-        AlertDescription.user_canceled: "user_canceled",\
-        AlertDescription.no_renegotiation: "no_renegotiation",\
-        AlertDescription.unknown_psk_identity: "unknown_psk_identity"}
-
 
 class TLSLocalAlert(TLSAlert):
     """A TLS alert has been signalled by the local implementation.
@@ -109,9 +81,7 @@ class TLSLocalAlert(TLSAlert):
         self.message = message
 
     def __str__(self):
-        alertStr = TLSAlert._descriptionStr.get(self.description)
-        if alertStr == None:
-            alertStr = str(self.description)
+        alertStr = AlertDescription.toStr(self.description)
         if self.message:
             return alertStr + ": " + self.message
         else:
@@ -136,9 +106,7 @@ class TLSRemoteAlert(TLSAlert):
         self.level = alert.level
 
     def __str__(self):
-        alertStr = TLSAlert._descriptionStr.get(self.description)
-        if alertStr == None:
-            alertStr = str(self.description)
+        alertStr = AlertDescription.toStr(self.description)
         return alertStr
 
 
