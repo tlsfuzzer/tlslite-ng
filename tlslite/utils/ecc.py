@@ -44,17 +44,25 @@ def getCurveByName(curveName):
 
 def getPointByteSize(point):
     """Convert the point or curve bit size to bytes"""
-    curveMap = {ecdsa.NIST256p.curve: 256//8,
-                ecdsa.NIST384p.curve: 384//8,
-                ecdsa.NIST521p.curve: (521+7)//8,
-                ecdsa.SECP256k1.curve: 256//8}
-    if ecdsaAllCurves:
-        curveMap[ecdsa.NIST224p.curve] = 224//8
-        curveMap[ecdsa.NIST192p.curve] = 192//8
-
     if hasattr(point, 'curve'):
         if callable(point.curve):
-            return curveMap[point.curve()]
+            curve = point.curve()
         else:
-            return curveMap[point.curve]
-    raise ValueError("Parameter must be a curve or point on curve")
+            curve = point.curve
+    else:
+        raise ValueError("Parameter must be a curve or point on curve")
+
+    if curve == ecdsa.NIST256p.curve:
+        return 256//8
+    if curve == ecdsa.NIST384p.curve:
+        return 384//8
+    if curve == ecdsa.NIST521p.curve:
+        return (521+7)//8
+    if curve == ecdsa.SECP256k1.curve:
+        return 256//8
+    if ecdsaAllCurves:
+        if curve == ecdsa.NIST224p.curve:
+            return 224//8
+        if curve == ecdsa.NIST192p.curve:
+            return 192//8
+    raise ValueError("Unrecognised curve: {0}".format(curve))
