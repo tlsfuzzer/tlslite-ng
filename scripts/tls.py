@@ -572,7 +572,7 @@ def serverCmd(argv):
                     else:
                         raise ValueError("Invalid return from "
                                          "send_keyupdate_request")
-            if self.path.startswith('/secret'):
+            if self.path.startswith('/secret') and not request_pha:
                 try:
                     for i in self.connection.request_post_handshake_auth():
                         pass
