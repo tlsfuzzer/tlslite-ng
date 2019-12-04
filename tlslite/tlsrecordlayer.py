@@ -357,6 +357,9 @@ class TLSRecordLayer(object):
                     elif isinstance(result, KeyUpdate):
                         for result in self._handle_keyupdate_request(result):
                             yield result
+                        # KeyUpdate messages are not solicited, while call with
+                        # min==0 are done to perform PHA
+                        try_once = True
                     elif isinstance(result, Certificate):
                         for result in self._handle_srv_pha(result):
                             yield result
