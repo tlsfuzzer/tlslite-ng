@@ -723,6 +723,25 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual X.509, PHA and KeyUpdate, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    for result in connection.send_keyupdate_request(
+            KeyUpdateMessageType.update_requested):
+        assert result in (0, 1)
+    synchro.recv(1)
+    b = connection.read(0, 0)
+    assert b == b''
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - mutual X.509, PHA, no client cert, TLSv1.3".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -1991,6 +2010,27 @@ def serverTestCmd(argv):
 
     assert connection.session.clientCertChain is not None
     assert isinstance(connection.session.clientCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509, PHA and KeyUpdate, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    assert connection.session.clientCertChain is None
+    for result in connection.request_post_handshake_auth(settings):
+        assert result in (0, 1)
+    synchro.send(b'R')
+    assert connection.read(0, 0) == b''
+    assert connection.session.clientCertChain is not None
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    testConnServer(connection)
+
     connection.close()
 
     test_no += 1
