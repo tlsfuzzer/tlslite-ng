@@ -10,8 +10,11 @@ from .rijndael import Rijndael
 __all__ = ['new', 'Python_AES']
 
 
-def new(key, mode, IV):
-    return Python_AES(key, mode, IV)
+def new(key, mode, IV=None):
+    if mode == 2:
+        return Python_AES(key, mode, IV)
+    elif mode == 6:
+        return Python_AES_CTR(key, mode)
 
 
 class Python_AES(AES):
@@ -70,3 +73,30 @@ class Python_AES(AES):
 
         self.IV = chainBytes[:]
         return ciphertextBytes
+
+
+class Python_AES_CTR(AES):
+    def __init__(self, key, mode):
+        super(Python_AES_CTR, self).__init__(key, mode, None, "python")
+        self.rijndael = Rijndael(key, 16)
+
+    @staticmethod
+    def _counter(counter):
+        for i in range(len(counter)-1, len(counter)-5, -1):
+            counter[i] = (counter[i] + 1) % 256
+            if counter[i] != 0:
+                break
+        return counter
+
+    def encrypt(self, plaintext, counter):
+
+        inp_bytes = bytearray(len(plaintext))
+        for i in range(0, len(inp_bytes), 16):
+            mask = self.rijndael.encrypt(counter)
+            for j in range(i, min(len(inp_bytes), i + 16)):
+                inp_bytes[j] = plaintext[j] ^ mask[j-i]
+            self._counter(counter)
+        return inp_bytes
+
+    def decrypt(self, ciphertext, counter):
+        return self.encrypt(ciphertext, counter)

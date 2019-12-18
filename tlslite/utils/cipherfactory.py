@@ -32,7 +32,7 @@ if cryptomath.pycryptoLoaded:
 # Factory Functions for AES
 # **************************************************************************
 
-def createAES(key, IV, implList=None):
+def createAES(key, IV=None, implList=None, mode=2):
     """Create a new AES object.
 
     :type key: str
@@ -41,19 +41,29 @@ def createAES(key, IV, implList=None):
     :type IV: str
     :param IV: A 16 byte string
 
+    :type mode: int
+    :param mode: 2(cbc) or 6(ctr)
+
     :rtype: tlslite.utils.AES
     :returns: An AES object.
     """
     if implList is None:
-        implList = ["openssl", "pycrypto", "python"]
+        if mode == 2:
+            implList = ["openssl", "pycrypto", "python"]
+        if mode == 6:
+            implList = ["python"]
 
     for impl in implList:
-        if impl == "openssl" and cryptomath.m2cryptoLoaded:
-            return openssl_aes.new(key, 2, IV)
-        elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
-            return pycrypto_aes.new(key, 2, IV)
-        elif impl == "python":
-            return python_aes.new(key, 2, IV)
+        if mode == 2:
+            if impl == "openssl" and cryptomath.m2cryptoLoaded:
+                return openssl_aes.new(key, 2, IV)
+            elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
+                return pycrypto_aes.new(key, 2, IV)
+            elif impl == "python":
+                return python_aes.new(key, 2, IV)
+        if mode == 6:
+            if impl == "python":
+                return python_aes.new(key, 6)
     raise NotImplementedError()
 
 def createAESGCM(key, implList=None):
