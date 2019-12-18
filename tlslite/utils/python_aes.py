@@ -23,7 +23,7 @@ class Python_AES(AES):
     def encrypt(self, plaintext):
         super(Python_AES, self).encrypt(plaintext)
 
-        plaintextBytes = plaintext[:]
+        plaintextBytes = bytearray(plaintext)
         chainBytes = self.IV[:]
 
         #CBC Mode: For each block...
