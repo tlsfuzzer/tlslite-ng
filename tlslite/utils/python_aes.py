@@ -13,7 +13,10 @@ __all__ = ['new', 'Python_AES']
 def new(key, mode, IV):
     # IV argument name is a part of the interface
     # pylint: disable=invalid-name
-    return Python_AES(key, mode, IV)
+    if mode == 2:
+        return Python_AES(key, mode, IV)
+    elif mode == 6:
+        return Python_AES_CTR(key, mode, IV)
 
 
 class Python_AES(AES):
@@ -75,3 +78,37 @@ class Python_AES(AES):
 
         self.IV = chainBytes[:]
         return ciphertextBytes
+
+
+class Python_AES_CTR(AES):
+    def __init__(self, key, mode, IV):
+        super(Python_AES_CTR, self).__init__(key, mode, IV, "python")
+        self.rijndael = Rijndael(key, 16)
+        self.IV = IV
+        if len(self.IV) not in [8, 12]:
+            raise ValueError("IV needs to be 8 or 12 bytes")
+        self._counter_bytes = 16 - len(self.IV)
+        self.counter = self.IV + bytearray(b'\x00' * self._counter_bytes)
+
+    def _counter(self, counter):
+        for i in range(len(counter)-1,
+                len(counter)-(self._counter_bytes + 1), -1):
+            if counter[-self._counter_bytes:] == \
+                   bytearray(b'\xff' * self._counter_bytes):
+                raise OverflowError("CTR counter overflow")
+            counter[i] = (counter[i] + 1) % 256
+            if counter[i] != 0:
+                break
+        return counter
+
+    def encrypt(self, plaintext):
+
+        mask = bytearray()
+        while len(mask) < len(plaintext):
+            mask += self.rijndael.encrypt(self.counter)
+            self._counter(self.counter)
+        inp_bytes = bytearray(i ^ j for i, j in zip(plaintext, mask))
+        return inp_bytes
+
+    def decrypt(self, ciphertext):
+        return self.encrypt(ciphertext)
