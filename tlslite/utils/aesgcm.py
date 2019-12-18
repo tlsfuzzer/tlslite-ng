@@ -14,6 +14,7 @@
 # look-up table.
 
 from __future__ import division
+from tlslite.utils import python_aes
 from .constanttime import ct_compare_digest
 from .cryptomath import bytesToNumber, numberToByteArray
 
@@ -35,6 +36,7 @@ class AESGCM(object):
             self.name = "aes256gcm"
         else:
             raise AssertionError()
+        self.key = key
 
         self._rawAesEncrypt = rawAesEncrypt
 
@@ -53,18 +55,6 @@ class AESGCM(object):
             self._productTable[self._reverseBits(i+1)] = \
                 self._gcmAdd(self._productTable[self._reverseBits(i)], h)
 
-    def _rawAesCtrEncrypt(self, counter, inp):
-        """
-        Encrypts (or decrypts) plaintext with AES-CTR. counter is modified.
-        """
-        out = bytearray(len(inp))
-        rawAesEncrypt = self._rawAesEncrypt
-        for i in range(0, len(out), 16):
-            mask = rawAesEncrypt(counter)
-            for j in range(i, min(len(out), i + 16)):
-                out[j] = inp[j] ^ mask[j-i]
-            self._inc32(counter)
-        return out
 
     def _auth(self, ciphertext, ad, tagMask):
         y = 0
@@ -125,7 +115,8 @@ class AESGCM(object):
 
         # The counter starts at 2 for the actual encryption.
         counter[-1] = 2
-        ciphertext = self._rawAesCtrEncrypt(counter, plaintext)
+        ctr = python_aes.new(self.key, 6, counter)
+        ciphertext = ctr.encrypt(plaintext)
 
         tag = self._auth(ciphertext, data, tagMask)
 
@@ -158,7 +149,8 @@ class AESGCM(object):
 
         # The counter starts at 2 for the actual decryption.
         counter[-1] = 2
-        return self._rawAesCtrEncrypt(counter, ciphertext)
+        ctr = python_aes.new(self.key, 6, counter)
+        return ctr.decrypt(ciphertext)
 
     @staticmethod
     def _reverseBits(i):

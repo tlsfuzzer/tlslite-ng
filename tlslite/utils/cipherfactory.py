@@ -53,7 +53,27 @@ def createAES(key, IV, implList=None):
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
             return pycrypto_aes.new(key, 2, IV)
         elif impl == "python":
-            return python_aes.new(key, 2, IV)
+                return python_aes.new(key, 2, IV)
+    raise NotImplementedError()
+
+def createAESCTR(key, IV, implList=None):
+    """Create a new AESCTR object.
+
+    :type key: str
+    :param key: A 16, 24, or 32 byte string.
+
+    :type IV: str
+    :param IV: A 8 or 12 byte string
+
+    :rtype: tlslite.utils.AES
+    :returns: An AES object.
+    """
+    if implList is None:
+        implList = ["python"]
+
+    for impl in implList:
+        if impl == "python":
+            return python_aes.new(key, 6, IV)
     raise NotImplementedError()
 
 def createAESGCM(key, implList=None):
