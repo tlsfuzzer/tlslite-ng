@@ -11,6 +11,8 @@ from tlslite.utils import python_aesccm
 from tlslite.utils import python_chacha20_poly1305
 from tlslite.utils import python_rc4
 from tlslite.utils import python_tripledes
+from tlslite.utils import openssl_aesccm
+from tlslite.utils import openssl_aesgcm
 
 from tlslite.utils import cryptomath
 
@@ -53,7 +55,27 @@ def createAES(key, IV, implList=None):
         elif impl == "pycrypto" and cryptomath.pycryptoLoaded:
             return pycrypto_aes.new(key, 2, IV)
         elif impl == "python":
-            return python_aes.new(key, 2, IV)
+                return python_aes.new(key, 2, IV)
+    raise NotImplementedError()
+
+def createAESCTR(key, IV, implList=None):
+    """Create a new AESCTR object.
+
+    :type key: str
+    :param key: A 16, 24, or 32 byte string.
+
+    :type IV: str
+    :param IV: A 8 or 12 byte string
+
+    :rtype: tlslite.utils.AES
+    :returns: An AES object.
+    """
+    if implList is None:
+        implList = ["python"]
+
+    for impl in implList:
+        if impl == "python":
+            return python_aes.new(key, 6, IV)
     raise NotImplementedError()
 
 def createAESGCM(key, implList=None):
@@ -66,13 +88,15 @@ def createAESGCM(key, implList=None):
     :returns: An AESGCM object.
     """
     if implList is None:
-        implList = ["pycrypto", "python"]
+        implList = ["pycrypto", "python", "openssl"]
 
     for impl in implList:
         if impl == "pycrypto" and cryptomath.pycryptoLoaded:
             return pycrypto_aesgcm.new(key)
         if impl == "python":
             return python_aesgcm.new(key)
+        if impl == "openssl" and cryptomath.m2cryptoLoaded:
+            return openssl_aesgcm.new(key)
     raise NotImplementedError()
 
 def createAESCCM(key, implList=None):
@@ -86,11 +110,13 @@ def createAESCCM(key, implList=None):
     """
 
     if implList is None:
-        implList = ["python"]
+        implList = ["python", "openssl"]
 
     for impl in implList:
         if impl == "python":
             return python_aesccm.new(key)
+        if impl == "openssl":
+            return openssl_aesccm.new(key)
 
     raise NotImplementedError()
 
@@ -105,11 +131,13 @@ def createAESCCM_8(key, implList=None):
     """
 
     if implList is None:
-        implList = ["python"]
+        implList = ["python", "openssl"]
 
     for impl in implList:
         if impl == "python":
             return python_aesccm.new(key, 8)
+        if impl == "openssl":
+            return openssl_aesccm.new(key)
 
     raise NotImplementedError()
 
