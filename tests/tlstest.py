@@ -921,10 +921,13 @@ def clientTestCmd(argv):
                 continue
             if cipher in ("aes128gcm", "aes256gcm") and \
                     implementation not in ("pycrypto",
-                                           "python"):
+                                           "python", "openssl"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
-                    "aes128ccm", "aes128ccm_8", "aes256ccm", "aes256ccm_8") \
+            if cipher in ("aes128ccm", "aes128ccm_8",
+                          "aes256ccm", "aes256ccm_8") and \
+                    implementation not in ("python", "openssl"):
+                continue
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
                     and implementation not in ("python", ):
                 continue
 
@@ -2211,11 +2214,13 @@ def serverTestCmd(argv):
                 continue
             if cipher in ("aes128gcm", "aes256gcm") and \
                     implementation not in ("pycrypto",
-                                           "python"):
+                                           "python", "openssl"):
                 continue
-            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305",
-                         "aes128ccm", "aes128ccm_8",
-                         "aes256ccm", "aes256ccm_8") \
+            if cipher in ("aes128ccm", "aes128ccm_8",
+                          "aes256ccm", "aes256ccm_8") and \
+                    implementation not in ("python", "openssl"):
+                continue
+            if cipher in ("chacha20-poly1305_draft00", "chacha20-poly1305") \
                     and implementation not in ("python", ):
                 continue
 
