@@ -166,5 +166,5 @@ script:
 sudo: false
 
 after_success:
- - coveralls
+ - travis_retry coveralls
  - if [[ $CC_COV == 'true' ]]; then coverage xml; ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT; fi
