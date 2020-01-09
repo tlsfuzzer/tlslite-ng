@@ -3,20 +3,25 @@
 # See the LICENSE file for legal information regarding use of this file.
 """Methods for dealing with ECC points"""
 
-from .codec import Parser, Writer
+from .codec import Parser, Writer, DecodeError
 from .cryptomath import bytesToNumber, numberToByteArray, numBytes
 from .compat import ecdsaAllCurves
 import ecdsa
+
 
 def decodeX962Point(data, curve=ecdsa.NIST256p):
     """Decode a point from a X9.62 encoding"""
     parser = Parser(data)
     encFormat = parser.get(1)
-    assert encFormat == 4
+    if encFormat != 4:
+        raise DecodeError("Not an uncompressed point encoding")
     bytelength = getPointByteSize(curve)
     xCoord = bytesToNumber(parser.getFixBytes(bytelength))
     yCoord = bytesToNumber(parser.getFixBytes(bytelength))
+    if parser.getRemainingLength():
+        raise DecodeError("Invalid length of point encoding for curve")
     return ecdsa.ellipticcurve.Point(curve.curve, xCoord, yCoord)
+
 
 def encodeX962Point(point):
     """Encode a point in X9.62 format"""
