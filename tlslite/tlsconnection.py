@@ -691,20 +691,6 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(TLSExtension().create(ExtensionType.
                                                     extended_master_secret,
                                                     bytearray(0)))
-        groups = []
-        #Send the ECC extensions only if we advertise ECC ciphers
-        if next((cipher for cipher in cipherSuites \
-                if cipher in CipherSuite.ecdhAllSuites), None) is not None:
-            groups.extend(self._curveNamesToList(settings))
-            extensions.append(ECPointFormatsExtension().\
-                              create([ECPointFormat.uncompressed]))
-        # Advertise FFDHE groups if we have DHE ciphers
-        if next((cipher for cipher in cipherSuites
-                 if cipher in CipherSuite.dhAllSuites), None) is not None:
-            groups.extend(self._groupNamesToList(settings))
-        # Send the extension only if it will be non empty
-        if groups:
-            extensions.append(SupportedGroupsExtension().create(groups))
         # In TLS1.2 advertise support for additional signature types
         if settings.maxVersion >= (3, 3):
             sigList = self._sigHashesToList(settings)
@@ -717,6 +703,7 @@ class TLSConnection(TLSRecordLayer):
 
         session_id = bytearray()
         # when TLS 1.3 advertised, add key shares, set fake session_id
+        shares = None
         if next((i for i in settings.versions if i > (3, 3)), None):
             # if we have a client cert configured, do indicate we're willing
             # to perform Post Handshake Authentication
@@ -745,6 +732,27 @@ class TLSConnection(TLSRecordLayer):
             ext = PskKeyExchangeModesExtension().create(
                 [getattr(PskKeyExchangeMode, i) for i in settings.psk_modes])
             extensions.append(ext)
+
+        groups = []
+        #Send the ECC extensions only if we advertise ECC ciphers
+        if next((cipher for cipher in cipherSuites \
+                if cipher in CipherSuite.ecdhAllSuites), None) is not None:
+            groups.extend(self._curveNamesToList(settings))
+            extensions.append(ECPointFormatsExtension().\
+                              create([ECPointFormat.uncompressed]))
+        # Advertise FFDHE groups if we have DHE ciphers
+        if next((cipher for cipher in cipherSuites
+                 if cipher in CipherSuite.dhAllSuites), None) is not None:
+            groups.extend(self._groupNamesToList(settings))
+        # Send the extension only if it will be non empty
+        if groups:
+            if shares:
+                # put the groups used for key shares first, and in order
+                # (req. from RFC 8446, section 4.2.8)
+                share_ids = [i.group for i in shares]
+                diff = set(groups) - set(share_ids)
+                groups = share_ids + [i for i in groups if i in diff]
+            extensions.append(SupportedGroupsExtension().create(groups))
 
         if settings.use_heartbeat_extension:
             extensions.append(HeartbeatExtension().create(
