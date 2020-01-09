@@ -3127,6 +3127,23 @@ class TLSConnection(TLSRecordLayer):
                             .format(GroupName.toStr(mismatch))):
                         yield result
 
+                key_share_ids = [i.group for i in key_share.client_shares]
+                if len(set(key_share_ids)) != len(key_share_ids):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Client sent multiple key shares for the same "
+                            "group"):
+                        yield result
+
+                group_ids = sup_groups.groups
+                diff = set(group_ids) - set(key_share_ids)
+                if key_share_ids != [i for i in group_ids if i not in diff]:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Client sent key shares in different order than "
+                            "the advertised groups."):
+                        yield result
+
                 sig_algs = clientHello.getExtension(
                     ExtensionType.signature_algorithms)
                 if (not psk_modes or not psk) and sig_algs:
