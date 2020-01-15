@@ -11,11 +11,16 @@ __all__ = ['new', 'Python_AES']
 
 
 def new(key, mode, IV):
+    # IV argument name is a part of the interface
+    # pylint: disable=invalid-name
     return Python_AES(key, mode, IV)
 
 
 class Python_AES(AES):
     def __init__(self, key, mode, IV):
+        # IV argument/field names are a part of the interface
+        # pylint: disable=invalid-name
+        key, IV = bytearray(key), bytearray(IV)
         super(Python_AES, self).__init__(key, mode, IV, "python")
         self.rijndael = Rijndael(key, 16)
         self.IV = IV
@@ -23,7 +28,7 @@ class Python_AES(AES):
     def encrypt(self, plaintext):
         super(Python_AES, self).encrypt(plaintext)
 
-        plaintextBytes = plaintext[:]
+        plaintextBytes = bytearray(plaintext)
         chainBytes = self.IV[:]
 
         #CBC Mode: For each block...
