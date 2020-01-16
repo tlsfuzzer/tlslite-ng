@@ -3115,6 +3115,14 @@ class TLSConnection(TLSRecordLayer):
                             "Empty key_share extension"):
                         yield result
 
+                # check supported_groups
+                if TLS_1_3_FORBIDDEN_GROUPS.intersection(sup_groups.groups):
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Client advertised in TLS 1.3 Client Hello a key "
+                            "exchange group forbidden in TLS 1.3"):
+                        yield result
+
                 # Check key_share
                 mismatch = next((i for i in key_share.client_shares
                                  if i.group not in sup_groups.groups), None)

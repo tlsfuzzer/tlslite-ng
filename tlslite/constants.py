@@ -357,6 +357,13 @@ class GroupName(TLSEnum):
         return super(GroupName, cls).toRepr(value, blacklist)
 
 
+# groups forbidden by RFC 8446 section B.3.1.4
+TLS_1_3_FORBIDDEN_GROUPS = frozenset().union(
+    range(1, 0x17),
+    range(0x1A, 0x1D),
+    (0xff01, 0xff02))
+
+
 class ECPointFormat(TLSEnum):
     """Names and ID's of supported EC point formats."""
 
