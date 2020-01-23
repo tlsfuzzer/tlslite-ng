@@ -160,10 +160,6 @@ class HandshakeSettings(object):
         choose whichever ciphersuite matches the earliest entry in this
         list.
 
-        .. note:: If '3des' is used in this list, but TLS Lite can't find an
-            add-on library that supports 3DES, then '3des' will be silently
-            removed.
-
         The default value is list that excludes 'rc4', 'null' and
         'chacha20-poly1305_draft00'.
 
