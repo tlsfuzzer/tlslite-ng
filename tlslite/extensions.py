@@ -383,7 +383,7 @@ class VarBytesExtension(CustomNameExtension):
         """Deserialise extension from on-the-wire data.
 
         :param tlslite.utils.codec.Parser parser: data
-        :rtype TLSExtension
+        :rtype: TLSExtension
         """
         if not parser.getRemainingLength():
             self._internal_value = None
@@ -1796,8 +1796,8 @@ class HeartbeatExtension(IntExtension):
     """
     Heartbeat extension from RFC 6520
 
-    @type mode: int
-    @ivar mode: mode if peer is allowed or nor allowed to send responses
+    :type mode: int
+    :ivar mode: mode if peer is allowed or nor allowed to send responses
     """
     def __init__(self):
         super(HeartbeatExtension, self).__init__(

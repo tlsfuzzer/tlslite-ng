@@ -2268,14 +2268,14 @@ class Heartbeat(object):
     """
     Handling Heartbeat messages from RFC 6520
 
-    @type message_type: int
-    @ivar message_type: type of message (response or request)
+    :type message_type: int
+    :ivar message_type: type of message (response or request)
 
-    @type payload: bytearray
-    @ivar payload: payload
+    :type payload: bytearray
+    :ivar payload: payload
 
-    @type padding: bytearray
-    @ivar padding: random padding of selected length
+    :type padding: bytearray
+    :ivar padding: random padding of selected length
     """
 
     def __init__(self):
@@ -2335,8 +2335,8 @@ class KeyUpdate(HandshakeMsg):
     """
     Handling KeyUpdate message from RFC 8446
 
-    @type message_type: int
-    @ivar message_type: type of message (update_not_requested or
+    :vartype message_type: int
+    :ivar message_type: type of message (update_not_requested or
                                          update_requested)
     """
 
