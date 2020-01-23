@@ -318,14 +318,14 @@ class ClientHello(HelloMessage):
     :vartype srp_username: bytearray
     :ivar srp_username: name of the user in SRP extension (deprecated)
 
-    :vartype supports_npn: boolean
-    :ivar supports_npn: NPN extension presence (deprecated)
+    :vartype ~.supports_npn: boolean
+    :ivar ~.supports_npn: NPN extension presence (deprecated)
 
-    :vartype tack: boolean
-    :ivar tack: TACK extension presence (deprecated)
+    :vartype ~.tack: boolean
+    :ivar ~.tack: TACK extension presence (deprecated)
 
-    :vartype server_name: bytearray
-    :ivar server_name: first host_name (type 0) present in SNI extension
+    :vartype ~.server_name: bytearray
+    :ivar ~.server_name: first host_name (type 0) present in SNI extension
         (deprecated)
 
     :vartype extensions: list of :py:class:`TLSExtension`
@@ -1620,8 +1620,8 @@ class ClientKeyExchange(HandshakeMsg):
 
     :vartype cipherSuite: int
     :ivar cipherSuite: the cipher suite id used for the connection
-    :vartype version: tuple(int, int)
-    :ivar version: TLS protocol version used for the connection
+    :vartype ~.version: tuple(int, int)
+    :ivar ~.version: TLS protocol version used for the connection
     :vartype srp_A: int
     :ivar srp_A: SRP protocol client answer value
     :vartype dh_Yc: int
@@ -2056,7 +2056,7 @@ class SessionTicketPayload(object):
     This is the internal (meant to be encrypted) representation of server
     state that is set to client in the NewSessionTicket message.
 
-    :ivar int version: implementation detail for forward compatibility
+    :ivar int ~.version: implementation detail for forward compatibility
     :ivar bytearray master_secret: master secret for TLS 1.2-, resumption
         master secret for TLS 1.3
 

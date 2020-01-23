@@ -51,8 +51,8 @@ class TLSExtension(object):
     :ivar extType: a 2^16-1 limited integer specifying the type of the
         extension that it contains, e.g. 0 indicates server name extension
 
-    :vartype extData: bytearray
-    :ivar extData: a byte array containing the value of the extension as
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: a byte array containing the value of the extension as
         to be written on the wire
 
     :vartype serverType: boolean
@@ -669,8 +669,8 @@ class SNIExtension(TLSExtension):
     :vartype extType: int
     :ivar extType: numeric type of SNIExtension, i.e. 0
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of the extension
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of the extension
     """
 
     ServerName = namedtuple('ServerName', 'name_type name')
@@ -853,8 +853,8 @@ class SupportedVersionsExtension(VarSeqListExtension):
     :vartype extType: int
     :ivar extType: numeric type of the Supported Versions extension, i.e. 43
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of the extension data
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of the extension data
 
     :vartype versions: list of tuples
     :ivar versions: list of supported protocol versions; each tuple has two
@@ -878,11 +878,11 @@ class SrvSupportedVersionsExtension(TLSExtension):
     :vartype extType: int
     :ivar extType: numeric type of the Supported Versions extension, i.e. 43
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of the extension payload
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of the extension payload
 
-    :vartype version: tuple
-    :ivar version: version selected by the server
+    :vartype ~.version: tuple
+    :ivar ~.version: version selected by the server
     """
 
     def __init__(self):
@@ -950,8 +950,8 @@ class ClientCertTypeExtension(VarListExtension):
     :vartype extType: int
     :ivar extType: numeric type of Certificate Type extension, i.e. 9
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of the extension data
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of the extension data
 
     :vartype certTypes: list of int
     :ivar certTypes: list of certificate type identifiers (each one byte long)
@@ -977,8 +977,8 @@ class ServerCertTypeExtension(IntExtension):
     :vartype extType: int
     :ivar extType: binary type of Certificate Type extension, i.e. 9
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of the extension data
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of the extension data
 
     :vartype cert_type: int
     :ivar cert_type: the certificate type selected by server
@@ -1014,8 +1014,8 @@ class SRPExtension(TLSExtension):
     :vartype extType: int
     :ivar extType: numeric type of SRPExtension, i.e. 12
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of extension data
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of extension data
 
     :vartype identity: bytearray
     :ivar identity: UTF-8 encoding of user name
@@ -1101,8 +1101,8 @@ class NPNExtension(TLSExtension):
     :vartype extType: int
     :ivar extType: numeric type of NPNExtension, i.e. 13172
 
-    :vartype extData: bytearray
-    :ivar extData: raw representation of extension data
+    :vartype ~.extData: bytearray
+    :ivar ~.extData: raw representation of extension data
     """
 
     def __init__(self):
@@ -1527,8 +1527,8 @@ class ALPNExtension(TLSExtension):
     :vartype extType: int
     :ivar extType: numberic type of ALPNExtension, i.e. 16
 
-    :vartype extData: bytearray
-    :ivar extData: raw encoding of the extension data
+    :vartype ~.extData: bytearray
+    :var ~.extData: raw encoding of the extension data
     """
 
     def __init__(self):

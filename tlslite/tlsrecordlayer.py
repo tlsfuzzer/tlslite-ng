@@ -48,8 +48,8 @@ class TLSRecordLayer(object):
         Due to TLS session resumption, multiple connections can correspond
         to the same underlying session.
 
-    :vartype version: tuple
-    :ivar version: The TLS version being used for this connection.
+    :vartype ~.version: tuple
+    :ivar ~.version: The TLS version being used for this connection.
         (3,0) means SSL 3.0, and (3,1) means TLS 1.0.
 
     :vartype closed: bool
@@ -89,8 +89,8 @@ class TLSRecordLayer(object):
         attacker truncating the connection, and only if necessary to avoid
         spurious errors.  The default is False.
 
-    :vartype encryptThenMAC: bool
-    :ivar encryptThenMAC: Whether the connection uses the encrypt-then-MAC
+    :vartype ~.encryptThenMAC: bool
+    :ivar ~.encryptThenMAC: Whether the connection uses the encrypt-then-MAC
         construct for CBC cipher suites, will be False also if connection uses
         RC4 or AEAD.
 

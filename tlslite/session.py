@@ -43,8 +43,8 @@ class Session(object):
     :vartype tackInHelloExt: bool
     :ivar tackInHelloExt: True if a TACK was presented via TLS Extension.
 
-    :vartype encryptThenMAC: bool
-    :ivar encryptThenMAC: True if connection uses CBC cipher in
+    :vartype ~.encryptThenMAC: bool
+    :ivar ~.encryptThenMAC: True if connection uses CBC cipher in
         encrypt-then-MAC mode
 
     :vartype appProto: bytearray
