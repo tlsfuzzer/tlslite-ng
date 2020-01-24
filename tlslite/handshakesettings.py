@@ -65,7 +65,7 @@ class Keypair(object):
     :vartype key: RSAKey or ECDSAKey
     :ivar key: private key
 
-    :vartype certificates: list of X509
+    :vartype certificates: list(X509)
     :ivar certificates: the certificates to send to peer if the key is selected
         for use. The first one MUST include the public key of the ``key``
     """
@@ -89,22 +89,22 @@ class VirtualHost(object):
     TODO: support SRP as alternative to certificates
     TODO: support PSK as alternative to certificates
 
-    :vartype keys: list of :ref:`~Keypair`
+    :vartype keys: list(Keypair)
     :ivar keys: List of certificates and keys to be used in this
         virtual host. First keypair able to server ClientHello will be used.
 
-    :vartype hostnames: set of bytes
+    :vartype hostnames: set(bytes)
     :ivar hostnames: all the hostnames that server supports
-        please use :ref:`matches_hostname` to verify if the VirtualHost
+        please use :py:meth:`matches_hostname` to verify if the VirtualHost
         can serve a request to a given hostname as that allows wildcard hosts
         that always reply True.
 
-    :vartype trust_anchors: list of X509
+    :vartype trust_anchors: list(X509)
     :ivar trust_anchors: list of CA certificates supported for client
         certificate authentication, sent in CertificateRequest
 
-    :ivar app_protocols: all the application protocols that the server supports
-        (for ALPN)
+    :ivar list(bytes) app_protocols: all the application protocols that the
+        server supports (for ALPN)
     """
 
     def __init__(self):
@@ -146,7 +146,7 @@ class HandshakeSettings(object):
         parameters larger than this length, an alert will be signalled.
         The default is 8193.
 
-    :vartype cipherNames: list
+    :vartype cipherNames: list(str)
     :ivar cipherNames: The allowed ciphers.
 
         The allowed values in this list are 'chacha20-poly1305', 'aes256gcm',
@@ -160,14 +160,10 @@ class HandshakeSettings(object):
         choose whichever ciphersuite matches the earliest entry in this
         list.
 
-        .. note:: If '3des' is used in this list, but TLS Lite can't find an
-            add-on library that supports 3DES, then '3des' will be silently
-            removed.
-
         The default value is list that excludes 'rc4', 'null' and
         'chacha20-poly1305_draft00'.
 
-    :vartype macNames: list
+    :vartype macNames: list(str)
     :ivar macNames: The allowed MAC algorithms.
 
         The allowed values in this list are 'sha384', 'sha256', 'aead', 'sha'
@@ -175,7 +171,7 @@ class HandshakeSettings(object):
 
         The default value is list that excludes 'md5'.
 
-    :vartype certificateTypes: list
+    :vartype certificateTypes: list(str)
     :ivar certificateTypes: The allowed certificate types.
 
         The only allowed certificate type is 'x509'.  This list is only used
@@ -219,7 +215,7 @@ class HandshakeSettings(object):
     :vartype sendFallbackSCSV: bool
     :ivar sendFallbackSCSV: Whether to, as a client, send FALLBACK_SCSV.
 
-    :vartype rsaSigHashes: list
+    :vartype rsaSigHashes: list(str)
     :ivar rsaSigHashes: List of hashes supported (and advertised as such) for
         TLS 1.2 signatures over Server Key Exchange or Certificate Verify with
         RSA signature algorithm.
@@ -229,7 +225,7 @@ class HandshakeSettings(object):
         The allowed hashes are: "md5", "sha1", "sha224", "sha256",
         "sha384" and "sha512". The default list does not include md5.
 
-    :vartype ecdsaSigHashes: list
+    :vartype ecdsaSigHashes: list(str)
     :ivar ecdsaSigHashes: List of hashes supported (and advertised as such) for
         TLS 1.2 signatures over Server Key Exchange or Certificate Verify with
         ECDSA signature algorithm.
@@ -239,7 +235,7 @@ class HandshakeSettings(object):
         The allowed hashes are: "sha1", "sha224", "sha256",
         "sha384" and "sha512".
 
-    :vartype eccCurves: list
+    :vartype eccCurves: list(str)
     :ivar eccCurves: List of named curves that are to be supported
 
     :vartype useEncryptThenMAC: bool
@@ -261,21 +257,22 @@ class HandshakeSettings(object):
         first curve for eccCurves and may be distinct from curves from that
         list.
 
-    :vartype keyShares: list
+    :vartype keyShares: list(str)
     :ivar keyShares: list of TLS 1.3 key shares to include in Client Hello
 
     :vartype padding_cb: func
     :ivar padding_cb: Callback to function computing number of padding bytes
         for TLS 1.3. Signature is cb_func(msg_size, content_type, max_size).
 
-    :vartype pskConfigs: list of tuples
+    :vartype pskConfigs: list(tuple(bytearray, bytearray, bytearray))
     :ivar pskConfigs: list of tuples, first element of the tuple is the
         human readable, UTF-8 encoded, "identity" of the associated secret
         (bytearray, can be empty for TLS 1.2 and earlier), second element is
         the binary secret (bytearray), third is an optional parameter
-        specifying the PRF hash to be used in TLS 1.3 ('sha256' or 'sha384')
+        specifying the PRF hash to be used in TLS 1.3 (``sha256`` or
+        ``sha384``)
 
-    :vartype ticketKeys: list of bytearray
+    :vartype ticketKeys: list(bytearray)
     :ivar ticketKeys: keys to be used for encrypting and decrypting session
         tickets. First entry is the encryption key for new tickets and the
         default decryption key, subsequent entries are the fallback keys
@@ -296,7 +293,7 @@ class HandshakeSettings(object):
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
         in seconds. 1 day by default
 
-    :vartype psk_modes: list
+    :vartype psk_modes: list(str)
     :ivar psk_modes: acceptable modes for the PSK key exchange in TLS 1.3
 
     :ivar int max_early_data: maximum number of bytes acceptable for 0-RTT
@@ -312,8 +309,8 @@ class HandshakeSettings(object):
     :ivar heartbeat_response_callback: Callback to function when Heartbeat
         response is received.
 
-    :vartype record_size_limit: int
-    :ivar record_size_limit: maximum size of records we are willing to process
+    :vartype ~.record_size_limit: int
+    :ivar ~.record_size_limit: maximum size of records we are willing to process
         (value advertised to the other side). It must not be larger than
         2**14+1 (the maximum for TLS 1.3) and will be reduced to 2**14 if TLS
         1.2 or lower is the highest enabled version. Must not be set to values

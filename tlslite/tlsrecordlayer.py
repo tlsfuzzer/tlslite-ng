@@ -48,8 +48,8 @@ class TLSRecordLayer(object):
         Due to TLS session resumption, multiple connections can correspond
         to the same underlying session.
 
-    :vartype version: tuple
-    :ivar version: The TLS version being used for this connection.
+    :vartype ~.version: tuple
+    :ivar ~.version: The TLS version being used for this connection.
         (3,0) means SSL 3.0, and (3,1) means TLS 1.0.
 
     :vartype closed: bool
@@ -89,8 +89,8 @@ class TLSRecordLayer(object):
         attacker truncating the connection, and only if necessary to avoid
         spurious errors.  The default is False.
 
-    :vartype encryptThenMAC: bool
-    :ivar encryptThenMAC: Whether the connection uses the encrypt-then-MAC
+    :vartype ~.encryptThenMAC: bool
+    :ivar ~.encryptThenMAC: Whether the connection uses the encrypt-then-MAC
         construct for CBC cipher suites, will be False also if connection uses
         RC4 or AEAD.
 
@@ -1342,14 +1342,14 @@ class TLSRecordLayer(object):
     def write_heartbeat(self, payload, padding_length):
         """Start a write operation of heartbeat_request.
 
-        @type payload: bytes
-        @param payload: Payload, that we want send in request and
+        :type payload: bytes
+        :param payload: Payload, that we want send in request and
                         get at response.
 
-        @type padding_length: int
-        @param padding_length: Length of padding.
+        :type padding_length: int
+        :param padding_length: Length of padding.
 
-        @raise socket.error: If a socket error occurs.
+        :raise socket.error: If a socket error occurs.
         """
         if self.closed:
             raise TLSClosedConnectionError(
@@ -1367,14 +1367,14 @@ class TLSRecordLayer(object):
     def send_heartbeat_request(self, payload, padding_length):
         """Synchronous version of write_heartbeat function.
 
-        @type payload: bytes
-        @param payload: Payload, that we want send in request and
-                        get at response.
+        :type payload: bytes
+        :param payload: Payload, that we want send in request and
+             get at response.
 
-        @type padding_length: int
-        @param padding_length: Length of padding.
+        :type padding_length: int
+        :param padding_length: Length of padding.
 
-        @raise socket.error: If a socket error occurs.
+        :raise socket.error: If a socket error occurs.
         """
         for _ in self.write_heartbeat(payload, padding_length):
             pass
@@ -1382,8 +1382,8 @@ class TLSRecordLayer(object):
     def _handle_keyupdate_request(self, request):
         """Process the KeyUpdate request.
 
-        @type request: KeyUpdate
-        @param request: Recieved KeyUpdate message.
+        :type request: KeyUpdate
+        :param request: Recieved KeyUpdate message.
         """
         if request.message_type == KeyUpdateMessageType.update_not_requested or\
                 request.message_type == KeyUpdateMessageType.update_requested:
@@ -1405,10 +1405,10 @@ class TLSRecordLayer(object):
     def send_keyupdate_request(self, message_type):
         """Send a KeyUpdate message.
 
-        @type payload: int
-        @param payload: Type of KeyUpdate message.
+        :type payload: int
+        :param payload: Type of KeyUpdate message.
 
-        @raise socket.error: If a socket error occurs.
+        :raise socket.error: If a socket error occurs.
         """
         if self.closed:
             raise TLSClosedConnectionError(

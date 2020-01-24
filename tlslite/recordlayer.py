@@ -38,7 +38,7 @@ class RecordSocket(object):
     Socket wrapper for reading and writing TLS Records.
 
     :ivar sock: wrapped socket
-    :ivar version: version for the records to be encoded on the wire
+    :ivar ~.version: version for the records to be encoded on the wire
     :ivar tls13record: flag to indicate that TLS 1.3 specific record limits
         should be used for received records
     :ivar int recv_record_limit: negotiated maximum size of record plaintext
@@ -272,7 +272,7 @@ class RecordLayer(object):
     """
     Implementation of TLS record layer protocol
 
-    :ivar version: the TLS version to use (tuple encoded as on the wire)
+    :ivar ~.version: the TLS version to use (tuple encoded as on the wire)
     :ivar sock: underlying socket
     :ivar client: whether the connection should use encryption
     :ivar handshake_finished: used in SSL2, True if handshake protocol is over
