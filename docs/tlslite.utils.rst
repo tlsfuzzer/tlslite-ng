@@ -26,6 +26,7 @@ Submodules
    tlslite.utils.deprecations
    tlslite.utils.dns_utils
    tlslite.utils.ecc
+   tlslite.utils.ecdsakey
    tlslite.utils.keyfactory
    tlslite.utils.lists
    tlslite.utils.openssl_aes
