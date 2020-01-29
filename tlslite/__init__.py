@@ -18,8 +18,8 @@ If you want to import the most useful objects, the cleanest way is::
 
     from tlslite.api import *
 
-Then use the L{tlslite.TLSConnection.TLSConnection} class with a socket.
-(Or, use one of the integration classes in L{tlslite.integration}).
+Then use the :py:class:`TLSConnection` class with a socket.
+(Or, use one of the integration classes in :py:mod:`tlslite.integration`).
 """
 
 from tlslite.api import *
