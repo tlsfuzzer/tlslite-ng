@@ -1,6 +1,7 @@
 tlslite-ng version 0.8.0-alpha36 (2020-01-17)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
+[![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
 [![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
 [![Code Health](https://landscape.io/github/tomato42/tlslite-ng/master/landscape.svg?style=flat)](https://landscape.io/github/tomato42/tlslite-ng/master)
 [![Code Climate](https://codeclimate.com/github/tomato42/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tomato42/tlslite-ng)
