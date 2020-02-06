@@ -15,6 +15,11 @@ class DecodeError(SyntaxError):
     pass
 
 
+class BadCertificateError(SyntaxError):
+    """Exception raised in case of bad certificate."""
+    pass
+
+
 class Writer(object):
     """Serialisation helper for complex byte-based structures."""
 
