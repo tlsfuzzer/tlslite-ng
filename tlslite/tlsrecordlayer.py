@@ -17,7 +17,7 @@ import socket
 
 from .utils.compat import *
 from .utils.cryptomath import *
-from .utils.codec import Parser
+from .utils.codec import Parser, BadCertificateError
 from .utils.lists import to_str_delimiter, getFirstMatching
 from .errors import *
 from .messages import *
@@ -1201,9 +1201,13 @@ class TLSRecordLayer(object):
                     raise AssertionError()
 
         #If an exception was raised by a Parser or Message instance:
+        except BadCertificateError as e:
+            for result in self._sendError(AlertDescription.bad_certificate,
+                                          formatExceptionTrace(e)):
+                yield result
         except SyntaxError as e:
             for result in self._sendError(AlertDescription.decode_error,
-                                         formatExceptionTrace(e)):
+                                          formatExceptionTrace(e)):
                 yield result
 
     #Returns next record or next handshake message

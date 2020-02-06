@@ -1171,7 +1171,10 @@ class Certificate(HandshakeMsg):
             while index != chainLength:
                 certBytes = p.getVarBytes(3)
                 x509 = X509()
-                x509.parseBinary(certBytes)
+                try:
+                    x509.parseBinary(certBytes)
+                except SyntaxError:
+                    raise BadCertificateError("Certificate could not be parsed")
                 certificate_list.append(x509)
                 index += len(certBytes)+3
             if certificate_list:
