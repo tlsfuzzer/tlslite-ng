@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha36 (2020-01-17)
+tlslite-ng version 0.8.0-alpha37 (2020-02-17)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
