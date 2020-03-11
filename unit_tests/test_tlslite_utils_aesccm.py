@@ -5,12 +5,22 @@ try:
 except ImportError:
     import unittest
 
+from tlslite.utils.cryptomath import m2cryptoLoaded
 from tlslite.utils.rijndael import Rijndael
 from tlslite.utils.aesccm import AESCCM
+from tlslite.utils import openssl_aesccm
 from tlslite.utils.cipherfactory import createAESCCM, createAESCCM_8
 
 
 class TestAESCCM(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(self):
+        if m2cryptoLoaded:
+            self.defaultimpl = "openssl"
+        else:
+            self.defaultimpl = "python"
+
     def test___init__128(self):
         key = bytearray(16)
         aesCCM = AESCCM(key, "python", Rijndael(key, 16).encrypt)
@@ -49,13 +59,13 @@ class TestAESCCM(unittest.TestCase):
         key = bytearray(16)
 
         aesCCM = createAESCCM(key) 
-        self.assertEqual(aesCCM.implementation, "python")
+        self.assertEqual(aesCCM.implementation, self.defaultimpl)
 
     def test_default_implementation_small_tag(self):
         key = bytearray(16)
 
         aesCCM = createAESCCM_8(key) 
-        self.assertEqual(aesCCM.implementation, "python")
+        self.assertEqual(aesCCM.implementation, self.defaultimpl)
 
     def test_seal(self):
         key = bytearray(b'\x01'*16)
@@ -348,3 +358,119 @@ class TestAESCCM(unittest.TestCase):
         self.assertEqual(bytearray(b'\xc1\x94@D\xc8\xe7\xaa\x95\xd2\xde\x95'
                                    b'\x13\xc7\xf3\xdd\x8cK\n>^Q\xf1Q\xeb\x0f'
                                    b'\xfa\xe7\xc4=\x01\x0f\xdb'), encData)
+
+    if m2cryptoLoaded:
+        def test_seal_with_test_vector_1_openssl(self):
+            key = bytearray(b'\x00'*16)
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(b'\x00'*12)
+
+            plaintext = bytearray(b'')
+            self.assertEqual(len(plaintext), 0)
+
+            encData = aesCCM.seal(nonce, plaintext, bytearray(0))
+            self.assertEqual(bytearray(b'\xb9\xf6P\xfb<9\xbb\x1b\xee\x0e)\x1d3'
+                                       b'\xf6\xae('), encData)
+
+        def test_seal_with_test_vector_2_openssl(self):
+            key = bytearray(b'\x00'*16)
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(b'\x00'*12)
+
+            plaintext = bytearray(b'\x00'*16)
+            self.assertEqual(len(plaintext), 16)
+
+            encData = aesCCM.seal(nonce, plaintext, bytearray(0))
+
+            self.assertEqual(bytearray(b'n\xc7_\xb2\xe2\xb4\x87F\x1e\xdd\xcb\xb8'
+                                       b'\x97\x11\x92\xbaMO\xa3\xaf\x0b\xf6\xd3E'
+                                       b'Aq0o\xfa\xdd\x9a\xfd'), encData)
+
+        def test_seal_with_test_vector_3_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c'
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            plaintext = bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                  b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                  b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                  b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                  b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                  b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                  b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                  b'\xba\x63\x7b\x39\x1a\xaf\xd2\x55')
+
+            self.assertEqual(len(plaintext), 4*16)
+
+            encData = aesCCM.seal(nonce, plaintext, bytearray(0))
+
+            self.assertEqual(bytearray(b"\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&"
+                                       b"\xab\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2"
+                                       b"\x01\'\xa7\xeb\x19&\xfa\x89\x057\x87"
+                                       b"\xff\x02\xd0}q\x81;\x88[\x85\xe7\xf9"
+                                       b"lN\xed\xf4 \xdb\x12j\x04Q\xce\x13\xbdA"
+                                       b"\xba\x01\x8d\x1b\xa7\xfc\xece\x99Dg\xa7"
+                                       b"{\x8b&B\xde\x91,\x01."), encData)
+
+        def test_seal_with_test_vector_4_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            plaintext = bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                  b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                  b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                  b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                  b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                  b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                  b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                  b'\xba\x63\x7b\x39')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd2')
+
+            encData = aesCCM.seal(nonce, plaintext, data)
+
+            self.assertEqual(bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&\xab'
+                                       b'\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2\x01\'\xa7'
+                                       b'\xeb\x19&\xfa\x89\x057\x87\xff\x02\xd0}q'
+                                       b'\x81;\x88[\x85\xe7\xf9lN\xed\xf4 \xdb'
+                                       b'\x12j\x04Q\xce\x13\xbdA\xba\x028\xc3&'
+                                       b'\xb4{4\xf7\x8fe\x9eu'
+                                       b'\x10\x96\xcd"'), encData)
+
+        def test_seal_with_test_vector_5_openssl(self):
+            key = bytearray(32)
+
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(12)
+            plaintext = bytearray(0)
+            data = bytearray(0)
+
+            encData = aesCCM.seal(nonce, plaintext, data)
+
+            self.assertEqual(bytearray(b'\xa8\x90&^C\xa2hU\xf2i'
+                                       b'\xb9?\xf4\xdd\xde\xf6'), encData)
+
+        def test_seal_with_test_vector_6_openssl(self):
+            key = bytearray(32)
+
+            aesCCM = openssl_aesccm.new(key)
+
+            nonce = bytearray(12)
+            plaintext = bytearray(16)
+            data = bytearray(0)
+
+            encData = aesCCM.seal(nonce, plaintext, data)
+
+            self.assertEqual(bytearray(b'\xc1\x94@D\xc8\xe7\xaa\x95\xd2\xde\x95'
+                                       b'\x13\xc7\xf3\xdd\x8cK\n>^Q\xf1Q\xeb\x0f'
+                                       b'\xfa\xe7\xc4=\x01\x0f\xdb'), encData)
