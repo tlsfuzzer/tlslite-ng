@@ -520,6 +520,26 @@ class TLSConnection(TLSRecordLayer):
         serverHello = result
         cipherSuite = serverHello.cipher_suite
 
+        # Check the serverHello.random  if it includes the downgrade protection
+        # values as described in RFC8446 section 4.1.3
+
+        # For TLS1.3
+        if (settings.maxVersion > (3, 3) and self.version <= (3, 3)) and \
+                (serverHello.random[-8:] == TLS_1_2_DOWNGRADE_SENTINEL or
+                 serverHello.random[-8:] == TLS_1_1_DOWNGRADE_SENTINEL):
+            for result in self._sendError(AlertDescription.illegal_parameter,
+                                          "Connection terminated because "
+                                          "of downgrade protection."):
+                yield result
+
+        # For TLS1.2
+        if settings.maxVersion == (3, 3) and self.version < (3, 3) and \
+                serverHello.random[-8:] == TLS_1_1_DOWNGRADE_SENTINEL:
+            for result in self._sendError(AlertDescription.illegal_parameter,
+                                          "Connection terminated because "
+                                          "of downgrade protection."):
+                yield result
+
         # if we're doing tls1.3, use the new code as the negotiation is much
         # different
         ext = serverHello.getExtension(ExtensionType.supported_versions)
