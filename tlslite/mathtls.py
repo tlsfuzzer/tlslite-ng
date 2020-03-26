@@ -595,6 +595,75 @@ def calcFinished(version, masterSecret, cipherSuite, handshakeHashes,
 
     return verifyData
 
+def calcKey(version, secret, cipherSuite, label, handshakeHashes=None,
+                      clientRandom=None, serverRandom=None, outputLength=None):
+
+    assert version in ((3, 0), (3, 1), (3, 2), (3, 3))
+
+    # SSL3 calculations.
+    if version == (3, 0):
+        # Calculations for key expansion or masterSecret
+        if label in ["key expansion", "master secret"]:
+            ret = PRF_SSL(secret, bytearray(label, 'utf-8'),
+                          serverRandom + clientRandom,
+                          outputLength)
+        # Calculations for Finished value, either for message sent
+        # by server or by client
+        elif label == "ssl3 client":
+            senderStr = b"\x43\x4C\x4E\x54"
+            ret = handshakeHashes.digestSSL(secret, senderStr)
+        elif label == "ssl3 server":
+            senderStr = b"\x53\x52\x56\x52"
+            ret = handshakeHashes.digestSSL(secret, senderStr)
+
+    # TLS1.0 or TLS1.1 calculations.
+    if version in ((3, 1), (3, 2)):
+        # Calculations for key expansion or master secret
+        if label in ["key expansion", "master secret"]:
+            ret = PRF(secret, bytearray(label, 'utf-8'),
+                      serverRandom + clientRandom,
+                      outputLength)
+        # Calculation for extended master secret
+        if label == "extended master secret":
+            ret = PRF(secret, bytearray(label, 'utf-8'),
+                      handshakeHashes.digest('md5') +
+                      handshakeHashes.digest('sha1') +
+                      outputLenght)
+        # Calculations for Finished value
+        elif label in ["server finished", "client finished"]:
+            ret = PRF(secret, bytearray(label, 'utf-8'),
+                      handshakeHashes.digest(),
+                      outputLength)
+
+    # TLS1.2 calculations.
+    if version == (3, 3):
+        # Calculations for key expansion or master secret
+        if label in ["key expansion", "master secret"]:
+            if cipherSuite in CipherSuite.sha384PrfSuites:
+                keyBlock = PRF_1_2_SHA384(secret, bytearray(label, 'utf-8'),
+                                          serverRandom + clientRandom,
+                                          outputLength)
+            else:
+                keyBlock = PRF_1_2(secret, bytearray(label, 'utf-8'),
+                                   serverRandom + clientRandom,
+                                   outputLength)
+        # Calculation for extended master secret or Finished value
+        if label in ["extended master secret", "server finished",
+                     "client finished"]:
+            if cipherSuite in CipherSuite.sha384PrfSuites:
+                ret = PRF_1_2_SHA384(secret, bytearray(label, 'utf-8'),
+                                     handshakeHashes.digest('sha384'),
+                                     outputLength)
+
+            else:
+                ret = PRF_1_2(secret, bytearray(label, 'utf-8'),
+                              handshakeHashes.digest('sha256'),
+                              outputLength)
+    return ret
+
+
+
+
 def makeX(salt, username, password):
     if len(username)>=256:
         raise ValueError("username too long")
