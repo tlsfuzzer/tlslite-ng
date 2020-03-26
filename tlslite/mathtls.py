@@ -595,6 +595,89 @@ def calcFinished(version, masterSecret, cipherSuite, handshakeHashes,
 
     return verifyData
 
+def calc_key(version, secret, cipher_suite, label, handshake_hashes=None,
+            client_random=None, server_random=None, output_length=None):
+    """
+    Method for calculating different keys depending on input.
+    It can be used to calculate finished value, master secret,
+    extended master secret or key expansion.
+
+    :param version: TLS protocol version
+    :type version: tuple(int, int)
+    :param bytearray secret: master secret or premasterSecret which will be
+        used in the PRF.
+    :param int cipher_suite: Negotiated cipher suite of the connection.
+    :param bytes label: label for the key you want to calculate
+        (ex. 'master secret', 'extended master secret', etc).
+    :param handshake_hashes: running hash of the handshake messages
+        needed for calculating extended master secret or finished value.
+    :type handshake_hashes: ~tlslite.handshakehashes.HandshakeHashes
+    :param bytearray client_random: client random needed for calculating
+        master secret or key expansion.
+    :param bytearray server_random: server random needed for calculating
+        master secret or key expansion.
+    :param int output_length: Number of bytes to output.
+    """
+
+
+    # SSL3 calculations.
+    if version == (3, 0):
+        # Calculating Finished value, either for message sent
+        # by server or by client
+        if label == b"client finished":
+            senderStr = b"\x43\x4C\x4E\x54"
+            return handshake_hashes.digestSSL(secret, senderStr)
+        elif label == b"server finished":
+            senderStr = b"\x53\x52\x56\x52"
+            return handshake_hashes.digestSSL(secret, senderStr)
+        else:
+            assert label in [b"key expansion", b"master secret"]
+            func = PRF_SSL
+
+    # TLS1.0 or TLS1.1 calculations.
+    elif version in ((3, 1), (3, 2)):
+        func = PRF
+        # Seed needed for calculating extended master secret
+        if label == b"extended master secret":
+            seed = handshake_hashes.digest('md5') + \
+                   handshake_hashes.digest('sha1')
+        # Seed needed for calculating Finished value
+        elif label in [b"server finished", b"client finished"]:
+            seed = handshake_hashes.digest()
+        else:
+            assert label in [b"key expansion", b"master secret"]
+
+    # TLS1.2 calculations.
+    else:
+        assert version == (3, 3)
+        if cipher_suite in CipherSuite.sha384PrfSuites:
+            func = PRF_1_2_SHA384
+            # Seed needed for calculating Finished value or extended master
+            # secret
+            if label in [b"extended master secret", b"server finished",
+                    b"client finished"]:
+                seed = handshake_hashes.digest('sha384')
+            else:
+                assert label in [b"key expansion", b"master secret"]
+        else:
+            # Same as above, just using sha256
+            func = PRF_1_2
+            if label in [b"extended master secret", b"server finished",
+                    b"client finished"]:
+                seed = handshake_hashes.digest('sha256')
+            else:
+                assert label in [b"key expansion", b"master secret"]
+
+    # Seed needed for calculating key expansion or master secret
+    if label == b"key expansion":
+        seed = server_random + client_random
+    if label == b"master secret":
+        seed = client_random + server_random
+
+    if func == PRF_SSL:
+        return func(secret, seed, output_length)
+    return func(secret, label, seed, output_length)
+
 def makeX(salt, username, password):
     if len(username)>=256:
         raise ValueError("username too long")
