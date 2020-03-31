@@ -13,6 +13,7 @@ from .utils.cryptomath import *
 from .constants import CipherSuite
 from .utils import tlshashlib as hashlib
 from .utils import tlshmac as hmac
+from .utils.deprecations import deprecated_method
 
 # 1024, 1536, 2048, 3072, 4096, 6144, and 8192 bit groups
 # Formatted to match lines in RFC
@@ -509,6 +510,7 @@ def PRF_SSL(secret, seed, length):
             index += 1
     return bytes
 
+@deprecated_method("Please use calcKey method instead.")
 def calcExtendedMasterSecret(version, cipherSuite, premasterSecret,
                              handshakeHashes):
     """Derive Extended Master Secret from premaster and handshake msgs"""
@@ -532,6 +534,7 @@ def calcExtendedMasterSecret(version, cipherSuite, premasterSecret,
     return masterSecret
 
 
+@deprecated_method("Please use calcKey method instead.")
 def calcMasterSecret(version, cipherSuite, premasterSecret, clientRandom,
                      serverRandom):
     """Derive Master Secret from premaster secret and random values"""
@@ -556,6 +559,7 @@ def calcMasterSecret(version, cipherSuite, premasterSecret, clientRandom,
         raise AssertionError()
     return masterSecret
 
+@deprecated_method("Please use calcKey method instead.")
 def calcFinished(version, masterSecret, cipherSuite, handshakeHashes,
                  isClient):
     """Calculate the Handshake protocol Finished value
