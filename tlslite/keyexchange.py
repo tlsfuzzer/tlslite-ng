@@ -6,7 +6,7 @@
 
 import ecdsa
 from .mathtls import goodGroupParameters, makeK, makeU, makeX, \
-        calcMasterSecret, paramStrength, RFC7919_GROUPS
+        paramStrength, RFC7919_GROUPS, calcKey
 from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
         TLSIllegalParameterException, TLSDecryptionFailed, TLSInternalError, \
         TLSDecodeError
@@ -260,11 +260,11 @@ class KeyExchange(object):
                         prf_name = None, peer_tag=b'client', key_type="rsa"):
         """Calculate signed bytes for Certificate Verify"""
         if version == (3, 0):
-            masterSecret = calcMasterSecret(version,
-                                            0,
-                                            premasterSecret,
-                                            clientRandom,
-                                            serverRandom)
+            masterSecret = calcKey(version, premasterSecret,
+                                   0, "master secret",
+                                   clientRandom=clientRandom,
+                                   serverRandom=serverRandom,
+                                   outputLength=48)
             verifyBytes = handshakeHashes.digestSSL(masterSecret, b"")
         elif version in ((3, 1), (3, 2)):
             if key_type != "ecdsa":

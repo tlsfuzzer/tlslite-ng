@@ -1788,16 +1788,16 @@ class TLSConnection(TLSRecordLayer):
             # use the certificate authentication, the hashes are the same
             if not cvhh:
                 cvhh = self._handshake_hash
-            masterSecret = calcExtendedMasterSecret(self.version,
-                                                    cipherSuite,
-                                                    premasterSecret,
-                                                    cvhh)
+            masterSecret = calcKey(self.version, premasterSecret,
+                                   cipherSuite, "extended master secret",
+                                   handshakeHashes=cvhh,
+                                   outputLength=48)
         else:
-            masterSecret = calcMasterSecret(self.version,
-                                            cipherSuite,
-                                            premasterSecret,
-                                            clientRandom,
-                                            serverRandom)
+            masterSecret = calcKey(self.version, premasterSecret,
+                                   cipherSuite, "master secret",
+                                   clientRandom=clientRandom,
+                                   serverRandom=serverRandom,
+                                   outputLength=48)
         self._calcPendingStates(cipherSuite, masterSecret, 
                                 clientRandom, serverRandom, 
                                 cipherImplementations)
@@ -4069,16 +4069,16 @@ class TLSConnection(TLSRecordLayer):
             # to regular handshake hash
             if not cvhh:
                 cvhh = self._handshake_hash
-            masterSecret = calcExtendedMasterSecret(self.version,
-                                                    cipherSuite,
-                                                    premasterSecret,
-                                                    cvhh)
+            masterSecret = calcKey(self.version, premasterSecret,
+                                   cipherSuite, "extended master secret",
+                                   handshakeHashes=cvhh,
+                                   outputLength=48)
         else:
-            masterSecret = calcMasterSecret(self.version,
-                                            cipherSuite,
-                                            premasterSecret,
-                                            clientRandom,
-                                            serverRandom)
+            masterSecret = calcKey(self.version, premasterSecret,
+                                   cipherSuite, "master secret",
+                                   clientRandom=clientRandom,
+                                   serverRandom=serverRandom,
+                                   outputLength=48)
 
         #Calculate pending connection states
         self._calcPendingStates(cipherSuite, masterSecret, 
@@ -4125,12 +4125,16 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendMsg(nextProtoMsg):
                 yield result
 
+        #Figure out the correct label to use
+        if self._client:
+            label = "client finished"
+        else:
+            label = "server finished"
         #Calculate verification data
-        verifyData = calcFinished(self.version,
-                                  masterSecret,
-                                  cipherSuite,
-                                  self._handshake_hash,
-                                  self._client)
+        verifyData = calcKey(self.version, masterSecret,
+                             cipherSuite, label,
+                             handshakeHashes=self._handshake_hash,
+                             outputLength=12)
         if self.fault == Fault.badFinished:
             verifyData[0] = (verifyData[0]+1)%256
 
@@ -4175,12 +4179,17 @@ class TLSConnection(TLSRecordLayer):
         if nextProto:
             self.next_proto = nextProto
 
+        #Figure out which label to use.
+        if self._client:
+            label = "server finished"
+        else:
+            label = "client finished"
+
         #Calculate verification data
-        verifyData = calcFinished(self.version,
-                                  masterSecret,
-                                  cipherSuite,
-                                  self._handshake_hash,
-                                  not self._client)
+        verifyData = calcKey(self.version, masterSecret,
+                             cipherSuite, label,
+                             handshakeHashes=self._handshake_hash,
+                             outputLength=12)
 
         #Get and check Finished message under new state
         for result in self._getMsg(ContentType.handshake,
