@@ -30,8 +30,7 @@ from .utils.constanttime import ct_compare_digest, ct_check_cbc_mac_and_pad
 from .errors import TLSRecordOverflow, TLSIllegalParameterException,\
         TLSAbruptCloseError, TLSDecryptionFailed, TLSBadRecordMAC, \
         TLSUnexpectedMessage
-from .mathtls import createMAC_SSL, createHMAC, PRF_SSL, PRF, PRF_1_2, \
-        PRF_1_2_SHA384
+from .mathtls import createMAC_SSL, createHMAC, calc_key
 
 class RecordSocket(object):
     """
@@ -1097,34 +1096,6 @@ class RecordLayer(object):
 
         return createMACFunc
 
-    def _calcKeyBlock(self, cipherSuite, masterSecret, clientRandom,
-                      serverRandom, outputLength):
-        """Calculate the overall key to slice up"""
-        if self.version == (3, 0):
-            keyBlock = PRF_SSL(masterSecret,
-                               serverRandom + clientRandom,
-                               outputLength)
-        elif self.version in ((3, 1), (3, 2)):
-            keyBlock = PRF(masterSecret,
-                           b"key expansion",
-                           serverRandom + clientRandom,
-                           outputLength)
-        elif self.version == (3, 3):
-            if cipherSuite in CipherSuite.sha384PrfSuites:
-                keyBlock = PRF_1_2_SHA384(masterSecret,
-                                          b"key expansion",
-                                          serverRandom + clientRandom,
-                                          outputLength)
-            else:
-                keyBlock = PRF_1_2(masterSecret,
-                                   b"key expansion",
-                                   serverRandom + clientRandom,
-                                   outputLength)
-        else:
-            raise AssertionError()
-
-        return keyBlock
-
     def calcSSL2PendingStates(self, cipherSuite, masterSecret, clientRandom,
                               serverRandom, implementations):
         """
@@ -1215,8 +1186,10 @@ class RecordLayer(object):
         outputLength = (macLength*2) + (keyLength*2) + (ivLength*2)
 
         #Calculate Keying Material from Master Secret
-        keyBlock = self._calcKeyBlock(cipherSuite, masterSecret, clientRandom,
-                                      serverRandom, outputLength)
+        keyBlock = calc_key(self.version, masterSecret, cipherSuite,
+                            b"key expansion", client_random=clientRandom,
+                            server_random=serverRandom,
+                            output_length=outputLength)
 
         #Slice up Keying Material
         clientPendingState = ConnectionState()
