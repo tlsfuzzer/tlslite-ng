@@ -17,7 +17,8 @@ except ImportError:
     from unittest.mock import call
 
 from tlslite.utils.deprecations import deprecated_params, \
-        deprecated_attrs, deprecated_class_name
+        deprecated_attrs, deprecated_class_name, \
+        deprecated_method
 
 # see https://github.com/pytest-dev/py/issues/110
 # preload the list until the list of loaded modules is static
@@ -452,3 +453,19 @@ class TestDeprecatedFields(unittest.TestCase):
         self.assertFalse(hasattr(Clazz, "new_cvar"))
         with self.assertWarns(DeprecationWarning) as e:
             self.assertFalse(hasattr(Clazz, "old_cvar"))
+
+
+class TestDeprecatedMethods(unittest.TestCase):
+    def test_deprecated_method(self):
+
+        @deprecated_method("Please use foo method instead.")
+        def test(param):
+            return param
+
+        with self.assertWarns(DeprecationWarning) as e:
+            r = test("test")
+            self.assertEqual(r, "test")
+
+        self.assertEqual("test is a deprecated method. Please" \
+                         " use foo method instead.",
+                         str(e.warning))
