@@ -26,7 +26,7 @@ from tlslite.errors import TLSAbruptCloseError, TLSLocalAlert, \
 from tlslite.extensions import TLSExtension
 from tlslite.constants import ContentType, HandshakeType, CipherSuite, \
         CertificateType
-from tlslite.mathtls import calcMasterSecret, PRF_1_2
+from tlslite.mathtls import PRF_1_2, calc_key
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
 from tlslite.utils.keyfactory import parsePEMKey
@@ -724,11 +724,12 @@ class TestTLSRecordLayer(unittest.TestCase):
             else:
                 break
 
-        master_secret = calcMasterSecret((3,3),
-                                         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
-                                         premasterSecret,
-                                         client_hello.random,
-                                         server_hello.random)
+        master_secret = calc_key((3, 3), premasterSecret,
+                                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                b"master secret",
+                                client_random=client_hello.random,
+                                server_random=server_hello.random,
+                                output_length=48)
 
         record_layer._calcPendingStates(
                 CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
@@ -774,11 +775,13 @@ class TestTLSRecordLayer(unittest.TestCase):
         self.assertEqual(bytearray(b'\x03\x03' + b'\x00'*46),
                 srv_premaster_secret)
 
-        srv_master_secret = calcMasterSecret(srv_record_layer.version,
-                                             CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
-                                             srv_premaster_secret,
-                                             srv_client_hello.random,
-                                             srv_server_hello.random)
+        srv_master_secret = calc_key(srv_record_layer.version,
+                                    srv_premaster_secret,
+                                    CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                    b"master secret",
+                                    client_random=srv_client_hello.random,
+                                    server_random=srv_server_hello.random,
+                                    output_length=48)
 
         srv_record_layer._calcPendingStates(srv_cipher_suite,
                 srv_master_secret, srv_client_hello.random,
@@ -972,11 +975,12 @@ class TestTLSRecordLayer(unittest.TestCase):
             else:
                 break
 
-        master_secret = calcMasterSecret((3,3),
-                                         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
-                                         premasterSecret,
-                                         client_hello.random,
-                                         server_hello.random)
+        master_secret = calc_key((3, 3), premasterSecret,
+                                CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                b"master secret",
+                                client_random=client_hello.random,
+                                server_random=server_hello.random,
+                                output_length=48)
 
         record_layer._calcPendingStates(
                 CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,

@@ -202,3 +202,17 @@ def deprecated_attrs(names, warn="Attribute '{old_name}' is deprecated, "
         orig_vars.pop('__weakref__', None)
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
     return wrapper
+
+def deprecated_method(message):
+    """Decorator for deprecating methods.
+
+    :param ste message: The message you want to display.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn("{0} is a deprecated method. {1}".format(func.__name__, message),
+                          DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator

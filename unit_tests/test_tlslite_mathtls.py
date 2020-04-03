@@ -9,15 +9,17 @@ try:
 except ImportError:
         import unittest
 
-from tlslite.mathtls import PRF_1_2, calcMasterSecret, calcFinished, \
-        calcExtendedMasterSecret, paramStrength
+from tlslite.mathtls import PRF_1_2, calc_key, paramStrength
 from tlslite.handshakehashes import HandshakeHashes
 from tlslite.constants import CipherSuite
 
 class TestCalcMasterSecret(unittest.TestCase):
     def test_with_empty_values(self):
-        ret = calcMasterSecret((3, 3), 0, bytearray(48), bytearray(32),
-                               bytearray(32))
+        ret = calc_key((3, 3), bytearray(48), 0,
+                       b"master secret",
+                       client_random=bytearray(32),
+                       server_random=bytearray(32),
+                       output_length=48)
 
         self.assertEqual(bytearray(
             b'I\xcf\xae\xe5[\x86\x92\xd3\xbbm\xd6\xeekSo/' +
@@ -32,10 +34,10 @@ class TestCalcExtendedMasterSecret(unittest.TestCase):
         self.handshakeHashes.update(bytearray(48))
 
     def test_with_TLS_1_0(self):
-        ret = calcExtendedMasterSecret((3, 1),
-                                       0,
-                                       bytearray(48),
-                                       self.handshakeHashes)
+        ret = calc_key((3, 1), bytearray(48), 0,
+                       b"extended master secret",
+                       handshake_hashes=self.handshakeHashes,
+                       output_length=48)
         self.assertEqual(ret, bytearray(
             b'/\xe9\x86\xda\xda\xa9)\x1eyJ\xc9\x13E\xe4\xfc\xe7\x842m7(\xb4'
             b'\x98\xb7\xbc\xa5\xda\x1d\xf3\x15\xea\xdf:i\xeb\x9bA\x8f\xe7'
@@ -43,10 +45,10 @@ class TestCalcExtendedMasterSecret(unittest.TestCase):
             ))
 
     def test_with_TLS_1_2(self):
-        ret = calcExtendedMasterSecret((3, 3),
-                                       0,
-                                       bytearray(48),
-                                       self.handshakeHashes)
+        ret = calc_key((3, 3), bytearray(48), 0,
+                       b"extended master secret",
+                       handshake_hashes=self.handshakeHashes,
+                       output_length=48)
         self.assertEqual(ret, bytearray(
             b'\x03\xc93Yx\xcbjSEmz*\x0b\xc3\xc04G\xf3\xe3{\xee\x13\x8b\xac'
             b'\xd7\xb7\xe6\xbaY\x86\xd5\xf2o?\x8f\xc6\xf2\x19\x1d\x06\xe0N'
@@ -54,11 +56,12 @@ class TestCalcExtendedMasterSecret(unittest.TestCase):
             ))
 
     def test_with_TLS_1_2_and_SHA384_PRF(self):
-        ret = calcExtendedMasterSecret((3, 3),
-                                       CipherSuite.
-                                       TLS_RSA_WITH_AES_256_GCM_SHA384,
-                                       bytearray(48),
-                                       self.handshakeHashes)
+        ret = calc_key((3, 3), bytearray(48),
+                       CipherSuite.
+                       TLS_RSA_WITH_AES_256_GCM_SHA384,
+                       b"extended master secret",
+                       handshake_hashes=self.handshakeHashes,
+                       output_length=48)
         self.assertEqual(ret, bytearray(
             b"\xd6\xed}K\xfbo\xb2\xdb\xa4\xee\xa1\x0f\x8f\x07*\x84w/\xbf_"
             b"\xbd\xc1U^\x93\xcf\xe8\xca\x82\xb7_B\xa3O\xd9V\x86\x12\xfd\x08"
@@ -85,11 +88,9 @@ class TestCalcFinishedInSSL3(TestCalcFinished):
     def setUp(self):
         super(TestCalcFinishedInSSL3, self).setUp()
 
-        self.finished = calcFinished((3, 0),
-                                     bytearray(48),
-                                     0,
-                                     self.hhashes,
-                                     True)
+        self.finished = calc_key((3, 0), bytearray(48), 0, b"client finished",
+                                 handshake_hashes=self.hhashes,
+                                 output_length=12)
     def test_client_value(self):
         self.assertEqual(bytearray(
             b'\x15\xa9\xd7\xf1\x8bV\xecY\xab\xee\xbaS\x9c}\xffW\xa0'+
@@ -97,7 +98,9 @@ class TestCalcFinishedInSSL3(TestCalcFinished):
             self.finished)
 
     def test_server_value(self):
-        ret = calcFinished((3, 0), bytearray(48), 0, self.hhashes, False)
+        ret = calc_key((3, 0), bytearray(48), 0, b"server finished",
+                       handshake_hashes=self.hhashes,
+                       output_length=12)
 
         self.assertEqual(bytearray(
             b'\xe3^aCb\x8a\xfc\x98\xbf\xd7\x08\xddX\xdc[\xeac\x02\xdb'+
@@ -105,12 +108,16 @@ class TestCalcFinishedInSSL3(TestCalcFinished):
             ret)
 
     def test_if_multiple_runs_are_the_same(self):
-        ret2 = calcFinished((3, 0), bytearray(48), 0, self.hhashes, True)
+        ret2 = calc_key((3, 0), bytearray(48), 0, b"client finished",
+                        handshake_hashes=self.hhashes,
+                        output_length=12)
 
         self.assertEqual(self.finished, ret2)
 
     def test_if_client_and_server_values_differ(self):
-        ret_srv = calcFinished((3, 0), bytearray(48), 0, self.hhashes, False)
+        ret_srv = calc_key((3, 0), bytearray(48), 0, b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
 
         self.assertNotEqual(self.finished, ret_srv)
 
@@ -118,11 +125,9 @@ class TestCalcFinishedInTLS1_0(TestCalcFinished):
     def setUp(self):
         super(TestCalcFinishedInTLS1_0, self).setUp()
 
-        self.finished = calcFinished((3, 1),
-                                     bytearray(48),
-                                     0,
-                                     self.hhashes,
-                                     True)
+        self.finished = calc_key((3, 1), bytearray(48), 0, b"client finished",
+                                 handshake_hashes=self.hhashes,
+                                 output_length=12)
 
     def test_client_value(self):
         self.assertEqual(12, len(self.finished))
@@ -131,7 +136,9 @@ class TestCalcFinishedInTLS1_0(TestCalcFinished):
             self.finished)
 
     def test_server_value(self):
-        ret_srv = calcFinished((3, 1), bytearray(48), 0, self.hhashes, False)
+        ret_srv = calc_key((3, 1), bytearray(48), 0, b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
 
         self.assertEqual(12, len(ret_srv))
         self.assertEqual(bytearray(
@@ -139,12 +146,16 @@ class TestCalcFinishedInTLS1_0(TestCalcFinished):
             ret_srv)
 
     def test_if_client_and_server_values_differ(self):
-        ret_srv = calcFinished((3, 1), bytearray(48), 0, self.hhashes, False)
+        ret_srv = calc_key((3, 1), bytearray(48), 0, b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
 
         self.assertNotEqual(self.finished, ret_srv)
 
     def test_if_values_for_TLS1_0_and_TLS1_0_are_same(self):
-        ret = calcFinished((3, 2), bytearray(48), 0, self.hhashes, True)
+        ret = calc_key((3, 2), bytearray(48), 0, b"client finished",
+                       handshake_hashes=self.hhashes,
+                       output_length=12)
 
         self.assertEqual(self.finished, ret)
 
@@ -152,11 +163,9 @@ class TestCalcFinishedInTLS1_2WithSHA256(TestCalcFinished):
     def setUp(self):
         super(TestCalcFinishedInTLS1_2WithSHA256, self).setUp()
 
-        self.finished = calcFinished((3, 3),
-                                     bytearray(48),
-                                     0,
-                                     self.hhashes,
-                                     True)
+        self.finished = calc_key((3, 3), bytearray(48), 0, b"client finished",
+                                 handshake_hashes=self.hhashes,
+                                 output_length=12)
 
     def test_client_value(self):
         self.assertEqual(12, len(self.finished))
@@ -165,7 +174,9 @@ class TestCalcFinishedInTLS1_2WithSHA256(TestCalcFinished):
             self.finished)
 
     def test_server_value(self):
-        ret_srv = calcFinished((3, 3), bytearray(48), 0, self.hhashes, False)
+        ret_srv = calc_key((3, 3), bytearray(48), 0, b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
 
         self.assertEqual(12, len(self.finished))
         self.assertEqual(bytearray(
@@ -173,7 +184,9 @@ class TestCalcFinishedInTLS1_2WithSHA256(TestCalcFinished):
             ret_srv)
 
     def test_if_client_and_server_values_differ(self):
-       ret_srv = calcFinished((3, 3), bytearray(48), 0, self.hhashes, False)
+       ret_srv = calc_key((3, 3), bytearray(48), 0, b"server finished",
+                          handshake_hashes=self.hhashes,
+                          output_length=12)
 
        self.assertNotEqual(ret_srv, self.finished)
 
@@ -181,11 +194,11 @@ class TestCalcFinishedInTLS1_2WithSHA384(TestCalcFinished):
     def setUp(self):
         super(TestCalcFinishedInTLS1_2WithSHA384, self).setUp()
 
-        self.finished = calcFinished((3, 3),
-                                     bytearray(48),
-                                     CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
-                                     self.hhashes,
-                                     True)
+        self.finished = calc_key((3, 3), bytearray(48),
+                                 CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
+                                 b"client finished",
+                                 handshake_hashes=self.hhashes,
+                                 output_length=12)
 
     def test_client_value(self):
         self.assertEqual(12, len(self.finished))
@@ -194,17 +207,21 @@ class TestCalcFinishedInTLS1_2WithSHA384(TestCalcFinished):
             self.finished)
 
     def test_server_value(self):
-        ret_srv = calcFinished((3, 3), bytearray(48),
-                               CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
-                               self.hhashes, False)
+        ret_srv = calc_key((3, 3), bytearray(48),
+                           CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
+                           b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
         self.assertEqual(bytearray(
             b'\x02St\x13\xa8\xe6\xb6\xa2\x1c4\xff\xc5'),
             ret_srv)
 
     def test_if_client_and_server_values_differ(self):
-        ret_srv = calcFinished((3, 3), bytearray(48),
-                               CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
-                               self.hhashes, False)
+        ret_srv = calc_key((3, 3), bytearray(48),
+                           CipherSuite.TLS_RSA_WITH_AES_256_GCM_SHA384,
+                           b"server finished",
+                           handshake_hashes=self.hhashes,
+                           output_length=12)
         self.assertNotEqual(self.finished, ret_srv)
 
 
