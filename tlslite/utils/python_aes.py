@@ -31,7 +31,8 @@ class Python_AES(AES):
         self.IV = IV
 
     def encrypt(self, plaintext):
-        super(Python_AES, self).encrypt(plaintext)
+        #super(Python_AES, self).encrypt(plaintext)
+        AES.encrypt(self, plaintext)
 
         plaintextBytes = bytearray(plaintext)
         chainBytes = self.IV[:]
@@ -58,7 +59,8 @@ class Python_AES(AES):
         return plaintextBytes
 
     def decrypt(self, ciphertext):
-        super(Python_AES, self).decrypt(ciphertext)
+        # super(Python_AES, self).decrypt(ciphertext)
+        AES.decrypt(self, ciphertext)
 
         ciphertextBytes = ciphertext[:]
         chainBytes = self.IV[:]

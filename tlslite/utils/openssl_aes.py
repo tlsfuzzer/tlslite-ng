@@ -104,12 +104,10 @@ if m2cryptoLoaded:
             self._encrypt = encrypt
 
         def encrypt(self, plaintext):
-            AES.encrypt(self, plaintext)
             ciphertext = m2.cipher_update(self._context, plaintext)
             return bytearray(ciphertext)
 
         def decrypt(self, ciphertext):
-            AES.decrypt(self, ciphertext)
             plaintext = m2.cipher_update(self._context, ciphertext)
             return bytearray(plaintext)
 
