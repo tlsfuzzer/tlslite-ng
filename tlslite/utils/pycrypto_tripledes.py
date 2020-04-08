@@ -21,9 +21,11 @@ if pycryptoLoaded:
             self.context = Crypto.Cipher.DES3.new(key, mode, IV)
 
         def encrypt(self, plaintext):
+            TripleDES.encrypt(self, plaintext)
             plaintext = bytes(plaintext)
             return bytearray(self.context.encrypt(plaintext))
 
         def decrypt(self, ciphertext):
+            TripleDES.decrypt(self, ciphertext)
             ciphertext = bytes(ciphertext)
             return bytearray(self.context.decrypt(ciphertext))
