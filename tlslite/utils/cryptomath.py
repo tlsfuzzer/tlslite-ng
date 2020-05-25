@@ -50,11 +50,18 @@ except ImportError:
     gmpyLoaded = False
 
 #Try to load pycrypto
+# pylint: disable=invalid-name
 try:
     import Crypto.Cipher.AES
-    pycryptoLoaded = True
+    # check if we're not using pycryptodome
+    try:
+        Crypto.Cipher.AES.AESCipher(b'2' * (128//8))
+        pycryptoLoaded = True
+    except AttributeError:
+        pycryptoLoaded = False
 except ImportError:
     pycryptoLoaded = False
+# pylint: enable=invalid-name
 
 
 # **************************************************************************
