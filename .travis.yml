@@ -1,3 +1,6 @@
+dist: trusty
+sudo: false
+cache: pip
 language: python
 
 # whitelist branches on which tests will be run
@@ -14,53 +17,50 @@ addons:
     - swig
     # needed for GMPY
     - libgmp-dev
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
 
-python:
-  - 2.6
-  - 2.7
-  - 3.3
-  - 3.4
-  - 3.5
-  - 3.6
-  - 3.7
-
-# workaround for 3.7 not available in default configuration
-# travis-ci/travis-ci#9815
-dist: trusty
-sudo: false
-
-env:
-  - TACKPY=true
-  - TACKPY=false
-
-matrix:
-  exclude:
-    - env: TACKPY=true
-# workaround for 3.7 not available in default configuration
-# travis-ci/travis-ci#9815
-    - python: 3.7
+jobs:
   include:
+    - python: 2.6
+      env: TACKPY=false
+    - python: 2.7
+      env: TACKPY=false
+    - python: 3.3
+      env: TACKPY=false
+    - python: 3.4
+      env: TACKPY=false
+    - python: 3.5
+      env: TACKPY=false
+    - python: 3.6
+      env: TACKPY=false
+    - python: 3.7
+      dist: xenial
+      sudo: true
+      env: TACKPY=false
+    - python: 3.8
+      dist: xenial
+      sudo: true
+      env: TACKPY=false
     - python: 2.7
       env: TACKPY=true
     - python: 3.4
       env: TACKPY=true
     - python: 2.7
       env: M2CRYPTO=true
-    - python: 3.4
-      env: M2CRYPTO=true
     - python: 3.5
       env: M2CRYPTO=true
     - python: 3.6
       env: M2CRYPTO=true
-# workaround for 3.7 not available in default configuration
-# travis-ci/travis-ci#9815
     - python: 3.7
       dist: xenial
       sudo: true
       env: M2CRYPTO=true
+    - python: 3.8
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true
     - python: 2.7
-      env: PYCRYPTO=true
-    - python: 3.4
       env: PYCRYPTO=true
     - python: 3.5
       env: PYCRYPTO=true
@@ -70,9 +70,13 @@ matrix:
       dist: xenial
       sudo: true
       env: PYCRYPTO=true
+    # pycrypto doesn't work on Python 3.8 as time module doesn't have clock()
+    # any more
+    #- python: 3.8
+    #  dist: xenial
+    #  sudo: true
+    #  env: PYCRYPTO=true
     - python: 2.7
-      env: GMPY=true
-    - python: 3.4
       env: GMPY=true
     - python: 3.5
       env: GMPY=true
@@ -82,9 +86,11 @@ matrix:
       dist: xenial
       sudo: true
       env: GMPY=true
+    - python: 3.8
+      dist: xenial
+      sudo: true
+      env: GMPY=true
     - python: 2.7
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
-    - python: 3.4
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
     - python: 3.5
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true
@@ -94,6 +100,10 @@ matrix:
       dist: xenial
       sudo: true
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true CC_COV=true
+    - python: 3.8
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true GMPY=true
 
 before_install:
   - |
@@ -162,8 +172,6 @@ script:
           cd $TRAVIS_BUILD_DIR
         done
       fi
-
-sudo: false
 
 after_success:
  - travis_retry coveralls
