@@ -25,9 +25,20 @@ if m2cryptoLoaded:
             # IV argument/field names are a part of the interface
             # pylint: disable=invalid-name
             AES.__init__(self, key, mode, IV, "openssl")
-            self.IV, self._key = IV, key
+            self._IV, self._key = IV, key
             self._context = None
             self._encrypt = None
+
+        @property
+        def IV(self):
+            return self._IV
+
+        @IV.setter
+        def IV(self, iv):
+            if self._context is not None:
+                m2.cipher_ctx_free(self._context)
+            self._IV = iv
+            self._init_context()
 
         def _init_context(self, encrypt=True):
             if len(self._key) == 16:
@@ -37,7 +48,7 @@ if m2cryptoLoaded:
             if len(self._key) == 32:
                 cipherType = m2.aes_256_cbc()
             self._context = m2.cipher_ctx_new()
-            m2.cipher_init(self._context, cipherType, self._key, self.IV,
+            m2.cipher_init(self._context, cipherType, self._key, self._IV,
                            int(encrypt))
             m2.cipher_set_padding(self._context, 0)
             self._encrypt = encrypt
