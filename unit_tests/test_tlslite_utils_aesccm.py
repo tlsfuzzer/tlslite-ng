@@ -359,6 +359,198 @@ class TestAESCCM(unittest.TestCase):
                                    b'\x13\xc7\xf3\xdd\x8cK\n>^Q\xf1Q\xeb\x0f'
                                    b'\xfa\xe7\xc4=\x01\x0f\xdb'), encData)
 
+    def test_seal_multiple_messages(self):
+        key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                        b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+        aesCCM = AESCCM(key, "python", Rijndael(key, 16).encrypt)
+
+        nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+        data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xab\xad\xda\xd2')
+
+        plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                b'\xba\x63\x7b\x39'),
+                      bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9f'
+                                b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+        ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&\xab'
+                                 b'\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2\x01\'\xa7'
+                                 b'\xeb\x19&\xfa\x89\x057\x87\xff\x02\xd0}q'
+                                 b'\x81;\x88[\x85\xe7\xf9lN\xed\xf4 \xdb'
+                                 b'\x12j\x04Q\xce\x13\xbdA\xba\x028\xc3&'
+                                 b'\xb4{4\xf7\x8fe\x9eu'
+                                 b'\x10\x96\xcd"'),
+                       bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w\xd6?'
+                                 b'\x8c\x8c\x11\xd3\x99r\x95Za\x17\x10F'
+                                 b'\xb75\x17\x01\x14\xab\x0b\x12\x03KElyBoJ'
+                                 b'\xda\xaa\xc0\xa9\'\xb3\xd5\x12\xa2\x1fF,'
+                                 b'\x8e\x04\xf5{\xf8\xfdN\xfe\xe2\xe9x\xfe1'
+                                 b'\x175\xa6\xc4\\Q3\x80\xf4\xcaR\x8c')]
+
+        for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+            encData = aesCCM.seal(nonce, plaintext, data)
+            self.assertEqual(ciphertext, encData)
+
+        def test_open_multiple_messages(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+            aesCCM = AESCCM(key, "python", Rijndael(key, 16).encrypt)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd2')
+
+            plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                    b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                    b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                    b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                    b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                    b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                    b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                    b'\xba\x63\x7b\x39'),
+                          bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9f'
+                                    b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                    b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                    b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                    b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                    b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                    b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                    b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                    b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+            ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&\xab'
+                                     b'\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2\x01\'\xa7'
+                                     b'\xeb\x19&\xfa\x89\x057\x87\xff\x02\xd0}q'
+                                     b'\x81;\x88[\x85\xe7\xf9lN\xed\xf4 \xdb'
+                                     b'\x12j\x04Q\xce\x13\xbdA\xba\x028\xc3&'
+                                     b'\xb4{4\xf7\x8fe\x9eu'
+                                     b'\x10\x96\xcd"'),
+                           bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w\xd6?'
+                                     b'\x8c\x8c\x11\xd3\x99r\x95Za\x17\x10F'
+                                     b'\xb75\x17\x01\x14\xab\x0b\x12\x03KElyBoJ'
+                                     b'\xda\xaa\xc0\xa9\'\xb3\xd5\x12\xa2\x1fF,'
+                                     b'\x8e\x04\xf5{\xf8\xfdN\xfe\xe2\xe9x\xfe1'
+                                     b'\x175\xa6\xc4\\Q3\x80\xf4\xcaR\x8c')]
+
+            for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+                decData = aesCCM.open(nonce, ciphertext, data)
+                self.assertEqual(plaintext, decData)
+
+    def test_seal_multiple_messages_small_tag(self):
+        key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                        b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+        aesCCM = AESCCM(key, "python", Rijndael(key, 16).encrypt, 8)
+
+        nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+        data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xab\xad\xda\xd1')
+
+        plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                b'\xba\x63\x7b\x39'),
+                      bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9d'
+                                b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+        ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&'
+                                 b'\xab\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2'
+                                 b'\x01\'\xa7\xeb\x19&\xfa\x89\x057\x87'
+                                 b'\xff\x02\xd0}q\x81;\x88[\x85\xe7\xf9lN'
+                                 b'\xed\xf4 \xdb\x12j\x04Q\xce\x13\xbdA'
+                                 b'\xba\xa5\xb0\xec=\x94\xb7\'\xb9'),
+                       bytearray(b'\xbace\x8cG\x8c\x1bi\xbc\x93C\xf2w'
+                                 b'\xd6?\x8c\x8c\x11\xd3\x99r\x95Za'
+                                 b'\x17\x10F\xb75\x17\x01\x14\xab\x0b'
+                                 b'\x12\x03KElyBoJ\xda\xaa\xc0\xa9'
+                                 b'\'\xb3\xd5\x12\xa2\x1fF,\x8e\x04'
+                                 b'\xf5{\xf8\xfdN\xfe\xe2\xde\xb8\x0e'
+                                 b'\xb6\xb6M+\x02')]
+
+        for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+            encData = aesCCM.seal(nonce, plaintext, data)
+            self.assertEqual(ciphertext, encData)
+
+    def test_open_multiple_messages_small_tag(self):
+        key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                        b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+        aesCCM = AESCCM(key, "python", Rijndael(key, 16).encrypt, 8)
+
+        nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+        data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                         b'\xab\xad\xda\xd1')
+
+        plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                b'\xba\x63\x7b\x39'),
+                      bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9d'
+                                b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+        ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&'
+                                 b'\xab\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2'
+                                 b'\x01\'\xa7\xeb\x19&\xfa\x89\x057\x87'
+                                 b'\xff\x02\xd0}q\x81;\x88[\x85\xe7\xf9lN'
+                                 b'\xed\xf4 \xdb\x12j\x04Q\xce\x13\xbdA'
+                                 b'\xba\xa5\xb0\xec=\x94\xb7\'\xb9'),
+                       bytearray(b'\xbace\x8cG\x8c\x1bi\xbc\x93C\xf2w'
+                                 b'\xd6?\x8c\x8c\x11\xd3\x99r\x95Za'
+                                 b'\x17\x10F\xb75\x17\x01\x14\xab\x0b'
+                                 b'\x12\x03KElyBoJ\xda\xaa\xc0\xa9'
+                                 b'\'\xb3\xd5\x12\xa2\x1fF,\x8e\x04'
+                                 b'\xf5{\xf8\xfdN\xfe\xe2\xde\xb8\x0e'
+                                 b'\xb6\xb6M+\x02')]
+
+        for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+            decData = aesCCM.open(nonce, ciphertext, data)
+            self.assertEqual(plaintext, decData)
+
     if m2cryptoLoaded:
         def test_seal_with_test_vector_1_openssl(self):
             key = bytearray(b'\x00'*16)
@@ -474,3 +666,195 @@ class TestAESCCM(unittest.TestCase):
             self.assertEqual(bytearray(b'\xc1\x94@D\xc8\xe7\xaa\x95\xd2\xde\x95'
                                        b'\x13\xc7\xf3\xdd\x8cK\n>^Q\xf1Q\xeb\x0f'
                                        b'\xfa\xe7\xc4=\x01\x0f\xdb'), encData)
+
+        def test_seal_multiple_messages_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+            aesCCM = AESCCM(key, "openssl", Rijndael(key, 16).encrypt)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd2')
+
+            plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                    b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                    b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                    b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                    b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                    b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                    b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                    b'\xba\x63\x7b\x39'),
+                          bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9f'
+                                    b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                    b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                    b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                    b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                    b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                    b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                    b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                    b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+            ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&\xab'
+                                     b'\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2\x01\'\xa7'
+                                     b'\xeb\x19&\xfa\x89\x057\x87\xff\x02\xd0}q'
+                                     b'\x81;\x88[\x85\xe7\xf9lN\xed\xf4 \xdb'
+                                     b'\x12j\x04Q\xce\x13\xbdA\xba\x028\xc3&'
+                                     b'\xb4{4\xf7\x8fe\x9eu'
+                                     b'\x10\x96\xcd"'),
+                           bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w\xd6?'
+                                     b'\x8c\x8c\x11\xd3\x99r\x95Za\x17\x10F'
+                                     b'\xb75\x17\x01\x14\xab\x0b\x12\x03KElyBoJ'
+                                     b'\xda\xaa\xc0\xa9\'\xb3\xd5\x12\xa2\x1fF,'
+                                     b'\x8e\x04\xf5{\xf8\xfdN\xfe\xe2\xe9x\xfe1'
+                                     b'\x175\xa6\xc4\\Q3\x80\xf4\xcaR\x8c')]
+
+            for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+                encData = aesCCM.seal(nonce, plaintext, data)
+                self.assertEqual(ciphertext, encData)
+
+        def test_open_multiple_messages_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+            aesCCM = AESCCM(key, "openssl", Rijndael(key, 16).encrypt)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd2')
+
+            plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                    b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                    b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                    b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                    b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                    b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                    b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                    b'\xba\x63\x7b\x39'),
+                          bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9f'
+                                    b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                    b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                    b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                    b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                    b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                    b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                    b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                    b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+            ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&\xab'
+                                     b'\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2\x01\'\xa7'
+                                     b'\xeb\x19&\xfa\x89\x057\x87\xff\x02\xd0}q'
+                                     b'\x81;\x88[\x85\xe7\xf9lN\xed\xf4 \xdb'
+                                     b'\x12j\x04Q\xce\x13\xbdA\xba\x028\xc3&'
+                                     b'\xb4{4\xf7\x8fe\x9eu'
+                                     b'\x10\x96\xcd"'),
+                           bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w\xd6?'
+                                     b'\x8c\x8c\x11\xd3\x99r\x95Za\x17\x10F'
+                                     b'\xb75\x17\x01\x14\xab\x0b\x12\x03KElyBoJ'
+                                     b'\xda\xaa\xc0\xa9\'\xb3\xd5\x12\xa2\x1fF,'
+                                     b'\x8e\x04\xf5{\xf8\xfdN\xfe\xe2\xe9x\xfe1'
+                                     b'\x175\xa6\xc4\\Q3\x80\xf4\xcaR\x8c')]
+
+            for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+                decData = aesCCM.open(nonce, ciphertext, data)
+                self.assertEqual(plaintext, decData)
+
+        def test_seal_multiple_messages_small_tag_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+            aesCCM = AESCCM(key, "openssl", Rijndael(key, 16).encrypt, 8)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd1')
+
+            plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                    b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                    b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                    b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                    b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                    b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                    b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                    b'\xba\x63\x7b\x39'),
+                          bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9d'
+                                    b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                    b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                    b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                    b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                    b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                    b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                    b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                    b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+            ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&'
+                                     b'\xab\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2'
+                                     b'\x01\'\xa7\xeb\x19&\xfa\x89\x057\x87'
+                                     b'\xff\x02\xd0}q\x81;\x88[\x85\xe7\xf9lN'
+                                     b'\xed\xf4 \xdb\x12j\x04Q\xce\x13\xbdA'
+                                     b'\xba\xa5\xb0\xec=\x94\xb7\'\xb9'),
+                           bytearray(b'\xbace\x8cG\x8c\x1bi\xbc\x93C\xf2w'
+                                     b'\xd6?\x8c\x8c\x11\xd3\x99r\x95Za'
+                                     b'\x17\x10F\xb75\x17\x01\x14\xab\x0b'
+                                     b'\x12\x03KElyBoJ\xda\xaa\xc0\xa9'
+                                     b'\'\xb3\xd5\x12\xa2\x1fF,\x8e\x04'
+                                     b'\xf5{\xf8\xfdN\xfe\xe2\xde\xb8\x0e'
+                                     b'\xb6\xb6M+\x02')]
+
+            for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+                encData = aesCCM.seal(nonce, plaintext, data)
+                self.assertEqual(ciphertext, encData)
+
+        def test_open_multiple_messages_small_tag_openssl(self):
+            key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c' +
+                            b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+            aesCCM = AESCCM(key, "openssl", Rijndael(key, 16).encrypt, 8)
+
+            nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+            data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                             b'\xab\xad\xda\xd1')
+
+            plaintexts = [bytearray(b'\xd9\x31\x32\x25\xf8\x84\x06\xe5'
+                                    b'\xa5\x59\x09\xc5\xaf\xf5\x26\x9a'
+                                    b'\x86\xa7\xa9\x53\x15\x34\xf7\xda'
+                                    b'\x2e\x4c\x30\x3d\x8a\x31\x8a\x72'
+                                    b'\x1c\x3c\x0c\x95\x95\x68\x09\x53'
+                                    b'\x2f\xcf\x0e\x24\x49\xa6\xb5\x25'
+                                    b'\xb1\x6a\xed\xf5\xaa\x0d\xe6\x57'
+                                    b'\xba\x63\x7b\x39'),
+                          bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9d'
+                                    b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                    b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                    b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                    b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                    b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                    b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                    b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                    b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')]
+
+            ciphertexts = [bytearray(b'\x08\x93\xe9K\x91H\x80\x1a\xf0\xf74&'
+                                     b'\xab\xb0\x0e<\xa4\x9b\xf0\x9dy\xa2'
+                                     b'\x01\'\xa7\xeb\x19&\xfa\x89\x057\x87'
+                                     b'\xff\x02\xd0}q\x81;\x88[\x85\xe7\xf9lN'
+                                     b'\xed\xf4 \xdb\x12j\x04Q\xce\x13\xbdA'
+                                     b'\xba\xa5\xb0\xec=\x94\xb7\'\xb9'),
+                           bytearray(b'\xbace\x8cG\x8c\x1bi\xbc\x93C\xf2w'
+                                     b'\xd6?\x8c\x8c\x11\xd3\x99r\x95Za'
+                                     b'\x17\x10F\xb75\x17\x01\x14\xab\x0b'
+                                     b'\x12\x03KElyBoJ\xda\xaa\xc0\xa9'
+                                     b'\'\xb3\xd5\x12\xa2\x1fF,\x8e\x04'
+                                     b'\xf5{\xf8\xfdN\xfe\xe2\xde\xb8\x0e'
+                                     b'\xb6\xb6M+\x02')]
+
+            for plaintext, ciphertext in zip(plaintexts, ciphertexts):
+                decData = aesCCM.open(nonce, ciphertext, data)
+                self.assertEqual(plaintext, decData)
