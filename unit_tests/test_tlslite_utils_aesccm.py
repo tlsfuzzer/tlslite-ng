@@ -474,3 +474,105 @@ class TestAESCCM(unittest.TestCase):
             self.assertEqual(bytearray(b'\xc1\x94@D\xc8\xe7\xaa\x95\xd2\xde\x95'
                                        b'\x13\xc7\xf3\xdd\x8cK\n>^Q\xf1Q\xeb\x0f'
                                        b'\xfa\xe7\xc4=\x01\x0f\xdb'), encData)
+
+
+class TestAESCCMIdentical(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.plaintext = bytearray(b'\x6b\xc1\xbe\xe2\x2e\x40\x9f'
+                                   b'\x96\xe9\x3d\x7e\x11\x73\x93'
+                                   b'\x17\x2a\xae\x2d\x8a\x57\x1e'
+                                   b'\x03\xac\x9c\x9e\xb7\x6f\xac'
+                                   b'\x45\xaf\x8e\x51\x30\xc8\x1c'
+                                   b'\x46\xa3\x5c\xe4\x11\xe5\xfb'
+                                   b'\xc1\x19\x1a\x0a\x52\xef\xf6'
+                                   b'\x9f\x24\x45\xdf\x4f\x9b\x17'
+                                   b'\xad\x2b\x41\x7b\xe6\x6c\x37\x10')
+
+        self.ciphertext = bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w\xd6?'
+                                    b'\x8c\x8c\x11\xd3\x99r\x95Za\x17\x10F'
+                                    b'\xb75\x17\x01\x14\xab\x0b\x12\x03KElyBoJ'
+                                    b'\xda\xaa\xc0\xa9\'\xb3\xd5\x12\xa2\x1fF,'
+                                    b'\x8e\x04\xf5{\xf8\xfdN\xfe\xe2\xe9x\xfe1'
+                                    b'\x175\xa6\xc4\\Q3\x80\xf4\xcaR\x8c')
+
+        self.ciphertext_8 = bytearray(b'\xbace\x8cG\x8c\x19i\xbc\x93C\xf2w'
+                                      b'\xd6?\x8c\x8c\x11\xd3\x99r\x95Za'
+                                      b'\x17\x10F\xb75\x17\x01\x14\xab\x0b'
+                                      b'\x12\x03KElyBoJ\xda\xaa\xc0\xa9\'\xb3'
+                                      b'\xd5\x12\xa2\x1fF,\x8e\x04\xf5{\xf8'
+                                      b'\xfdN\xfe\xe2\x1f\xae\xeb\xcb:\xb2/\xd0')
+
+        self.key = bytearray(b'\xfe\xff\xe9\x92\x86\x65\x73\x1c'
+                             b'\x6d\x6a\x8f\x94\x67\x30\x83\x08')
+
+        self.nonce = bytearray(b'\xca\xfe\xba\xbe\xfa\xce\xdb\xad\xde\xca\xf8\x88')
+
+        self.data = bytearray(b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                              b'\xfe\xed\xfa\xce\xde\xad\xbe\xef'
+                              b'\xab\xad\xda\xd2')
+
+    def test_seal_identical_messages_python(self):
+
+        aesCCM = AESCCM(self.key, "python", Rijndael(self.key, 16).encrypt)
+
+        for _ in range(2):
+            encData = aesCCM.seal(self.nonce, self.plaintext, self.data)
+            self.assertEqual(self.ciphertext, encData)
+
+    def test_open_identical_messages_python(self):
+
+        aesCCM = AESCCM(self.key, "python", Rijndael(self.key, 16).encrypt)
+
+        for _ in range(2):
+            decData = aesCCM.open(self.nonce, self.ciphertext, self.data)
+            self.assertEqual(self.plaintext, decData)
+
+    def test_seal_identical_messages_8_python(self):
+
+        aesCCM = AESCCM(self.key, "python", Rijndael(self.key, 16).encrypt, 8)
+
+        for _ in range(2):
+            encData = aesCCM.seal(self.nonce, self.plaintext, self.data)
+            self.assertEqual(self.ciphertext_8, encData)
+
+    def test_open_identical_messages_8_python(self):
+
+        aesCCM = AESCCM(self.key, "python", Rijndael(self.key, 16).encrypt, 8)
+
+        for _ in range(2):
+            decData = aesCCM.open(self.nonce, self.ciphertext_8, self.data)
+            self.assertEqual(self.plaintext, decData)
+
+    if m2cryptoLoaded:
+        def test_seal_identical_messages_openssl(self):
+
+            aesCCM = openssl_aesccm.new(self.key)
+
+            for _ in range(2):
+                encData = aesCCM.seal(self.nonce, self.plaintext, self.data)
+                self.assertEqual(self.ciphertext, encData)
+
+        def test_open_identical_messages_openssl(self):
+
+            aesCCM = openssl_aesccm.new(self.key)
+
+            for _ in range(2):
+                decData = aesCCM.open(self.nonce, self.ciphertext, self.data)
+                self.assertEqual(self.plaintext, decData)
+
+        def test_seal_identical_messages_8_openssl(self):
+
+            aesCCM = openssl_aesccm.new(self.key, 8)
+
+            for _ in range(2):
+                encData = aesCCM.seal(self.nonce, self.plaintext, self.data)
+                self.assertEqual(self.ciphertext_8, encData)
+
+        def test_open_identical_messages_8_openssl(self):
+
+            aesCCM = openssl_aesccm.new(self.key, 8)
+
+            for _ in range(2):
+                decData = aesCCM.open(self.nonce, self.ciphertext_8, self.data)
+                self.assertEqual(self.plaintext, decData)
