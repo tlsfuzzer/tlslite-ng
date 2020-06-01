@@ -101,7 +101,12 @@ class AESCCM(object):
 
         mac = self._cbcmac_calc(nonce, aad, msg)
         self._ctr.counter = s_0
-        auth_value = self._ctr.encrypt(mac)
+        if self.tagLength == 16:
+            auth_value = self._ctr.encrypt(mac)
+        else:
+            assert self.tagLength == 8
+            self._pad_with_zeroes(mac, 16)
+            auth_value = self._ctr.encrypt(mac)[:8]
         enc_msg = self._ctr.encrypt(msg)
 
         ciphertext = enc_msg + auth_value
@@ -127,7 +132,12 @@ class AESCCM(object):
 
         # We decrypt the auth value
         self._ctr.counter = s_0
-        received_mac = self._ctr.decrypt(auth_value)
+        if self.tagLength == 16:
+            received_mac = self._ctr.decrypt(auth_value)
+        else:
+            assert self.tagLength == 8
+            self._pad_with_zeroes(auth_value, 16)
+            received_mac = self._ctr.decrypt(auth_value)[:8]
         msg = self._ctr.decrypt(ciphertext)
         msg = msg[:-self.tagLength]
         computed_mac = self._cbcmac_calc(nonce, aad, msg)
