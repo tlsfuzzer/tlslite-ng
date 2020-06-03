@@ -30,6 +30,12 @@ from . import tlshmac as hmac
 try:
     from M2Crypto import m2
     m2cryptoLoaded = True
+    m2cryptoAesCBC = False
+    m2cryptoAesCTR = False
+    if hasattr(m2, 'aes_192_cbc'):
+        m2cryptoAesCBC = True
+    if hasattr(m2, 'aes_192_ctr'):
+        m2cryptoAesCTR = True
 
     try:
         with open('/proc/sys/crypto/fips_enabled', 'r') as fipsFile:
