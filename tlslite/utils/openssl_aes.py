@@ -5,16 +5,36 @@
 
 from .cryptomath import *
 from .aes import *
+from .python_aes import Python_AES, Python_AES_CTR
 
 if m2cryptoLoaded:
+
+    def check_cipher_support(mode):
+        """
+        Check if the cipher is supported by m2crypto before using it,
+        and if it is not, fallback to the python implementation.
+        Checking one key size is enough, if one is supported, they are
+        all supported.
+        """
+        if mode == 2:
+            if hasattr(m2, 'aes_192_cbc'):
+                return OpenSSL_AES
+            return Python_AES
+        else:
+            assert mode == 6
+            if hasattr(m2, 'aes_192_ctr'):
+                return OpenSSL_CTR
+            return Python_AES_CTR
 
     def new(key, mode, IV):
         # IV argument name is a part of the interface
         # pylint: disable=invalid-name
         if mode == 2:
-            return OpenSSL_AES(key, mode, IV)
+            impl = check_cipher_support(mode)
+            return impl(key, mode, IV)
         elif mode == 6:
-            return OpenSSL_CTR(key, mode, IV)
+            impl = check_cipher_support(mode)
+            return impl(key, mode, IV)
         else:
             raise NotImplementedError()
 
