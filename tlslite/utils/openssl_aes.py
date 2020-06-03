@@ -5,16 +5,24 @@
 
 from .cryptomath import *
 from .aes import *
+from .python_aes import Python_AES_CTR
 
 if m2cryptoLoaded:
 
     def new(key, mode, IV):
         # IV argument name is a part of the interface
         # pylint: disable=invalid-name
+        """
+        Try using AES CTR from m2crpyto,
+        if it is not available fall back to the
+        python implementation.
+        """
         if mode == 2:
             return OpenSSL_AES(key, mode, IV)
         elif mode == 6:
-            return OpenSSL_CTR(key, mode, IV)
+            if M2CRYPTO_AES_CTR:
+                return OpenSSL_CTR(key, mode, IV)
+            return Python_AES_CTR(key, mode, IV)
         else:
             raise NotImplementedError()
 
