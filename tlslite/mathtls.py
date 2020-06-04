@@ -16,6 +16,9 @@ from .utils import tlshmac as hmac
 from .utils.deprecations import deprecated_method
 
 
+FFDHE_PARAMETERS = {}  # All well known parameters
+
+
 # 1024, 1536, 2048, 3072, 4096, 6144, and 8192 bit groups from RFC 5054
 # Formatted as in the RFC
 goodGroupParameters = [
@@ -162,6 +165,10 @@ goodGroupParameters = [
           60C980DD 98EDD3DF FFFFFFFF FFFFFFFF"""), 16))]
 
 
+for num, group in enumerate(goodGroupParameters, 1):
+    FFDHE_PARAMETERS["RFC5054 group {0}".format(num)] = group
+
+
 # old versions of tlslite had an incorrect generator for 3072 bit group
 # from RFC 5054. Since the group is a safe prime, the generator of "2" is
 # cryptographically safe, so we don't have reason to reject connections
@@ -192,6 +199,7 @@ FFDHE2048 = (
     886B4238 61285C97 FFFFFFFF FFFFFFFF"""), 16))
 goodGroupParameters.append(FFDHE2048)
 RFC7919_GROUPS.append(FFDHE2048)
+FFDHE_PARAMETERS["RFC7919 ffdhe2048"] = FFDHE2048
 
 
 # RFC 7919 ffdhe3072 bit group
@@ -216,6 +224,7 @@ FFDHE3072 = (
     3C1B20EE 3FD59D7C 25E41D2B 66C62E37 FFFFFFFF FFFFFFFF"""), 16))
 goodGroupParameters.append(FFDHE3072)
 RFC7919_GROUPS.append(FFDHE3072)
+FFDHE_PARAMETERS["RFC7919 ffdhe3072"] = FFDHE3072
 
 
 # RFC 7919 ffdhe4096 bit group
@@ -246,6 +255,7 @@ FFDHE4096 = (
     FFFFFFFF FFFFFFFF"""), 16))
 goodGroupParameters.append(FFDHE4096)
 RFC7919_GROUPS.append(FFDHE4096)
+FFDHE_PARAMETERS["RFC7919 ffdhe4096"] = FFDHE4096
 
 
 # RFC 7919 ffdhe6144 bit group
@@ -286,6 +296,7 @@ FFDHE6144 = (
     A41D570D 7938DAD4 A40E329C D0E40E65 FFFFFFFF FFFFFFFF"""), 16))
 goodGroupParameters.append(FFDHE6144)
 RFC7919_GROUPS.append(FFDHE6144)
+FFDHE_PARAMETERS["RFC7919 ffdhe6144"] = FFDHE6144
 
 
 # RFC 7919 ffdhe8192 bit group
@@ -337,6 +348,7 @@ FFDHE8192 = (
     D68C8BB7 C5C6424C FFFFFFFF FFFFFFFF"""), 16))
 goodGroupParameters.append(FFDHE8192)
 RFC7919_GROUPS.append(FFDHE8192)
+FFDHE_PARAMETERS["RFC7919 ffdhe8192"] = FFDHE8192
 
 
 def paramStrength(param):
