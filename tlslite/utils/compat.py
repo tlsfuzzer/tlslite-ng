@@ -4,6 +4,7 @@
 """Miscellaneous functions to mask Python version differences."""
 
 import sys
+import re
 import os
 import platform
 import math
@@ -75,6 +76,10 @@ if sys.version_info >= (3,0):
             return time.perf_counter()
         return time.clock()
 
+    def remove_whitespace(text):
+        """Removes all whitespace from passed in string"""
+        return re.sub(r"\s+", "", text, flags=re.UNICODE)
+
 else:
     # Python 2.6 requires strings instead of bytearrays in a couple places,
     # so we define this function so it does the conversion if needed.
@@ -83,8 +88,16 @@ else:
     if sys.version_info < (2, 7) or sys.version_info < (2, 7, 4) \
             or platform.system() == 'Java':
         def compat26Str(x): return str(x)
+
+        def remove_whitespace(text):
+            """Removes all whitespace from passed in string"""
+            return re.sub(r"\s+", "", text)
     else:
         def compat26Str(x): return x
+
+        def remove_whitespace(text):
+            """Removes all whitespace from passed in string"""
+            return re.sub(r"\s+", "", text, flags=re.UNICODE)
 
     def compatAscii2Bytes(val):
         """Convert ASCII string to bytes."""
