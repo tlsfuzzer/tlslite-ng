@@ -27,9 +27,13 @@ from . import tlshmac as hmac
 # **************************************************************************
 
 # Try to load M2Crypto/OpenSSL
+# pylint: disable=invalid-name
 try:
     from M2Crypto import m2
     m2cryptoLoaded = True
+    M2CRYPTO_AES_CTR = False
+    if hasattr(m2, 'aes_192_ctr'):
+        M2CRYPTO_AES_CTR = True
 
     try:
         with open('/proc/sys/crypto/fips_enabled', 'r') as fipsFile:
@@ -39,8 +43,13 @@ try:
         # looks like we're running in container, likely not FIPS mode
         m2cryptoLoaded = True
 
+    # If AES-CBC is not available, don't use m2crypto
+    if not hasattr(m2, 'aes_192_cbc'):
+        m2cryptoLoaded = False
+
 except ImportError:
     m2cryptoLoaded = False
+# pylint: enable=invalid-name
 
 #Try to load GMPY
 try:
