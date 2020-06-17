@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha37 (2020-02-17)
+tlslite-ng version 0.8.0-alpha38 (2020-06-17)
 
 [![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -655,6 +655,15 @@ may not work with all asyncore.dispatcher subclasses.
 * AES-CCM and AES-CCM8 support (in TLS 1.2 and TLS 1.3) (Ivan Nikolchev)
 * added support for configuring enabled ciphers in `tls.py` (Ivan Nikolchev)
 * two times faster 3DES when using m2crypto (Alexander Sosedkin)
+* correct handling of malformed X.509 certificates (Ivan Nikolchev)
+* speed up AES-CCM and AES-GCM when m2crypto is installed (Ivan Nikolchev)
+* client side checks for downgrade protection from TLS 1.3 (Ivan Nikolchev)
+* use TLS 1.3 test vectors to verify the implementation (Ivan Nikolchev)
+* unify master secret and finished calculation (Ivan Nikolchev)
+* detect pycryptodome, disable pycrypto code if it's present
+* add multiple well-known DH groups from RFC 2409, RFC 5114 and RFC 3526,
+  unify formatting of the existing DH group (use exactly the formatting used
+  in the RFC's)
 
 0.7.0 - 2017-07-31
 
