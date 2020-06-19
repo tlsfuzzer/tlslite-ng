@@ -54,9 +54,26 @@ except ImportError:
 #Try to load GMPY
 try:
     import gmpy
+    gmpy.mpz
     gmpyLoaded = True
 except ImportError:
     gmpyLoaded = False
+
+
+# Try to load GMPY2
+try:
+    from gmpy2 import powmod
+    GMPY2_LOADED = True
+except ImportError:
+    GMPY2_LOADED = False
+
+
+# Use the faster mpz
+if GMPY2_LOADED:
+    from gmpy2 import mpz
+elif gmpyLoaded:
+    from gmpy import mpz
+
 
 #Try to load pycrypto
 # pylint: disable=invalid-name
@@ -292,25 +309,35 @@ def gcd(a,b):
 def lcm(a, b):
     return (a * b) // gcd(a, b)
 
-#Returns inverse of a mod b, zero if none
-#Uses Extended Euclidean Algorithm
-def invMod(a, b):
-    c, d = a, b
-    uc, ud = 1, 0
-    while c != 0:
-        q = d // c
-        c, d = d-(q*c), c
-        uc, ud = ud - (q * uc), uc
-    if d == 1:
-        return ud % b
-    return 0
+# pylint: disable=invalid-name
+# disable pylint check as the (a, b) are part of the API
+if GMPY2_LOADED:
+    def invMod(a, b):
+        """Return inverse of a mod b, zero if none."""
+        if a == 0:
+            return 0
+        return powmod(a, -1, b)
+else:
+    # Use Extended Euclidean Algorithm
+    def invMod(a, b):
+        """Return inverse of a mod b, zero if none."""
+        c, d = a, b
+        uc, ud = 1, 0
+        while c != 0:
+            q = d // c
+            c, d = d-(q*c), c
+            uc, ud = ud - (q * uc), uc
+        if d == 1:
+            return ud % b
+        return 0
+# pylint: enable=invalid-name
 
 
-if gmpyLoaded:
+if gmpyLoaded or GMPY2_LOADED:
     def powMod(base, power, modulus):
-        base = gmpy.mpz(base)
-        power = gmpy.mpz(power)
-        modulus = gmpy.mpz(modulus)
+        base = mpz(base)
+        power = mpz(power)
+        modulus = mpz(modulus)
         result = pow(base, power, modulus)
         return compatLong(result)
 else:

@@ -7,7 +7,9 @@ from .cryptomath import *
 from .rsakey import *
 from .pem import *
 from .deprecations import deprecated_params
-if gmpyLoaded:
+if GMPY2_LOADED:
+    from gmpy2 import mpz
+elif gmpyLoaded:
     from gmpy import mpz
 
 class Python_RSAKey(RSAKey):
@@ -18,7 +20,7 @@ class Python_RSAKey(RSAKey):
         see also generate() and parsePEM()."""
         if (n and not e) or (e and not n):
             raise AssertionError()
-        if gmpyLoaded:
+        if gmpyLoaded or GMPY2_LOADED:
             n = mpz(n)
             e = mpz(e)
             d = mpz(d)
@@ -114,12 +116,12 @@ class Python_RSAKey(RSAKey):
         key = Python_RSAKey()
         p = getRandomPrime(bits//2, False)
         q = getRandomPrime(bits//2, False)
-        if gmpyLoaded:
+        if gmpyLoaded or GMPY2_LOADED:
             p = mpz(p)
             q = mpz(q)
         t = lcm(p-1, q-1)
         key.n = p * q
-        if gmpyLoaded:
+        if gmpyLoaded or GMPY2_LOADED:
             key.e = mpz(65537)
         else:
             key.e = 65537

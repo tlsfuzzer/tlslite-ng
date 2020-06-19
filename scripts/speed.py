@@ -1,9 +1,10 @@
 import timeit
 
-from tlslite.utils.cryptomath import gmpyLoaded
+from tlslite.utils.cryptomath import gmpyLoaded, GMPY2_LOADED
 
 print("Acceleration backends loaded:")
 print("gmpy: {0}".format(gmpyLoaded))
+print("gmpy2: {0}".format(GMPY2_LOADED))
 print("")
 
 def do(setup_statements, statement):

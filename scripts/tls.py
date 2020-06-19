@@ -71,7 +71,11 @@ def printUsage(s=None):
         print("  GMPY        : Loaded")
     else:
         print("  GMPY        : Not Loaded")
-    
+    if GMPY2_LOADED:
+        print("  GMPY2       : Loaded")
+    else:
+        print("  GMPY2       : Not Loaded")
+
     print("")
     print("""Commands:
 

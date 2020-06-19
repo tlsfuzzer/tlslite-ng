@@ -25,7 +25,7 @@ from .integration.xmlrpcserver import TLSXMLRPCRequestHandler, \
                                       MultiPathTLSXMLRPCServer
 
 from .utils.cryptomath import m2cryptoLoaded, gmpyLoaded, \
-                             pycryptoLoaded, prngName
+                             pycryptoLoaded, prngName, GMPY2_LOADED
 from .utils.keyfactory import generateRSAKey, parsePEMKey, \
                              parseAsPublicKey, parsePrivateKey
 from .utils.tackwrapper import tackpyLoaded

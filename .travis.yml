@@ -17,6 +17,9 @@ addons:
     - swig
     # needed for GMPY
     - libgmp-dev
+    # needed for GMPY2
+    - libmpfr-dev
+    - libmpc-dev
 before_cache:
   - rm -f $HOME/.cache/pip/log/debug.log
 
@@ -95,19 +98,33 @@ jobs:
       sudo: true
       env: GMPY=true
     - python: 2.7
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
+      env: GMPY2=true
     - python: 3.5
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
+      env: GMPY2=true
     - python: 3.6
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true
+      env: GMPY2=true
     - python: 3.7
       dist: xenial
       sudo: true
-      env: M2CRYPTO=true PYCRYPTO=true GMPY=true CC_COV=true
+      env: GMPY2=true
     - python: 3.8
       dist: xenial
       sudo: true
-      env: M2CRYPTO=true GMPY=true
+      env: GMPY2=true
+    - python: 2.7
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true GMPY2=true
+    - python: 3.5
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true GMPY2=true
+    - python: 3.6
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true GMPY2=true
+    - python: 3.7
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true PYCRYPTO=true GMPY=true GMPY2=true CC_COV=true
+    - python: 3.8
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true GMPY=true GMPY2=true
 
 before_install:
   - |
@@ -138,6 +155,7 @@ install:
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
   - if [[ $PYCRYPTODOME == 'true' ]]; then travis_retry pip install pycryptodome; fi
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
+  - if [[ $GMPY2 == 'true' ]]; then travis_retry pip install gmpy2; fi
   - travis_retry pip install -r requirements.txt
   - if [[ $CC_COV == 'true' ]]; then ./cc-test-reporter before-build; fi
 
