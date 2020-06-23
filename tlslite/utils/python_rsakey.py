@@ -7,6 +7,10 @@ from .cryptomath import *
 from .rsakey import *
 from .pem import *
 from .deprecations import deprecated_params
+if GMPY2_LOADED:
+    from gmpy2 import mpz
+elif gmpyLoaded:
+    from gmpy import mpz
 
 class Python_RSAKey(RSAKey):
     def __init__(self, n=0, e=0, d=0, p=0, q=0, dP=0, dQ=0, qInv=0,
@@ -16,6 +20,15 @@ class Python_RSAKey(RSAKey):
         see also generate() and parsePEM()."""
         if (n and not e) or (e and not n):
             raise AssertionError()
+        if gmpyLoaded or GMPY2_LOADED:
+            n = mpz(n)
+            e = mpz(e)
+            d = mpz(d)
+            p = mpz(p)
+            q = mpz(q)
+            dP = mpz(dP)
+            dQ = mpz(dQ)
+            qInv = mpz(qInv)
         self.n = n
         self.e = e
         if p and not q or not p and q:
@@ -48,44 +61,46 @@ class Python_RSAKey(RSAKey):
         return self.d != 0
 
     def _rawPrivateKeyOp(self, message):
+        n = self.n
         with self._lock:
             # Create blinding values, on the first pass:
             if not self.blinder:
-                self.unblinder = getRandomNumber(2, self.n)
-                self.blinder = powMod(invMod(self.unblinder, self.n), self.e,
-                                      self.n)
+                self.unblinder = getRandomNumber(2, n)
+                self.blinder = powMod(invMod(self.unblinder, n), self.e,
+                                      n)
             unblinder = self.unblinder
             blinder = self.blinder
 
             # Update blinding values
-            self.blinder = (self.blinder * self.blinder) % self.n
-            self.unblinder = (self.unblinder * self.unblinder) % self.n
+            self.blinder = (blinder * blinder) % n
+            self.unblinder = (unblinder * unblinder) % n
 
         # Blind the input
-        message = (message * blinder) % self.n
+        message = (message * blinder) % n
 
         # Perform the RSA operation
         cipher = self._rawPrivateKeyOpHelper(message)
 
         # Unblind the output
-        cipher = (cipher * unblinder) % self.n
+        cipher = (cipher * unblinder) % n
 
         # Return the output
         return cipher
 
     def _rawPrivateKeyOpHelper(self, m):
         #Non-CRT version
-        #c = powMod(m, self.d, self.n)
+        #c = pow(m, self.d, self.n)
 
-        #CRT version  (~3x faster)
-        s1 = powMod(m, self.dP, self.p)
-        s2 = powMod(m, self.dQ, self.q)
-        h = ((s1 - s2) * self.qInv) % self.p
-        c = s2 + self.q * h
+        #CRT version  (~3x faster).
+        p, q = self.p, self.q
+        s1 = pow(m, self.dP, p)
+        s2 = pow(m, self.dQ, q)
+        h = ((s1 - s2) * self.qInv) % p
+        c = s2 + q * h
         return c
 
     def _rawPublicKeyOp(self, ciphertext):
-        msg = powMod(ciphertext, self.e, self.n)
+        msg = pow(ciphertext, self.e, self.n)
         return msg
 
     def acceptsPassword(self):
@@ -101,9 +116,15 @@ class Python_RSAKey(RSAKey):
         key = Python_RSAKey()
         p = getRandomPrime(bits//2, False)
         q = getRandomPrime(bits//2, False)
+        if gmpyLoaded or GMPY2_LOADED:
+            p = mpz(p)
+            q = mpz(q)
         t = lcm(p-1, q-1)
         key.n = p * q
-        key.e = 65537
+        if gmpyLoaded or GMPY2_LOADED:
+            key.e = mpz(65537)
+        else:
+            key.e = 65537
         key.d = invMod(key.e, t)
         key.p = p
         key.q = q
