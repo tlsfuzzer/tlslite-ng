@@ -12,7 +12,8 @@ from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import *
 from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key
 from .utils.pem import *
-from .utils.compat import compatHMAC
+from .utils.compat import compatHMAC, b2a_hex
+from .constants import AlgorithmOID
 
 
 class X509(object):
@@ -41,6 +42,8 @@ class X509(object):
         self.publicKey = None
         self.subject = None
         self.certAlg = None
+        self.sigalg = None
+        self.issuer = None
 
     def __hash__(self):
         """Calculate hash of object."""
@@ -81,6 +84,20 @@ class X509(object):
         self.bytes = bytearray(bytes)
         parser = ASN1Parser(self.bytes)
 
+        # Get the SignatureAlgorithm
+        signature_algorithm_identifier = parser.getChild(1)
+        self.sigalg = b2a_hex(signature_algorithm_identifier.getChildBytes(0))
+
+        # Finally get the (hash, signature) pair coresponding to it
+        # If it is rsa-pss we need to check the aditional parameters field
+        # to extract the hash algorithm
+        if self.sigalg == '06092a864886f70d01010a':
+            sigalg_hash = signature_algorithm_identifier.getChild(1)
+            sigalg_hash = b2a_hex(sigalg_hash.getChild(0).value)
+            self.sigalg = AlgorithmOID.oid[sigalg_hash]
+        else:
+            self.sigalg = AlgorithmOID.oid[self.sigalg]
+
         # Get the tbsCertificate
         tbs_certificate = parser.getChild(0)
         # Is the optional version field present?
@@ -94,6 +111,10 @@ class X509(object):
 
         # Get serial number
         self.serial_number = bytesToNumber(tbs_certificate.getChild(serial_number_index).value)
+
+        # Get the issuer
+        self.issuer = tbs_certificate.getChildBytes(
+            subject_public_key_info_index - 3)
 
         # Get the subject
         self.subject = tbs_certificate.getChildBytes(
