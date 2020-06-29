@@ -13,6 +13,7 @@ from .utils.cryptomath import *
 from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key
 from .utils.pem import *
 from .utils.compat import compatHMAC
+from .constants import AlgorithmOID
 
 
 class X509(object):
@@ -41,6 +42,8 @@ class X509(object):
         self.publicKey = None
         self.subject = None
         self.certAlg = None
+        self.sigalg = None
+        self.issuer = None
 
     def __hash__(self):
         """Calculate hash of object."""
@@ -81,6 +84,28 @@ class X509(object):
         self.bytes = bytearray(bytes)
         parser = ASN1Parser(self.bytes)
 
+        # Get the SignatureAlgorithm
+        signature_algorithm_identifier = parser.getChild(1)
+        self.sigalg = signature_algorithm_identifier.getChild(0)
+
+        # Get the DER encoded OID as hex string
+        self.sigalg = bytearray([self.sigalg.type.tag_id]) + \
+                      bytearray([self.sigalg.length]) + \
+                      self.sigalg.value
+        self.sigalg = bytesToNumber(self.sigalg)
+
+        # Finally get the (hash, signature) pair coresponding to it
+        # If it is rsa-pss we need to check the aditional parameters field
+        # to extract the hash algorithm
+        if AlgorithmOID.oid[self.sigalg] == 8:
+            sigalg_hash = signature_algorithm_identifier.getChild(1)
+            sigalg_hash = bytesToNumber(sigalg_hash.getChild(0).value)
+
+            self.sigalg = (AlgorithmOID.oid[self.sigalg],
+                           AlgorithmOID.oid[sigalg_hash])
+        else:
+            self.sigalg = AlgorithmOID.oid[self.sigalg]
+
         # Get the tbsCertificate
         tbs_certificate = parser.getChild(0)
         # Is the optional version field present?
@@ -94,6 +119,10 @@ class X509(object):
 
         # Get serial number
         self.serial_number = bytesToNumber(tbs_certificate.getChild(serial_number_index).value)
+
+        # Get the issuer
+        self.issuer = tbs_certificate.getChildBytes(
+            subject_public_key_info_index - 3)
 
         # Get the subject
         self.subject = tbs_certificate.getChildBytes(

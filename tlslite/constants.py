@@ -203,6 +203,50 @@ class SignatureAlgorithm(TLSEnum):
     ed448 = 8  # RFC 8422
 
 
+class AlgorithmOID(TLSEnum):
+    """
+    Algorithm OIDs as defined in rfc5758(ecdsa),
+    rfc5754(rsa, sha), rfc3447(rss-pss).
+    The key is the DER encoded OID as a int and
+    the value is the algorithm id.
+    """
+    oid = {}
+
+    #ecdsa_sha1
+    oid[111196837196800525313] = (2, 3)
+    #ecdsa_sha224
+    oid[28484837066454644032257] = (3, 3)
+    #ecdsa_sha256
+    oid[28484837066454644032258] = (4, 3)
+    #ecdsa_sha384
+    oid[28484837066454644032259] = (5, 3)
+    #ecdsa_sha512
+    oid[28484837066454644032260] = (6, 3)
+
+    #rsa_sha1
+    oid[7296840655416892695052549] = (2, 1)
+    #rsa_sha224
+    oid[7296840655416892695052558] = (3, 1)
+    #rsa_sha256
+    oid[7296840655416892695052555] = (4, 1)
+    #rsa_sha384
+    oid[7296840655416892695052556] = (5, 1)
+    #rsa_sha512
+    oid[7296840655416892695052557] = (6, 1)
+
+    #rsa_pss
+    oid[7296840655416892695052554] = 8
+
+    #sha224
+    oid[3806363433629502450256813752836] = 3
+    #sha256
+    oid[3806363433629502450256813752833] = 4
+    #sha384
+    oid[3806363433629502450256813752834] = 5
+    #sha512
+    oid[3806363433629502450256813752835] = 6
+
+
 class SignatureScheme(TLSEnum):
     """
     Signature scheme used for signalling supported signature algorithms.
