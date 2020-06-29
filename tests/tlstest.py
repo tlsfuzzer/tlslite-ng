@@ -297,11 +297,46 @@ def clientTestCmd(argv):
     try:
         connection.handshakeClientCert(settings=settings)
         assert False
-    except TLSLocalAlert as e:
-        assert "certificate with curve" in str(e)
+    except TLSRemoteAlert as e:
+        assert "handshake_failure" in str(e)
     connection.close()
 
     test_no += 1
+
+    print("Test {0} - Two good ECDSA certs - secp256r1, TLSv1.2".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    settings.eccCurves = ["secp256r1"]
+    settings.keyShares = []
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
+            == 256
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - Two good ECDSA certs - secp384r1, TLSv1.2".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    settings.eccCurves = ["secp384r1"]
+    settings.keyShares = []
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
+            == 384
+    connection.close()
+
+    test_no += 1
+
 
     print("Test {0} - good X.509 ECDSA, TLSv1.3".format(test_no))
     synchro.recv(1)
@@ -1665,11 +1700,32 @@ def serverTestCmd(argv):
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
         assert False
-    except TLSRemoteAlert as e:
-        assert "handshake_failure" in str(e)
+    except TLSLocalAlert as e:
+        assert "curve in the public key is not supported by the client" in str(e)
     connection.close()
 
     test_no += 1
+
+    for curve, exp_chain in (("secp256r1", x509ecdsaChain),
+                             ("secp384r1", x509ecdsaP384Chain)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.2"
+              .format(test_no, curve))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 3)
+        settings.maxVersion = (3, 3)
+        v_host = VirtualHost()
+        v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
+        settings.virtual_hosts = [v_host]
+        connection.handshakeServer(certChain=x509ecdsaP384Chain,
+                                   privateKey=x509ecdsaP384Key, settings=settings)
+        assert connection.extendedMasterSecret
+        assert connection.session.serverCertChain == exp_chain
+        testConnServer(connection)
+        connection.close()
+
+        test_no += 1
 
     print("Test {0} - good X.509 ECDSA, TLSv1.3".format(test_no))
     synchro.send(b'R')
