@@ -297,8 +297,8 @@ def clientTestCmd(argv):
     try:
         connection.handshakeClientCert(settings=settings)
         assert False
-    except TLSLocalAlert as e:
-        assert "certificate with curve" in str(e)
+    except TLSRemoteAlert as e:
+        assert "handshake_failure" in str(e)
     connection.close()
 
     test_no += 1
@@ -1665,8 +1665,8 @@ def serverTestCmd(argv):
         connection.handshakeServer(certChain=x509ecdsaChain,
                                    privateKey=x509ecdsaKey, settings=settings)
         assert False
-    except TLSRemoteAlert as e:
-        assert "handshake_failure" in str(e)
+    except TLSLocalAlert as e:
+        assert "curve in the public key is not supported by the client" in str(e)
     connection.close()
 
     test_no += 1
