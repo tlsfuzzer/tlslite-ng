@@ -1690,7 +1690,7 @@ class TestSignatureAlgorithmsExtension(unittest.TestCase):
 
         self.assertEqual(repr(ext),
                 "SignatureAlgorithmsExtension("
-                "sigalgs=[rsa_pkcs1_sha1, rsa_pkcs1_sha256, (sha384, dsa)])")
+                "sigalgs=[rsa_pkcs1_sha1, rsa_pkcs1_sha256, dsa_sha384])")
 
     def test___repr___with_none(self):
         ext = SignatureAlgorithmsExtension()
@@ -1725,14 +1725,13 @@ class TestSignatureAlgorithmsCertExtension(unittest.TestCase):
         algs = [SignatureScheme.rsa_pkcs1_sha1,
                 SignatureScheme.rsa_pss_rsae_sha512,
                 SignatureScheme.rsa_pss_pss_sha256,
-                (HashAlgorithm.sha384,
-                 SignatureAlgorithm.dsa)]
+                SignatureScheme.dsa_sha384]
         ext = SignatureAlgorithmsCertExtension().create(algs)
 
         self.assertEqual(repr(ext),
                 "SignatureAlgorithmsCertExtension(sigalgs=["
                 "rsa_pkcs1_sha1, rsa_pss_rsae_sha512, rsa_pss_pss_sha256, "
-                "(sha384, dsa)])")
+                "dsa_sha384])")
 
     def test___repr___with_legacy_name(self):
         algs = [SignatureScheme.rsa_pss_sha256]
