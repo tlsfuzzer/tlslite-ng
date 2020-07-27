@@ -2,6 +2,7 @@
 
 from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
+from .python_dsakey import Python_DSAKey
 from .pem import dePem, pemSniff
 from .asn1parser import ASN1Parser
 from .cryptomath import bytesToNumber
@@ -25,7 +26,10 @@ class Python_Key(object):
             return Python_Key._parse_pkcs8(bytes)
         elif pemSniff(s, "RSA PRIVATE KEY"):
             bytes = dePem(s, "RSA PRIVATE KEY")
-            return Python_Key._parse_ssleay(bytes)
+            return Python_Key._parse_ssleay(bytes, "rsa")
+        elif pemSniff(s, "DSA PRIVATE KEY"):
+            bytes = dePem(s, "DSA PRIVATE KEY")
+            return Python_Key._parse_dsa_ssleay(bytes)
         elif pemSniff(s, "EC PRIVATE KEY"):
             bytes = dePem(s, "EC PRIVATE KEY")
             return Python_Key._parse_ecc_ssleay(bytes)
@@ -51,6 +55,8 @@ class Python_Key(object):
             key_type = "rsa"
         elif list(oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
             key_type = "rsa-pss"
+        elif list(oid.value) == [42, 134, 72, 206, 56, 4, 1]:
+            key_type = "dsa"
         elif list(oid.value) == [42, 134, 72, 206, 61, 2, 1]:
             key_type = "ecdsa"
         else:
@@ -64,6 +70,12 @@ class Python_Key(object):
             parameters = alg_ident.getChild(1)
             if parameters.value != bytearray(0):
                 raise SyntaxError("RSA parameters are not NULL")
+        if key_type == "dsa":
+            if seq_len != 2:
+                raise SyntaxError("Invalid encoding of algorithm identifier")
+            parameters = alg_ident.getChild(1)
+            if parameters.value == bytearray(0):
+                parameters = None
         elif key_type == "ecdsa":
             if seq_len != 2:
                 raise SyntaxError("Invalid encoding of algorithm identifier")
@@ -91,12 +103,14 @@ class Python_Key(object):
         if key_type == "ecdsa":
             return Python_Key._parse_ecdsa_private_key(private_key_parser,
                                                        curve)
+        elif key_type == "dsa":
+            return Python_Key._parse_dsa_private_key(private_key_parser, parameters)
         else:
             return Python_Key._parse_asn1_private_key(private_key_parser,
                                                       key_type)
 
     @staticmethod
-    def _parse_ssleay(data):
+    def _parse_ssleay(data, key_type="rsa"):
         """
         Parse binary structure of the old SSLeay file format used by OpenSSL.
 
@@ -104,7 +118,17 @@ class Python_Key(object):
         """
         private_key_parser = ASN1Parser(data)
         # "rsa" type as old format doesn't support rsa-pss parameters
-        return Python_Key._parse_asn1_private_key(private_key_parser, "rsa")
+        return Python_Key._parse_asn1_private_key(private_key_parser, key_type)
+
+    @staticmethod
+    def _parse_dsa_ssleay(data):
+        """
+        Parse binary structure of the old SSLeay file format used by OpenSSL.
+
+        For DSA keys.
+        """
+        private_key_parser = ASN1Parser(data)
+        return Python_Key._parse_dsa_private_key(private_key_parser)
 
     @staticmethod
     def _parse_ecc_ssleay(data):
@@ -167,3 +191,18 @@ class Python_Key(object):
         qInv = bytesToNumber(private_key_parser.getChild(8).value)
         return Python_RSAKey(n, e, d, p, q, dP, dQ, qInv, key_type)
 
+
+    @staticmethod
+    def _parse_dsa_private_key(private_key_parser, domain_parameters=None):
+        if domain_parameters:
+            p = bytesToNumber(domain_parameters.getChild(0).value)
+            q = bytesToNumber(domain_parameters.getChild(1).value)
+            g = bytesToNumber(domain_parameters.getChild(2).value)
+            x = bytesToNumber(private_key_parser.value)
+            return Python_DSAKey(p, q, g, x)
+        p = bytesToNumber(private_key_parser.getChild(1).value)
+        q = bytesToNumber(private_key_parser.getChild(2).value)
+        g = bytesToNumber(private_key_parser.getChild(3).value)
+        y = bytesToNumber(private_key_parser.getChild(4).value)
+        x = bytesToNumber(private_key_parser.getChild(5).value)
+        return Python_DSAKey(p, q, g, x, y)
