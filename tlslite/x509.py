@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Google - parsing subject field
 #
@@ -10,7 +10,8 @@ from ecdsa.keys import VerifyingKey
 
 from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import *
-from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key
+from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key,    \
+_create_public_dsa_key
 from .utils.pem import *
 from .utils.compat import compatHMAC
 
@@ -114,12 +115,14 @@ class X509(object):
             self.certAlg = "rsa"
         elif list(alg_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
             self.certAlg = "rsa-pss"
+        elif list(alg_oid) == [42, 134, 72, 206, 56, 4, 1]:
+            self.certAlg = "dsa"
         elif list(alg_oid) == [42, 134, 72, 206, 61, 2, 1]:
             self.certAlg = "ecdsa"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
-        # for RSA the parameters of AlgorithmIdentifier should be a NULL
+        # for RSA the parameters of AlgorithmIdentifier shuld be a NULL
         if self.certAlg == "rsa":
             if alg_identifier_len != 2:
                 raise SyntaxError("Missing parameters in AlgorithmIdentifier")
@@ -129,6 +132,10 @@ class X509(object):
                                   "AlgorithmIdentifier")
         elif self.certAlg == "ecdsa":
             self._ecdsa_pubkey_parsing(
+                tbs_certificate.getChildBytes(subject_public_key_info_index))
+            return
+        elif self.certAlg == "dsa":
+            self._dsa_pubkey_parsing(
                 tbs_certificate.getChildBytes(subject_public_key_info_index))
             return
         else:  # rsa-pss
@@ -188,6 +195,41 @@ class X509(object):
         y = public_key.pubkey.point.y()
         curve_name = public_key.curve.name
         self.publicKey = _create_public_ecdsa_key(x, y, curve_name)
+
+    def _dsa_pubkey_parsing(self, subject_public_key_info):
+
+        # Get the subjectPublicKey
+        subject_public_key = subject_public_key_info.getChild(1)
+        self.subject_public_key = subject_public_key_info.getChildBytes(1)
+        self.subject_public_key = ASN1Parser(self.subject_public_key).value[1:]
+
+        # Adjust for BIT STRING encapsulation
+        if subject_public_key.value[0]:
+            raise SyntaxError()
+        subject_public_key = ASN1Parser(subject_public_key.value[1:])
+
+        # Get the {A, p, q}
+        A = subject_public_key.getChild(0)
+        p = subject_public_key.getChild(1)
+        g = subject_public_key.getChild(2)
+
+        # q member is in the third element of subject_public_key_info
+        subject_public_key = subject_public_key_info.getChild(2)
+        # Adjust for BIT STRING encapsulation
+        if subject_public_key.value[0]:
+            raise SyntaxError()
+        subject_public_key = ASN1Parser(subject_public_key.value[1:])
+        # Get the {q}
+        q = subject_public_key.getChild(0)
+
+        # Decode them into numbers
+        A = bytesToNumber(A.value)
+        p = bytesToNumber(p.value)
+        q = bytesToNumber(q.value)
+        g = bytesToNumber(g.value)
+
+        # Create a public key instance
+        self.publicKey = _createPublicDSAKey(p, q, g, A)
 
     def getFingerprint(self):
         """

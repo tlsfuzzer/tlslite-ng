@@ -12,7 +12,38 @@ except ImportError:
 
 from tlslite.x509 import X509
 from tlslite.utils.python_ecdsakey import Python_ECDSAKey
+from tlslite.utils.python_dsakey import Python_DSAKey
 from tlslite.x509certchain import X509CertChain
+
+class TestX509(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data = (
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIICADCCAb4CFHkCg9fwn/zcM/TD6B64Tswz2kY0MAsGCWCGSAFlAwQDAjBCMQsw\n"
+                "CQYDVQQGEwJYWDEVMBMGA1UEBwwMRGVmYXVsdCBDaXR5MRwwGgYDVQQKDBNEZWZh\n"
+                "dWx0IENvbXBhbnkgTHRkMB4XDTIwMDgyNTEzMjQwMFoXDTIwMDkyNDEzMjQwMFow\n"
+                "QjELMAkGA1UEBhMCWFgxFTATBgNVBAcMDERlZmF1bHQgQ2l0eTEcMBoGA1UECgwT\n"
+                "RGVmYXVsdCBDb21wYW55IEx0ZDCB8DCBqAYHKoZIzjgEATCBnAJBAMlgtp55FiZi\n"
+                "qWYGfB4hPFUYOnqkk623ce+iaLwVcCbBdbyqVoKwUalRVD8T881/nQi397D1Z4In\n"
+                "Gl/JldQrHL8CFQCOjvJtjMV4nGb5ba3xBMPe9eNgKQJAaJUGAJWiBCX8B3F4L/aW\n"
+                "LYqtuLq5addIbqbPp/HTERrlhUVJT/q8X9pOs0XoYWQUFE8PEhQ4lg7rW8FpY2wG\n"
+                "QwNDAAJAWioQxgeLlYaWUAZ5Kn50XOdTIXeei2pT2lPQJRPiLal6lbRIjWtRBUxZ\n"
+                "5E8ZprqposeXmhXUD5yiH1j3QpO9tjALBglghkgBZQMEAwIDLwAwLAIUPbzET5yw\n"
+                "Q2X7BhyH54TexhH3qtUCFC7xATT0yhicbIwPd5hdby48/LPE\n"
+                "-----END CERTIFICATE-----")
+    def test_pem(self):
+        x509 = X509()
+        x509.parse(self.data)
+
+        self.assertIsNotNone(x509.publicKey)
+        self.assertIsInstance(x509.publicKey, Python_DSAKey)
+        self.assertEqual(x509.publicKey.public_key,
+            4722288530596455996646906166695523806692613655353447223282773465832779382040438176451429757221301981512642444955162317515065524082346317409775757603093942)
+        self.assertEqual(x509.publicKey.public_key.pubkey.point.y(),
+            12490546948316647166662676770106859255378658810545502161335656899238893361610)
+        self.assertEqual(x509.publicKey.curve_name, "NIST256p")
+
 
 class TestX509(unittest.TestCase):
     @classmethod
@@ -50,7 +81,6 @@ class TestX509(unittest.TestCase):
 
         self.assertEqual(hash(x509_1), hash(x509_2))
         self.assertEqual(x509_1, x509_2)
-
 
 class TestX509CertChain(unittest.TestCase):
     @classmethod
