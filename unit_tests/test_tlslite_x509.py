@@ -12,7 +12,39 @@ except ImportError:
 
 from tlslite.x509 import X509
 from tlslite.utils.python_ecdsakey import Python_ECDSAKey
+from tlslite.utils.python_dsakey import Python_DSAKey
 from tlslite.x509certchain import X509CertChain
+
+class Test_DSA_X509(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIBNDCB8gIUQrWDkwu5VYnhe9SyBeFYp/otKWkwCwYJYIZIAWUDBAMCMA0xCzAJ\n"
+            "BgNVBAYTAkNaMB4XDTIwMDgyODA3MDg1NloXDTIwMDkyNzA3MDg1NlowDTELMAkG\n"
+            "A1UEBhMCQ1owgY4wZwYHKoZIzjgEATBcAiEAmeFbCUhVUZgVpljXObhmRaQYIQ12\n"
+            "YSr9zlCja2kpTiUCFQCfCyagvEDkgK5nHqscaYlF32ekRwIgYgpNP8JjVxfJ4P3I\n"
+            "ErO07qqzWS21hSyMhsaCN0an0OsDIwACICUjj3Np+JO42v8Mc8oH6T8yNd5X0ssy\n"
+            "8XdK3Bo9nfNpMAsGCWCGSAFlAwQDAgMwADAtAhQcoHVOAhmfu3gFPp06M1Xsc4z6\n"
+            "gwIVAJJCk2RCfPj4AxnYemK1nn0GPH6Z\n"
+            "-----END CERTIFICATE-----\n")
+
+
+    def test_pem(self):
+        x509 = X509()
+        x509.parse(self.data)
+
+        self.assertIsNotNone(x509.publicKey)
+        self.assertIsInstance(x509.publicKey, Python_DSAKey)
+        self.assertEqual(x509.publicKey.public_key,
+                16798405106129606882295006910154614336997455047535738179977898112652777747305)
+        self.assertEqual(x509.publicKey.p,
+                69602034731989554929546346371414762967051205729581487767213360812510562307621)
+        self.assertEqual(x509.publicKey.q,
+                907978205720450240238233398695599264980368073799)
+        self.assertEqual(x509.publicKey.g,
+                44344860785224683582210580276798141855549498608976964582640232671615126065387)
+
 
 class TestX509(unittest.TestCase):
     @classmethod
@@ -50,7 +82,6 @@ class TestX509(unittest.TestCase):
 
         self.assertEqual(hash(x509_1), hash(x509_2))
         self.assertEqual(x509_1, x509_2)
-
 
 class TestX509CertChain(unittest.TestCase):
     @classmethod

@@ -14,6 +14,7 @@ except ImportError:
 from tlslite.utils.python_key import Python_Key
 from tlslite.utils.python_rsakey import Python_RSAKey
 from tlslite.utils.python_ecdsakey import Python_ECDSAKey
+from tlslite.utils.python_dsakey import Python_DSAKey
 
 class TestKey(unittest.TestCase):
     def test_rsa_key(self):
@@ -141,3 +142,16 @@ class TestKey(unittest.TestCase):
 
         self.assertIsInstance(parsed_key, Python_ECDSAKey)
         self.assertEqual(len(parsed_key), 521)
+
+    def test_dsa_key_pkcs8(self):
+        key_PKCS8 = (
+                "-----BEGIN PRIVATE KEY-----\n"
+                "MIGEAgEAMGcGByqGSM44BAEwXAIhAJnhWwlIVVGYFaZY1zm4ZkWkGCENdmEq/c5Q\n"
+                "o2tpKU4lAhUAnwsmoLxA5ICuZx6rHGmJRd9npEcCIGIKTT/CY1cXyeD9yBKztO6q\n"
+                "s1kttYUsjIbGgjdGp9DrBBYCFAmQlcW6FkMRHVfA7C82IVhQ89lo\n"
+                "-----END PRIVATE KEY-----\n")
+        parsed_key = Python_Key.parsePEM(key_PKCS8)
+        self.assertIsInstance(parsed_key, Python_DSAKey)
+        self.assertTrue(parsed_key.hasPrivateKey())
+        self.assertEqual(parsed_key.private_key,    \
+                54605271259585079176392566431938393409383029096)
