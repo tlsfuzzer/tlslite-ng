@@ -237,6 +237,12 @@ class SignatureScheme(TLSEnum):
     rsa_pss_sha384 = (8, 5)
     rsa_pss_sha512 = (8, 6)
 
+    dsa_sha1 = (2, 2)
+    dsa_sha224 = (3, 2)
+    dsa_sha256 = (4, 2)
+    dsa_sha384 = (5, 2)
+    dsa_sha512 = (6, 2)
+
     @classmethod
     def toRepr(cls, value, blacklist=None):
         """Convert numeric type to name representation"""
@@ -337,6 +343,16 @@ class AlgorithmOID(TLSEnum):
             SignatureScheme.rsa_pss_rsae_sha384
     oid[bytes(a2b_hex('300b0609608648016503040203'))] = \
             SignatureScheme.rsa_pss_rsae_sha512
+    oid[bytes(a2b_hex('06072A8648CE380403'))] = \
+            SignatureScheme.dsa_sha1
+    oid[bytes(a2b_hex('0609608648016503040301'))] = \
+            SignatureScheme.dsa_sha224
+    oid[bytes(a2b_hex('0609608648016503040302'))] = \
+            SignatureScheme.dsa_sha256
+    oid[bytes(a2b_hex('0609608648016503040303'))] = \
+            SignatureScheme.dsa_sha384
+    oid[bytes(a2b_hex('0609608648016503040304'))] = \
+            SignatureScheme.dsa_sha512
 
 
 class GroupName(TLSEnum):

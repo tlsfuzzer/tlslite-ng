@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Google - parsing subject field
 #
@@ -10,7 +10,8 @@ from ecdsa.keys import VerifyingKey
 
 from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import *
-from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key
+from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key,    \
+_create_public_dsa_key
 from .utils.pem import *
 from .utils.compat import compatHMAC, b2a_hex
 from .constants import AlgorithmOID, RSA_PSS_OID
@@ -135,12 +136,14 @@ class X509(object):
             self.certAlg = "rsa"
         elif list(alg_oid) == [42, 134, 72, 134, 247, 13, 1, 1, 10]:
             self.certAlg = "rsa-pss"
+        elif list(alg_oid) == [42, 134, 72, 206, 56, 4, 1]:
+            self.certAlg = "dsa"
         elif list(alg_oid) == [42, 134, 72, 206, 61, 2, 1]:
             self.certAlg = "ecdsa"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
-        # for RSA the parameters of AlgorithmIdentifier should be a NULL
+        # for RSA the parameters of AlgorithmIdentifier shuld be a NULL
         if self.certAlg == "rsa":
             if alg_identifier_len != 2:
                 raise SyntaxError("Missing parameters in AlgorithmIdentifier")
@@ -151,6 +154,9 @@ class X509(object):
         elif self.certAlg == "ecdsa":
             self._ecdsa_pubkey_parsing(
                 tbs_certificate.getChildBytes(subject_public_key_info_index))
+            return
+        elif self.certAlg == "dsa":
+            self._dsa_pubkey_parsing(subject_public_key_info)
             return
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
@@ -209,6 +215,36 @@ class X509(object):
         y = public_key.pubkey.point.y()
         curve_name = public_key.curve.name
         self.publicKey = _create_public_ecdsa_key(x, y, curve_name)
+
+    def _dsa_pubkey_parsing(self, subject_public_key_info):
+        """
+        Convert the raw DER encoded DSA parameters into public key object
+
+        :param subject_public_key_info: bytes like object with DER encoded
+          global parameters and public key in it
+        """
+        global_parameters = (subject_public_key_info.getChild(0)).getChild(1)
+        # Get the subjectPublicKey
+        public_key = subject_public_key_info.getChild(1)
+
+        # Adjust for BIT STRING encapsulation and get hex value
+        if public_key.value[0]:
+            raise SyntaxError()
+        y = public_key.value[3:]
+
+        # Get the {A, p, q}
+        p = global_parameters.getChild(0)
+        q = global_parameters.getChild(1)
+        g = global_parameters.getChild(2)
+
+        # Decode them into numbers
+        y = bytesToNumber(y)
+        p = bytesToNumber(p.value)
+        q = bytesToNumber(q.value)
+        g = bytesToNumber(g.value)
+
+        # Create a public key instance
+        self.publicKey = _create_public_dsa_key(p, q, g, y)
 
     def getFingerprint(self):
         """
