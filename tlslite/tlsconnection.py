@@ -3255,19 +3255,6 @@ class TLSConnection(TLSRecordLayer):
                 for result in self._sendMsg(alert):
                     yield result
 
-        try:
-            sig_scheme, cert_chain, private_key = \
-                self._pickServerKeyExchangeSig(settings,
-                                               clientHello,
-                                               cert_chain,
-                                               private_key,
-                                               version)
-        except TLSHandshakeFailure as alert:
-            for result in self._sendError(
-                    AlertDescription.handshake_failure,
-                    str(alert)):
-                yield result
-
         #Check if there's intersection between supported curves by client and
         #server
         clientGroups = clientHello.getExtension(ExtensionType.supported_groups)
@@ -3379,8 +3366,7 @@ class TLSConnection(TLSRecordLayer):
         cipherSuites = CipherSuite.filterForVersion(cipherSuites,
                                                     minVersion=version,
                                                     maxVersion=version)
-        cipherSuites = CipherSuite.filter_for_certificate(cipherSuites,
-                                                          cert_chain)
+
         #If resumption was requested and we have a session cache...
         if clientHello.session_id and sessionCache:
             session = None
@@ -3552,29 +3538,26 @@ class TLSConnection(TLSRecordLayer):
         #
         #Given the current ciphersuite ordering, this means we prefer SRP
         #over non-SRP.
-        for cipherSuite in cipherSuites:
-            if cipherSuite in clientHello.cipher_suites:
-                break
-        else:
-            if clientGroups and \
-                    any(i in range(256, 512) for i in clientGroups) and \
-                    any(i in CipherSuite.dhAllSuites
-                        for i in clientHello.cipher_suites):
-                for result in self._sendError(
-                        AlertDescription.insufficient_security,
-                        "FFDHE groups not acceptable and no other common "
-                        "ciphers"):
-                    yield result
-            else:
-                for result in self._sendError(\
-                        AlertDescription.handshake_failure,
-                        "No mutual ciphersuite"):
-                    yield result
-        if cipherSuite in CipherSuite.srpAllSuites and \
-                            not clientHello.srp_username:
-            for result in self._sendError(\
-                    AlertDescription.unknown_psk_identity,
-                    "Client sent a hello, but without the SRP username"):
+
+        try:
+            cipherSuite, sig_scheme, cert_chain, private_key = \
+                    self._server_select_certificate(settings, clientHello,
+                                                    cipherSuites, cert_chain,
+                                                    private_key, version)
+        except TLSHandshakeFailure as err:
+            for result in self._sendError(
+                    AlertDescription.handshake_failure,
+                    str(err)):
+                yield result
+        except TLSInsufficientSecurity as err:
+            for result in self._sendError(
+                    AlertDescription.insufficient_security,
+                    str(err)):
+                yield result
+        except TLSIllegalParameterException as err:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    str(err)):
                 yield result
 
         #If an RSA suite is chosen, check for certificate type intersection
@@ -3844,6 +3827,147 @@ class TLSConnection(TLSRecordLayer):
                 yield result
 
         yield premasterSecret, privateKey, serverCertChain
+
+    def _server_select_certificate(self, settings, client_hello,
+                                   cipher_suites, cert_chain,
+                                   private_key, version):
+        """
+        This method makes the decision on which certificate/key pair,
+        signature algorithm and cipher to use based on the certificate.
+        """
+
+        last_cert = False
+        possible_certs = []
+
+        # Get client groups
+        client_groups = client_hello. \
+                getExtension(ExtensionType.supported_groups)
+        if client_groups is not None:
+            client_groups = client_groups.groups
+
+        # If client did send signature_algorithms_cert use it,
+        # otherwise fallback to signature_algorithms.
+        # Client can also decide not to send sigalg extension
+        client_sigalgs = \
+                client_hello. \
+                getExtension(ExtensionType.signature_algorithms_cert)
+        if client_sigalgs is not None:
+            client_sigalgs = \
+                    client_hello. \
+                    getExtension(ExtensionType.signature_algorithms_cert). \
+                    sigalgs
+        else:
+            client_sigalgs = \
+                    client_hello. \
+                    getExtension(ExtensionType.signature_algorithms)
+            if client_sigalgs is not None:
+                client_sigalgs = \
+                        client_hello. \
+                        getExtension(ExtensionType.signature_algorithms). \
+                        sigalgs
+            else:
+                client_sigalgs = []
+
+        # Get all the certificates we can offer
+        alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
+                     settings.virtual_hosts for i in vh.keys)
+        certs = [(cert, key)
+                 for cert, key in chain([(cert_chain, private_key)], alt_certs)]
+
+        for cert, key in certs:
+
+            # Check if this is the last (cert, key) pair we have to check
+            if (cert, key) == certs[-1]:
+                last_cert = True
+
+            # Mandatory checks. If any one of these checks fail, the certificate
+            # is not usuable.
+            try:
+                # Find a suitable ciphersuite based on the certificate
+                ciphers = CipherSuite.filter_for_certificate(cipher_suites, cert)
+                for cipher in ciphers:
+                    if cipher in client_hello.cipher_suites:
+                        break
+                else:
+                    if client_groups and \
+                        any(i in range(256, 512) for i in client_groups) and \
+                        any(i in CipherSuite.dhAllSuites
+                            for i in client_hello.cipher_suites):
+                            raise TLSInsufficientSecurity(
+                                    "FFDHE groups not acceptable and no other common "
+                                    "ciphers")
+                    raise TLSHandshakeFailure("No mutual ciphersuite")
+
+                # Find a signature algorithm based on the certificate
+                try:
+                    sig_scheme, _, _ = \
+                        self._pickServerKeyExchangeSig(settings,
+                                                       client_hello,
+                                                       cert,
+                                                       key,
+                                                       version,
+                                                       False)
+                except TLSHandshakeFailure:
+                    raise TLSHandshakeFailure(
+                        "No common signature algorithms")
+
+                # If the certificate is ECDSA, we must check curve compatibility
+                if cert and cert.x509List[0].certAlg == 'ecdsa' and \
+                        client_groups and client_sigalgs:
+                    public_key = cert.getEndEntityPublicKey()
+                    curve = public_key.curve_name
+                    for name, aliases in CURVE_ALIASES.items():
+                        if curve in aliases:
+                            curve = getattr(GroupName, name)
+                            break
+
+                    if version <= (3, 3) and curve not in client_groups:
+                        raise TLSHandshakeFailure(
+                            "The curve in the public key is not "
+                            "supported by the client: {0}" \
+                                    .format(GroupName.toRepr(curve)))
+
+                    if version >= (3, 4):
+                        if GroupName.toRepr(curve) not in \
+                                ('secp256r1', 'secp384r1', 'secp521r1'):
+                            raise TLSIllegalParameterException(
+                                    "Curve in public key is not supported "
+                                    "in TLS1.3")
+
+                # If all mandatory checks passed add
+                # this as possible certificate we can use.
+                possible_certs.append((cipher, sig_scheme, cert, key))
+
+            except Exception:
+                if last_cert and not possible_certs:
+                    raise
+                continue
+
+            # Non-mandatory checks, if these fail the certificate is still usable
+            # but we should try to find one that passes all the checks
+
+            # Check if every certificate(except the self-signed root CA)
+            # in the certificate chain is signed with a signature algorithm
+            # supported by the client.
+            if cert:
+                cert_chain_ok = True
+                for i in range(len(cert.x509List)):
+                    if cert.x509List[i].issuer != cert.x509List[i].subject:
+                        if cert.x509List[i].sigalg not in client_sigalgs:
+                            cert_chain_ok = False
+                            break
+                if not cert_chain_ok:
+                    if not last_cert:
+                        continue
+                    break
+
+            # If all mandatory and non-mandatory checks passed
+            # return the (cert, key) pair, cipher and sig_scheme
+            return cipher, sig_scheme, cert, key
+
+        # If we can't find cert that passed all the checks, return the first usable one.
+        return possible_certs[0]
+
 
     def _serverCertKeyExchange(self, clientHello, serverHello, sigHashAlg,
                                 serverCertChain, keyExchange,
@@ -4231,7 +4355,7 @@ class TLSConnection(TLSRecordLayer):
     @staticmethod
     def _pickServerKeyExchangeSig(settings, clientHello, certList=None,
                                   private_key=None,
-                                  version=(3, 3)):
+                                  version=(3, 3), check_alt=True):
         """Pick a hash that matches most closely the supported ones"""
         hashAndAlgsExt = clientHello.getExtension(
             ExtensionType.signature_algorithms)
@@ -4247,8 +4371,12 @@ class TLSConnection(TLSRecordLayer):
             # sha1 should be picked
             return "sha1", certList, private_key
 
-        alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
-                     settings.virtual_hosts for i in vh.keys)
+        if check_alt:
+            alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
+                         settings.virtual_hosts for i in vh.keys)
+        else:
+            alt_certs = ()
+
 
         for certs, key in chain([(certList, private_key)], alt_certs):
             supported = TLSConnection._sigHashesToList(settings,

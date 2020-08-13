@@ -31,6 +31,8 @@ TLS_1_1_DOWNGRADE_SENTINEL = a2b_hex("444F574E47524400")
 # while supporting TLS 1.3 or greater
 TLS_1_2_DOWNGRADE_SENTINEL = a2b_hex("444F574E47524401")
 
+RSA_PSS_OID = bytes(a2b_hex('06092a864886f70d01010a'))
+
 
 class TLSEnum(object):
     """Base class for different enums of TLS IDs"""
@@ -216,6 +218,8 @@ class SignatureScheme(TLSEnum):
     rsa_pkcs1_sha256 = (4, 1)
     rsa_pkcs1_sha384 = (5, 1)
     rsa_pkcs1_sha512 = (6, 1)
+    ecdsa_sha1 = (2, 3)
+    ecdsa_sha224 = (3, 3)
     ecdsa_secp256r1_sha256 = (4, 3)
     ecdsa_secp384r1_sha384 = (5, 3)
     ecdsa_secp521r1_sha512 = (6, 3)
@@ -287,13 +291,52 @@ class SignatureScheme(TLSEnum):
         except AttributeError:
             raise ValueError("\"{0}\" scheme is unknown".format(scheme))
         vals = scheme.split('_', 4)
-        assert len(vals) in (3, 4)
-        if len(vals) == 3:
+        assert len(vals) in (2, 3, 4)
+        if len(vals) == 2:
+            kType, hName = vals
+        elif len(vals) == 3:
             kType, _, hName = vals
         else:
             kType, _, _, hName = vals
         assert kType in ('rsa', 'ecdsa')
         return hName
+
+
+class AlgorithmOID(TLSEnum):
+    """
+    Algorithm OIDs as defined in rfc5758(ecdsa),
+    rfc5754(rsa, sha), rfc3447(rss-pss).
+    The key is the DER encoded OID in hex and
+    the value is the algorithm id.
+    """
+    oid = {}
+
+    oid[bytes(a2b_hex('06072a8648ce3d0401'))] = \
+            SignatureScheme.ecdsa_sha1
+    oid[bytes(a2b_hex('06082a8648ce3d040301'))] = \
+            SignatureScheme.ecdsa_sha224
+    oid[bytes(a2b_hex('06082a8648ce3d040302'))] = \
+            SignatureScheme.ecdsa_secp256r1_sha256
+    oid[bytes(a2b_hex('06082a8648ce3d040303'))] = \
+            SignatureScheme.ecdsa_secp384r1_sha384
+    oid[bytes(a2b_hex('06082a8648ce3d040304'))] = \
+            SignatureScheme.ecdsa_secp521r1_sha512
+    oid[bytes(a2b_hex('06092a864886f70d010105'))] = \
+            SignatureScheme.rsa_pkcs1_sha1
+    oid[bytes(a2b_hex('06092a864886f70d01010e'))] = \
+            SignatureScheme.rsa_pkcs1_sha224
+    oid[bytes(a2b_hex('06092a864886f70d01010b'))] = \
+            SignatureScheme.rsa_pkcs1_sha256
+    oid[bytes(a2b_hex('06092a864886f70d01010c'))] = \
+            SignatureScheme.rsa_pkcs1_sha384
+    oid[bytes(a2b_hex('06092a864886f70d01010d'))] = \
+            SignatureScheme.rsa_pkcs1_sha512
+    oid[bytes(a2b_hex('300b0609608648016503040201'))] = \
+            SignatureScheme.rsa_pss_rsae_sha256
+    oid[bytes(a2b_hex('300b0609608648016503040202'))] = \
+            SignatureScheme.rsa_pss_rsae_sha384
+    oid[bytes(a2b_hex('300b0609608648016503040203'))] = \
+            SignatureScheme.rsa_pss_rsae_sha512
 
 
 class GroupName(TLSEnum):
