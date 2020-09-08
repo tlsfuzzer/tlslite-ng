@@ -8,6 +8,7 @@ from .compat import *
 from .rsakey import RSAKey
 from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
+from .python_dsakey import Python_DSAKey
 from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
@@ -232,4 +233,29 @@ def _create_public_ecdsa_key(point_x, point_y, curve_name,
     for impl in implementations:
         if impl == "python":
             return Python_ECDSAKey(point_x, point_y, curve_name)
+    raise ValueError("No acceptable implementation")
+
+def _create_public_dsa_key(p, q, g, y,
+                           implementations=("python",)):
+    """
+    Convert public key parameters into concrete implementation of verifier.
+
+    The public key in DSA consists of four integers.
+
+    :type p: int
+    :param p: domain parameter, prime num defining Gaolis Field
+    :type q: int
+    :param q: domain parameter, prime factor of p-1
+    :type g: int
+    :param g: domain parameter, generator of q-order cyclic group GP(p)
+    :type y: int
+    :param y: public key
+    :type implementations: iterable of str
+    :param implementations: list of implementations that can be used as the
+        concrete implementation of the verifying key (only 'python' is
+        supported currently)
+    """
+    for impl in implementations:
+        if impl == "python":
+            return Python_DSAKey(p=p, q=q, g=g, y=y)
     raise ValueError("No acceptable implementation")
