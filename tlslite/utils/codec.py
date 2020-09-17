@@ -318,11 +318,12 @@ class Parser(object):
 
         :rtype: bytearray
         """
-        if self.index + lengthBytes > len(self.bytes):
+        end = self.index + lengthBytes
+        if end > len(self.bytes):
             raise DecodeError("Read past end of buffer")
-        bytes = self.bytes[self.index : self.index+lengthBytes]
+        ret = self.bytes[self.index : end]
         self.index += lengthBytes
-        return bytes
+        return ret
 
     def skip_bytes(self, length):
         """Move the internal pointer ahead length bytes."""
