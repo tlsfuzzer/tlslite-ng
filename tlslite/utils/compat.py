@@ -80,6 +80,8 @@ if sys.version_info >= (3,0):
         """Removes all whitespace from passed in string"""
         return re.sub(r"\s+", "", text, flags=re.UNICODE)
 
+    bytes_to_int = int.from_bytes
+
 else:
     # Python 2.6 requires strings instead of bytearrays in a couple places,
     # so we define this function so it does the conversion if needed.
@@ -146,6 +148,16 @@ else:
     def time_stamp():
         """Returns system time as a float"""
         return time.clock()
+
+    def bytes_to_int(val, byteorder):
+        """Convert bytes to an int."""
+        if not val:
+            return 0
+        if byteorder == "big":
+            return int(b2a_hex(val), 16)
+        if byteorder == "little":
+            return int(b2a_hex(val[::-1]), 16)
+        raise ValueError("Only 'big' and 'little' endian supported")
 
 try:
     # Fedora and Red Hat Enterprise Linux versions have small curves removed
