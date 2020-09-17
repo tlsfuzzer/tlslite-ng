@@ -324,6 +324,12 @@ class Parser(object):
         self.index += lengthBytes
         return bytes
 
+    def skip_bytes(self, length):
+        """Move the internal pointer ahead length bytes."""
+        if self.index + length > len(self.bytes):
+            raise DecodeError("Read past end of buffer")
+        self.index += length
+
     def getVarBytes(self, lengthLength):
         """
         Read a variable length string with a fixed length.

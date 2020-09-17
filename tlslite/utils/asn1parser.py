@@ -85,9 +85,9 @@ class ASN1Parser(object):
         while True:
             if p.getRemainingLength() == 0:
                 break
-            p.get(1)  # skip Type
+            p.skip_bytes(1)  # skip Type
             length = self._getASN1Length(p)
-            p.getFixBytes(length)  # skip value
+            p.skip_bytes(length)  # skip value
             count += 1
         return count
 
@@ -104,9 +104,9 @@ class ASN1Parser(object):
         p = Parser(self.value)
         for _ in range(which+1):
             markIndex = p.index
-            p.get(1) #skip Type
+            p.skip_bytes(1)  # skip Type
             length = self._getASN1Length(p)
-            p.getFixBytes(length)
+            p.skip_bytes(length)
         return p.bytes[markIndex : p.index]
 
     @staticmethod
