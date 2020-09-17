@@ -677,18 +677,17 @@ def paramStrength(param):
 
 
 def P_hash(macFunc, secret, seed, length):
-    bytes = bytearray(length)
+    ret = bytearray(length)
     A = seed
     index = 0
-    while 1:
+    while index < length:
         A = macFunc(secret, A)
         output = macFunc(secret, A + seed)
-        for c in output:
-            if index >= length:
-                return bytes
-            bytes[index] = c
-            index += 1
-    return bytes
+        how_many = min(length - index, len(output))
+        ret[index:index+how_many] = output[:how_many]
+        index += how_many
+    return ret
+
 
 def PRF(secret, label, seed, length):
     #Split the secret into left and right halves
