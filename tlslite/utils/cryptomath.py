@@ -13,9 +13,9 @@ import os
 import math
 import base64
 import binascii
-import sys
 
-from .compat import compat26Str, compatHMAC, compatLong, bytes_to_int
+from .compat import compat26Str, compatHMAC, compatLong, \
+        bytes_to_int, int_to_bytes, bit_length, byte_length
 from .codec import Writer
 
 from . import tlshashlib as hashlib
@@ -215,16 +215,14 @@ def numberToByteArray(n, howManyBytes=None, endian="big"):
     not be larger.  The returned bytearray will contain a big- or little-endian
     encoding of the input integer (n). Big endian encoding is used by default.
     """
-    if howManyBytes == None:
-        howManyBytes = numBytes(n)
-    if endian == "big":
-        return bytearray((n >> i) & 0xff
-                         for i in reversed(range(0, howManyBytes*8, 8)))
-    elif endian == "little":
-        return bytearray((n >> i) & 0xff
-                         for i in range(0, howManyBytes*8, 8))
-    else:
-        raise ValueError("Only 'big' and 'little' endian supported")
+    if howManyBytes is not None:
+        length = byte_length(n)
+        if howManyBytes < length:
+            ret = int_to_bytes(n, length, endian)
+            if endian == "big":
+                return ret[length-howManyBytes:length]
+            return ret[:howManyBytes]
+    return int_to_bytes(n, howManyBytes, endian)
 
 
 def mpiToNumber(mpi):
@@ -255,23 +253,16 @@ def numberToMPI(n):
 # Misc. Utility Functions
 # **************************************************************************
 
-def numBits(n):
-    """Return number of bits necessary to represent the integer in binary"""
-    if n==0:
-        return 0
-    if sys.version_info < (2, 7):
-        # bit_length() was introduced in 2.7, and it is an order of magnitude
-        # faster than the below code
-        return len(bin(n))-2
-    else:
-        return n.bit_length()
 
-def numBytes(n):
-    """Return number of bytes necessary to represent the integer in bytes"""
-    if n==0:
-        return 0
-    bits = numBits(n)
-    return (bits + 7) // 8
+# pylint: disable=invalid-name
+# pylint recognises them as constants, not function names, also
+# we can't change their names without API change
+numBits = bit_length
+
+
+numBytes = byte_length
+# pylint: enable=invalid-name
+
 
 # **************************************************************************
 # Big Number Math
