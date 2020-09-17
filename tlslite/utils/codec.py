@@ -8,6 +8,7 @@ from __future__ import division
 import sys
 import struct
 from struct import pack
+from .compat import bytes_to_int
 
 
 class DecodeError(SyntaxError):
@@ -305,14 +306,8 @@ class Parser(object):
 
         :rtype: int
         """
-        if self.index + length > len(self.bytes):
-            raise DecodeError("Read past end of buffer")
-        x = 0
-        for _ in range(length):
-            x <<= 8
-            x |= self.bytes[self.index]
-            self.index += 1
-        return x
+        ret = self.getFixBytes(length)
+        return bytes_to_int(ret, 'big')
 
     def getFixBytes(self, lengthBytes):
         """
