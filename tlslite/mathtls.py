@@ -676,13 +676,22 @@ def paramStrength(param):
         return 256  # NIST SP 800-57
 
 
-def P_hash(macFunc, secret, seed, length):
+def P_hash(mac_name, secret, seed, length):
+    """Internal method for calculation the PRF in TLS."""
     ret = bytearray(length)
+    seed = compatHMAC(seed)
     A = seed
     index = 0
+    mac = hmac.HMAC(compatHMAC(secret), digestmod=mac_name)
     while index < length:
-        A = macFunc(secret, A)
-        output = macFunc(secret, A + seed)
+        a_fun = mac.copy()
+        a_fun.update(A)
+        A = a_fun.digest()
+        out_fun = mac.copy()
+        out_fun.update(A)
+        out_fun.update(seed)
+        output = out_fun.digest()
+
         how_many = min(length - index, len(output))
         ret[index:index+how_many] = output[:how_many]
         index += how_many
@@ -696,8 +705,8 @@ def PRF(secret, label, seed, length):
     S2 = secret[ int(math.floor(len(secret)/2.0)) : ]
 
     #Run the left half through P_MD5 and the right half through P_SHA1
-    p_md5 = P_hash(HMAC_MD5, S1, label + seed, length)
-    p_sha1 = P_hash(HMAC_SHA1, S2, label + seed, length)
+    p_md5 = P_hash("md5", S1, label + seed, length)
+    p_sha1 = P_hash("sha1", S2, label + seed, length)
 
     #XOR the output values and return the result
     for x in range(length):
@@ -706,11 +715,11 @@ def PRF(secret, label, seed, length):
 
 def PRF_1_2(secret, label, seed, length):
     """Pseudo Random Function for TLS1.2 ciphers that use SHA256"""
-    return P_hash(HMAC_SHA256, secret, label + seed, length)
+    return P_hash("sha256", secret, label + seed, length)
 
 def PRF_1_2_SHA384(secret, label, seed, length):
     """Pseudo Random Function for TLS1.2 ciphers that use SHA384"""
-    return P_hash(HMAC_SHA384, secret, label + seed, length)
+    return P_hash("sha384", secret, label + seed, length)
 
 def PRF_SSL(secret, seed, length):
     bytes = bytearray(length)
