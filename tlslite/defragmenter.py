@@ -89,7 +89,7 @@ class Defragmenter(object):
             else:
                 parser = Parser(data)
                 # skip the header
-                parser.getFixBytes(size_offset)
+                parser.skip_bytes(size_offset)
 
                 payload_length = parser.get(size_of_size)
                 if parser.getRemainingLength() < payload_length:
@@ -110,14 +110,15 @@ class Defragmenter(object):
     def get_message(self):
         """Extract the highest priority complete message from buffer"""
         for msg_type in self.priorities:
-            length = self.decoders[msg_type](self.buffers[msg_type])
+            buf = self.buffers[msg_type]
+            length = self.decoders[msg_type](buf)
             if length is None:
                 continue
 
             # extract message
-            data = self.buffers[msg_type][:length]
+            data = buf[:length]
             # remove it from buffer
-            self.buffers[msg_type] = self.buffers[msg_type][length:]
+            del buf[:length]
             return (msg_type, data)
         return None
 
