@@ -534,11 +534,10 @@ class RSAKey(object):
             pad = bytearray(0)
             while len(pad) < padLength:
                 padBytes = getRandomBytes(padLength * 2)
-                pad = [b for b in padBytes if b != 0]
+                pad = [b for b in padBytes if b]
                 pad = pad[:padLength]
         else:
             raise AssertionError()
 
         padding = bytearray([0,blockType] + pad + [0])
-        paddedBytes = padding + bytes
-        return paddedBytes
+        return padding + bytes

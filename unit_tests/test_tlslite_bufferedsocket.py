@@ -89,11 +89,9 @@ class TestBufferedSocket(unittest.TestCase):
         self.raw_sock.sendall.assert_called_once_with(bytearray(b'abcdefg'))
 
     def test_recv(self):
-        value = mock.Mock()
-        ret = self.sock.recv(value)
+        ret = self.sock.recv(10)
 
-        self.raw_sock.recv.assert_called_once_with(value)
-        self.assertIs(ret, self.raw_sock.recv.return_value)
+        self.raw_sock.recv.assert_called_once_with(4096)
 
     def test_getsockname(self):
         ret = self.sock.getsockname()

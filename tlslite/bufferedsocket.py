@@ -25,6 +25,7 @@ class BufferedSocket(object):
         self.socket = socket
         self._write_queue = deque()
         self.buffer_writes = False
+        self._read_buffer = bytearray()
 
     def send(self, data):
         """Send data to the socket"""
@@ -51,7 +52,11 @@ class BufferedSocket(object):
 
     def recv(self, bufsize):
         """Receive data from socket (socket emulation)"""
-        return self.socket.recv(bufsize)
+        if not self._read_buffer:
+            self._read_buffer += self.socket.recv(max(4096, bufsize))
+        ret = self._read_buffer[:bufsize]
+        del self._read_buffer[:bufsize]
+        return ret
 
     def getsockname(self):
         """Return the socket's own address (socket emulation)."""
