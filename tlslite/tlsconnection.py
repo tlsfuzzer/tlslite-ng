@@ -4425,6 +4425,14 @@ class TLSConnection(TLSRecordLayer):
                 sigAlgs.append((getattr(HashAlgorithm, hashName),
                                 SignatureAlgorithm.ecdsa))
 
+        if not certType or certType == "dsa":
+            for schemeName in settings.dsaSigHashes:
+                if version > (3, 3):
+                    continue
+
+                sigAlgs.append((getattr(HashAlgorithm, hashName),
+                                SignatureAlgorithm.dsa))
+
         if not certType or certType in ("rsa", "rsa-pss"):
             for schemeName in settings.rsaSchemes:
                 # pkcs#1 v1.5 signatures are not allowed in TLS 1.3

@@ -184,6 +184,19 @@ class KeyExchange(object):
                                       "invalid")
 
     @staticmethod
+    def _tls12_verify_dsa_SKE(serverKeyExchange, publicKey, clientRandom,
+                              serverRandom, validSigAlgs):
+        hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
+        if not hashName:
+            raise TLSIllegalParameterException("Unknown hash algorithm")
+
+        hashBytes = serverKeyExchange.hash(clientRandom, serverRandom)
+
+        if not publicKey.verify(serverKeyExchange.signature, hashBytes):
+            raise TLSDecryptionFailed("Server Key Exchange signature "
+                                      "invalid")
+
+    @staticmethod
     def _tls12_verify_SKE(serverKeyExchange, publicKey, clientRandom,
                           serverRandom, validSigAlgs):
         """Verify TLSv1.2 version of SKE."""
@@ -198,6 +211,14 @@ class KeyExchange(object):
                                                        clientRandom,
                                                        serverRandom,
                                                        validSigAlgs)
+
+        elif serverKeyExchange.signAlg == SignatureAlgorithm.dsa:
+            return KeyExchange._tls12_verify_dsa_SKE(serverKeyExchange,
+                                                     publicKey,
+                                                     clientRandom,
+                                                     serverRandom,
+                                                     validSigAlgs)
+
         schemeID = (serverKeyExchange.hashAlg,
                     serverKeyExchange.signAlg)
         scheme = SignatureScheme.toRepr(schemeID)
