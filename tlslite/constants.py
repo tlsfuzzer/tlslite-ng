@@ -304,7 +304,7 @@ class SignatureScheme(TLSEnum):
             kType, _, hName = vals
         else:
             kType, _, _, hName = vals
-        assert kType in ('rsa', 'ecdsa')
+        assert kType in ('rsa', 'ecdsa', 'dsa')
         return hName
 
 
@@ -958,6 +958,7 @@ class CipherSuite:
     tripleDESSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)   # unsupported
     tripleDESSuites.append(TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA)   # unsupp
 
+
     #: AES-128 CBC ciphers
     aes128Suites = []
     aes128Suites.append(TLS_SRP_SHA_WITH_AES_128_CBC_SHA)
@@ -1452,6 +1453,16 @@ class CipherSuite:
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_RC4_128_SHA)
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
 
+    #: DHE key exchange, DSA authentication
+    dheDsaSuites = []
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_GCM_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_GCM_SHA384)
+
     @classmethod
     def getEcdsaSuites(cls, settings, version=None):
         """Provide ECDSA authenticated ciphersuites matching settings"""
@@ -1474,7 +1485,7 @@ class CipherSuite:
         """Provide anonymous DH ciphersuites matching settings"""
         return cls._filterSuites(CipherSuite.anonSuites, settings, version)
 
-    dhAllSuites = dheCertSuites + anonSuites
+    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites
 
     #: anon ECDHE key exchange
     ecdhAnonSuites = []
