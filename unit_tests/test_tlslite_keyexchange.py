@@ -273,7 +273,35 @@ class TestKeyExchangeBasics(TestKeyExchange):
             keyExchange.privateKey.sign = mock.Mock(
                 return_value=bytearray(b'wrong'))
             keyExchange.signServerKeyExchange(server_key_exchange)
+"""
+    def test_signServerKeyExchange_with_sha1_dsa_in_TLS1_1:
+    
+        dsa_key = (
+            "-----BEGIN DSA PRIVATE KEY-----\n"
+            "MIGXAgEAAiEAmeFbCUhVUZgVpljXObhmRaQYIQ12YSr9zlCja2kpTiUCFQCfCyag\n"
+            "vEDkgK5nHqscaYlF32ekRwIgYgpNP8JjVxfJ4P3IErO07qqzWS21hSyMhsaCN0an\n"
+            "0OsCICUjj3Np+JO42v8Mc8oH6T8yNd5X0ssy8XdK3Bo9nfNpAhQJkJXFuhZDER1X\n"
+            "wOwvNiFYUPPZaA==\n"
+            "-----END DSA PRIVATE KEY-----\n")
 
+        srv_private_key = parsePEMKey(dsa_key, private=True) 
+        client_hello = ClientHello()
+        cipher_suite = CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA
+        server_hello = ServerHello().create((3, 2),
+                                            bytearray(32),
+                                            bytearray(0),
+                                            cipher_suite)
+        keyExchange = KeyExchange(cipher_suite,
+                                  client_hello,
+                                  server_hello,
+                                  srv_private_key)
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 2)) \
+            .createDH(5, 2, 3)
+
+        keyExchange.signServerKeyExchange(server_key_exchange, 'sha1')
+
+        self.assertEqual(server_key_exchange.write(), ske)
+"""
 class TestKeyExchangeVerifyServerKeyExchange(TestKeyExchange):
     def setUp(self):
         self.srv_cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])
@@ -361,6 +389,204 @@ class TestKeyExchangeVerifyServerKeyExchange(TestKeyExchange):
                                                 bytearray(32),
                                                 None)
 
+class TestServerKeyExchangeDSA(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+
+        certificate = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIB1zCCAZOgAwIBAgIBAjALBglghkgBZQMEAwIwFTETMBEGA1UECgwKRXhhbXBs\n"
+            "ZSBDQTAeFw0yMDEwMTUxMzUxNDhaFw0yMTEwMTUxMzUxNDhaMCkxEzARBgNVBAoM\n"
+            "CmRzYSBzZXJ2ZXIxEjAQBgNVBAMMCWxvY2FsaG9zdDCBkDBoBgcqhkjOOAQBMF0C\n"
+            "IQD39iS3O596+YVqFqG6UfOjCIBY5BebyusVBKYwOxittwIVAOeyxSjVHwNGs7gG\n"
+            "hiSS9ptu7OwZAiEArSNSuMtXZiCjKeGl3a9l+4GqUpQNY/ZxGRxFKKNysooDJAAC\n"
+            "IQCsT1RpxKHjf3XLkjxPXs9Pg+bd4ANjGeD0kG8KvCvv+aOBhjCBgzAOBgNVHQ8B\n"
+            "Af8EBAMCA6gwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFLMOo+D36RMZ\n"
+            "2HOD7nlMMAADHD6pMD0GA1UdIwQ2MDSAFOgsxs+YbaXS234a8lnTDs/Crrt9oRmk\n"
+            "FzAVMRMwEQYDVQQKDApFeGFtcGxlIENBggEBMAsGCWCGSAFlAwQDAgMxADAuAhUA\n"
+            "qzq6O701fT/xLbwQtTj8xF7bin4CFQCGkqFn+2WScdlR2+7pDY5+EzcfJQ==\n"
+            "-----END CERTIFICATE-----")
+
+        x509 = X509()
+        x509.parse(certificate)
+        cls.x509 = x509
+
+    def test_verify_dsa_signature_in_TLS1_SHA1(self):
+        skemsg = a2b_hex(
+                "0001b70080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a"
+                "6a9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea9061123"
+                "24975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae56447"
+                "38faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4d"
+                "a708df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104d"
+                "d258ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f2131602"
+                "17b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6"
+                "a24c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc8"
+                "858f4dcef97c2a24855e6eeb22b3b2e500807380851fe7c5c2d64477633ddc"
+                "02fa20fa5f643890fa066f1c0f91d093bbed22b19838bb75481d8e6a329ac4"
+                "4f36474fd368b58c549f1b2a5f8482527fd5e66bdaf7f303100abf06a82434"
+                "506761396cf9fa5e50b2d403cc3015b34ad16072ca9ec3147a5f43c7895cfd"
+                "fd4ec01dee567017b1b54bcef8e8de5d2d25e5d1ad52002f302d02147337e4"
+                "506ebe94158d8b05661f92ce8824c3ab28021500d19d4c637c650d8eafaef3"
+                "13d832c5f206338d7a")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+                (3, 1))
+        ske.parse(parser)
+        client_random = a2b_hex("3866b841a109ef41b69dc87e39972250c94d5a6f9f213d"
+                                "b501fdee8148abb56a")
+        server_random = a2b_hex("c921b34964e0b13293ed8c4c1b102fc7c1b2ee21ca2726"
+                                "0b444f574e47524400")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            None)
+
+    def test_verify_dsa_signature_in_TLS1_2_SHA1(self):
+        skemsg = a2b_hex(
+                "0001b90080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a"
+                "6a9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea9061123"
+                "24975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae56447"
+                "38faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4d"
+                "a708df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104d"
+                "d258ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f2131602"
+                "17b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6"
+                "a24c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc8"
+                "858f4dcef97c2a24855e6eeb22b3b2e5008093e6b9d650c32a077f9eeff284"
+                "d986a100614a2eb7ed588b8f7808ad9bad09945c781ea81956e5192e505098"
+                "f8d97478946d14bfe77b5c96674ea848fce0f394ff1206fd34c9684ead202f"
+                "c70f66038589e55d035ce043042d41b9ab84a7feffbb456511f54a579de1e0"
+                "01ce39ee30c75f1b33c2db6e949ef901b4adfb8762c10202002f302d02147e"
+                "2f0fc391f3636c3cdfdc9c40cac26b0fd527b3021500af5a5ecf105c42937e"
+                "5dd0d477c71840cd6ad5c6")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+                (3, 3))
+        ske.parse(parser)
+        client_random = a2b_hex("eddcc21c1c52aa53af5d428d73a8eb47182ccb04d4c3be"
+                                "4b3e4fc9079e9d6dd9")
+        server_random = a2b_hex("a943c57c21dc242e67465f5c2b630952a7d83d137112a4"
+                                "621f61f668c29cd3bc")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            [(HashAlgorithm.sha1,
+                                              SignatureAlgorithm.dsa)])
+
+    def test_verify_dsa_signature_in_TLS1_2_SHA256(self):
+        skemsg = a2b_hex(
+                "0001b90080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a6a"
+                "9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea906112324"
+                "975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae5644738"
+                "faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4da7"
+                "08df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104dd2"
+                "58ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f213160217"
+                "b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6a2"
+                "4c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc885"
+                "8f4dcef97c2a24855e6eeb22b3b2e50080424880aa4d93add83c1ce00ca6ef"
+                "2c923e7e9c3ede6be506e5ed978aef958e150652891fd2f28c5d366b47962b"
+                "3fddeae3988273eff87d4d0dbe8a7945ceb7760c78f535bb173f8f78558994"
+                "6ed06c1b4de16c12b97f2c34a6698a238f2ad0d9126de8923e720243406371"
+                "ad6b382013b6bc6ed3044fbbab0b2f9d26bcce3bae0402002f302d021500b5"
+                "dd272c8ca096c5d5ea999ea0d369aecd492441021440bd8a5f340991b41c17"
+                "f9d0724f3ca8ded4f5d7")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+                (3, 3))
+        ske.parse(parser)
+        client_random = a2b_hex("93b4ce37563b8c4fba7aa594b242fa13c9c14cca3c6922"
+                                "c878f8e254ad453d5f")
+        server_random = a2b_hex("2b27c3c3b5be6412e5434dceb76189ca9b17368c5d609e"
+                                "4c2e6e938af2b12609")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            [(HashAlgorithm.sha256,
+                                              SignatureAlgorithm.dsa)])
+
+    def test_verify_dsa_signature_with_mismatched_hash(self):
+        #hAlg should be SHA256 but set it to SHA512
+        skemsg = a2b_hex(
+                "0001b90080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a6a"
+                "9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea906112324"
+                "975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae5644738"
+                "faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4da7"
+                "08df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104dd2"
+                "58ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f213160217"
+                "b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6a2"
+                "4c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc885"
+                "8f4dcef97c2a24855e6eeb22b3b2e50080424880aa4d93add83c1ce00ca6ef"
+                "2c923e7e9c3ede6be506e5ed978aef958e150652891fd2f28c5d366b47962b"
+                "3fddeae3988273eff87d4d0dbe8a7945ceb7760c78f535bb173f8f78558994"
+                "6ed06c1b4de16c12b97f2c34a6698a238f2ad0d9126de8923e720243406371"
+                "ad6b382013b6bc6ed3044fbbab0b2f9d26bcce3bae0402002f302d021500b5"
+                "dd272c8ca096c5d5ea999ea0d369aecd492441021440bd8a5f340991b41c17"
+                "f9d0724f3ca8ded4f5d7")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+                (3, 3))
+        ske.parse(parser)
+        client_random = a2b_hex("93b4ce37563b8c4fba7aa594b242fa13c9c14cca3c6922"
+                                "c878f8e254ad453d5f")
+        server_random = a2b_hex("2b27c3c3b5be6412e5434dceb76189ca9b17368c5d609e"
+                                "4c2e6e938af2b12609")
+
+        with self.assertRaises(TLSIllegalParameterException):
+            KeyExchange.verifyServerKeyExchange(ske,
+                                                self.x509.publicKey,
+                                                client_random,
+                                                server_random,
+                                                [(HashAlgorithm.sha512,
+                                                  SignatureAlgorithm.dsa)])
+
+    def test_verify_dsa_signature_with_malformed_signature(self):
+        skemsg = a2b_hex(
+                "0001b90080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a6a"
+                "9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea906112324"
+                "975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae5644738"
+                "faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4da7"
+                "08df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104dd2"
+                "58ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f213160217"
+                "b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6a2"
+                "4c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc885"
+                "8f4dcef97c2a24855e6eeb22b3b2e50080424880aa4d93add83c1ce00ca6ef"
+                "2c923e7e9c3ede6be506e5ed978aef958e150652891fd2f28c5d366b47962b"
+                "3fddeae3988273eff87d4d0dbe8a7945ceb7760c78f535bb173f8f78558994"
+                "6ed06c1b4de16c12b97f2c34a6698a238f2ad0d9126de8923e720243406371"
+                "ad6b382013b6bc6ed3044fbbab0b2f9d26bcce3bae0402002f302d021500b5"
+                "da272c8ca096c5d5ea999ea0d369aecd492441021440bd8a5f340991b41c17"
+                "f9d0724f3ca8ded4f5d7")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+                (3, 3))
+        ske.parse(parser)
+        client_random = a2b_hex("93b4ce37563b8c4fba7aa594b242fa13c9c14cca3c6922"
+                                "c878f8e254ad453d5f")
+        server_random = a2b_hex("2b27c3c3b5be6412e5434dceb76189ca9b17368c5d609e"
+                                "4c2e6e938af2b12609")
+
+        with self.assertRaises(TLSDecryptionFailed):
+            KeyExchange.verifyServerKeyExchange(ske,
+                                                self.x509.publicKey,
+                                                client_random,
+                                                server_random,
+                                                [(HashAlgorithm.sha256,
+                                                  SignatureAlgorithm.dsa)])
 
 class TestServerKeyExchangeP256(unittest.TestCase):
     @classmethod

@@ -2153,6 +2153,31 @@ class TestServerKeyExchange(unittest.TestCase):
             b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
             ))
 
+    def test_createDH_DSA(self):
+        ske = ServerKeyExchange(CipherSuite.TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+                                (3, 3))
+
+        ske.createDH(dh_p=31,
+                     dh_g=2,
+                     dh_Ys=16)
+        ske.hashAlg = HashAlgorithm.sha384
+        ske.signAlg = SignatureAlgorithm.dsa
+        ske.signature = bytearray(b'\xff'*16)
+
+        self.assertEqual(ske.write(), bytearray(
+            b'\x0c'                 # message type
+            b'\x00\x00\x1D'         # overall length
+            b'\x00\x01'             # p parameter length
+            b'\x1f'                 # p value
+            b'\x00\x01'             # g parameter length
+            b'\x02'                 # g value
+            b'\x00\x01'             # Ys parameter length
+            b'\x10'                 # Ys value
+            b'\x05\x02'
+            b'\x00\x10'
+            b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
+            ))
+
     def test_parse_with_unknown_cipher(self):
         ske = ServerKeyExchange(0, (3, 1))
 
@@ -2359,6 +2384,29 @@ class TestServerKeyExchange(unittest.TestCase):
         self.assertEqual(ske.ecdh_Ys, bytearray(b'\x04\x0a\x0a\x0b\x0b'))
         self.assertEqual(ske.signature, bytearray(b'\xff'*16))
 
+    def test_parser_with_DH_DSA(self):
+        ske = ServerKeyExchange(CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+                                (3, 2))
+
+        parser = Parser(bytearray(
+            b'\x00\x00\x1b'         # overall length
+            b'\x00\x01'             # p parameter length
+            b'\x1f'                 # p value
+            b'\x00\x01'             # g parameter length
+            b'\x02'                 # g value
+            b'\x00\x01'             # Ys parameter length
+            b'\x10'                 # Ys value
+            b'\x00\x10'             # length of signature
+            b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
+            ))
+
+        ske.parse(parser)
+
+        self.assertEqual(ske.dh_p, 31)
+        self.assertEqual(ske.dh_g, 2)
+        self.assertEqual(ske.dh_Ys, 16)
+        self.assertEqual(ske.signature, bytearray(b'\xff'*16))
+
     def test_hash(self):
         ske = ServerKeyExchange(
                 CipherSuite.TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
@@ -2390,6 +2438,19 @@ class TestServerKeyExchange(unittest.TestCase):
         self.assertEqual(hash1,
                          bytearray(b' \xa0\xc1P5\xf7K/\xednd'
                                    b'\xbaQ\xedo\xa13Z\xa5}'))
+
+    def test_hash_with_dsa_in_tls1_2(self):
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+                (3, 3))
+
+        ske.createDH(dh_p=31, dh_g=2, dh_Ys=16)
+        ske.hashAlg, ske.signAlg = SignatureScheme.dsa_sha1
+
+        hash1 = ske.hash(bytearray(32), bytearray(32))
+
+        self.assertEqual(hash1,
+                         bytearray(b'\x4a\x95\x6f\x85\x4e\xed\x6c\x5f\x84\x17\x92\xd6\xa8\x8d\x8c\xd7\xb2\xd0\xf7\xfb'))
 
     def test_hash_with_rsa_pss_sha256(self):
         ske = ServerKeyExchange(

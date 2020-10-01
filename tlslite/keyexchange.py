@@ -100,6 +100,34 @@ class KeyExchange(object):
                                              ecdsa.util.sigdecode_der):
             raise TLSInternalError("signature validation failure")
 
+    def _tls12_sign_dsa_SKE(self, serverKeyExchange, sigHash=None):
+        """Sign a TLSv1.2 SKE message."""
+        try:
+            serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
+                getattr(SignatureScheme, sigHash)
+            hashName = SignatureScheme.getHash(sigHash)
+
+        except AttributeError:
+            serverKeyExchange.signAlg = SignatureAlgorithm.dsa
+            serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
+            keyType = 'dsa'
+            hashName = sigHash
+
+        hash_bytes = serverKeyExchange.hash(self.clientHello.random,
+                                            self.serverHello.random)
+
+        serverKeyExchange.signature = \
+            self.privateKey.sign(hashBytes,
+                                 hashAlg=hashName)
+
+        if not serverKeyExchange.signature:
+            raise TLSInternalError("Empty signature")
+
+        if not self.privateKey.verify(serverKeyExchange.signature,
+                                      hashBytes,
+                                      hashAlg=hashName):
+            raise TLSInternalError("Server Key Exchange signature invalid")
+
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
         """Sign a TLSv1.2 SKE message."""
         try:
@@ -148,6 +176,8 @@ class KeyExchange(object):
         if self.serverHello.server_version < (3, 3):
             if self.privateKey.key_type == "ecdsa":
                 serverKeyExchange.signAlg = SignatureAlgorithm.ecdsa
+            if self.privateKey.key_type == "dsa":
+                serverKeyExchange.signAlg = SignatureAlgorithm.dsa
             hashBytes = serverKeyExchange.hash(self.clientHello.random,
                                                self.serverHello.random)
 
@@ -162,6 +192,8 @@ class KeyExchange(object):
         else:
             if self.privateKey.key_type == "ecdsa":
                 self._tls12_sign_ecdsa_SKE(serverKeyExchange, sigHash)
+            elif self.privateKey.key_type == "dsa":
+                self._tls12_sign_dsa_SKE(serverKeyExchange, sigHash)
             else:
                 self._tls12_signSKE(serverKeyExchange, sigHash)
 
@@ -184,6 +216,19 @@ class KeyExchange(object):
                                       "invalid")
 
     @staticmethod
+    def _tls12_verify_dsa_SKE(serverKeyExchange, publicKey, clientRandom,
+                              serverRandom, validSigAlgs):
+        hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
+        if not hashName:
+            raise TLSIllegalParameterException("Unknown hash algorithm")
+
+        hashBytes = serverKeyExchange.hash(clientRandom, serverRandom)
+
+        if not publicKey.verify(serverKeyExchange.signature, hashBytes):
+            raise TLSDecryptionFailed("Server Key Exchange signature "
+                                      "invalid")
+
+    @staticmethod
     def _tls12_verify_SKE(serverKeyExchange, publicKey, clientRandom,
                           serverRandom, validSigAlgs):
         """Verify TLSv1.2 version of SKE."""
@@ -198,6 +243,14 @@ class KeyExchange(object):
                                                        clientRandom,
                                                        serverRandom,
                                                        validSigAlgs)
+
+        elif serverKeyExchange.signAlg == SignatureAlgorithm.dsa:
+            return KeyExchange._tls12_verify_dsa_SKE(serverKeyExchange,
+                                                     publicKey,
+                                                     clientRandom,
+                                                     serverRandom,
+                                                     validSigAlgs)
+
         schemeID = (serverKeyExchange.hashAlg,
                     serverKeyExchange.signAlg)
         scheme = SignatureScheme.toRepr(schemeID)
