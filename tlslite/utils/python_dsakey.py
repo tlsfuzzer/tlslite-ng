@@ -1,5 +1,4 @@
 # Author: Frantisek Krenzelok
-
 """Pure-Python RSA implementation."""
 from ecdsa.der import encode_sequence, encode_integer,  \
 remove_sequence, remove_integer
@@ -92,9 +91,8 @@ class Python_DSAKey(DSAKey):
 
         return encode_sequence(encode_integer(r), encode_integer(s))
 
-    def hashAndVerify(self, signature, data, hAlg="sha1"):
-        # Get r, s components from signature
-        digest = bytesToNumber(secureHash(bytearray(data), hAlg))
+    def verify(self, signature, hashData):
+        digest = bytesToNumber(hashData)
         digest_size = numBits(digest)
 
         # extract min(|hAlg|, N) left bits of digest
@@ -120,6 +118,9 @@ class Python_DSAKey(DSAKey):
             u2 = (r * w) % self.q
             v = ((powMod(self.g, u1, self.p) *  \
                     powMod(self.public_key, u2, self.p)) % self.p) % self.q
-
             return r == v
         return False
+
+    def hashAndVerify(self, signature, data, hAlg="sha1"):
+        digest = secureHash(bytearray(data), hAlg)
+        return self.verify(signature, digest);

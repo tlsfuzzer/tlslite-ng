@@ -1517,7 +1517,8 @@ class ServerKeyExchange(HandshakeMsg):
             raise AssertionError()
 
         if self.cipherSuite in CipherSuite.certAllSuites or\
-                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites or\
+                self.cipherSuite in CipherSuite.dheDsaSuites:
             if self.version == (3, 3):
                 self.hashAlg = parser.get(1)
                 self.signAlg = parser.get(1)
@@ -1566,7 +1567,8 @@ class ServerKeyExchange(HandshakeMsg):
         writer = Writer()
         writer.bytes += self.writeParams()
         if self.cipherSuite in CipherSuite.certAllSuites or \
-                self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
+                self.cipherSuite in CipherSuite.ecdheEcdsaSuites or \
+                self.cipherSuite in CipherSuite.dheDsaSuites:
             if self.version >= (3, 3):
                 assert self.hashAlg != 0 and self.signAlg != 0
                 writer.add(self.hashAlg, 1)
@@ -1591,9 +1593,10 @@ class ServerKeyExchange(HandshakeMsg):
             else:
                 hashAlg = SignatureScheme.getHash(sigScheme)
             return secureHash(bytesToHash, hashAlg)
-        # ECDSA ciphers in TLS 1.1 and earlier sign the messages using
+        # DSA and ECDSA ciphers in TLS 1.1 and earlier sign the messages using
         # SHA-1 only
-        if self.cipherSuite in CipherSuite.ecdheEcdsaSuites:
+        if self.cipherSuite in CipherSuite.ecdheEcdsaSuites or\
+                self.cipherSuite in CipherSuite.dheDsaSuites:
             return SHA1(bytesToHash)
         return MD5(bytesToHash) + SHA1(bytesToHash)
 
