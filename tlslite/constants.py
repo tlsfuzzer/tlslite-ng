@@ -304,7 +304,7 @@ class SignatureScheme(TLSEnum):
             kType, _, hName = vals
         else:
             kType, _, _, hName = vals
-        assert kType in ('rsa', 'ecdsa')
+        assert kType in ('rsa', 'ecdsa', 'dsa')
         return hName
 
 
@@ -960,6 +960,7 @@ class CipherSuite:
     tripleDESSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)   # unsupported
     tripleDESSuites.append(TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA)   # unsupp
 
+
     #: AES-128 CBC ciphers
     aes128Suites = []
     aes128Suites.append(TLS_SRP_SHA_WITH_AES_128_CBC_SHA)
@@ -1258,6 +1259,8 @@ class CipherSuite:
                     CipherSuite.certSuites)
             if cert_chain.x509List[0].certAlg == "ecdsa":
                 includeSuites.update(CipherSuite.ecdheEcdsaSuites)
+            if cert_chain.x509List[0].certAlg == "dsa":
+                includeSuites.update(CipherSuite.dheDsaSuites)
         else:
             includeSuites.update(CipherSuite.srpSuites)
             includeSuites.update(CipherSuite.anonSuites)
@@ -1318,6 +1321,8 @@ class CipherSuite:
             keyExchangeSuites += CipherSuite.certSuites
         if "dhe_rsa" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.dheCertSuites
+        if "dhe_dsa" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.dheDsaSuites
         if "ecdhe_rsa" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.ecdheCertSuites
         if "ecdhe_ecdsa" in keyExchangeNames:
@@ -1326,6 +1331,8 @@ class CipherSuite:
             keyExchangeSuites += CipherSuite.srpSuites
         if "srp_sha_rsa" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.srpCertSuites
+        if "srp_sha_dsa" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.srpDsaSuites
         if "dh_anon" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.anonSuites
         if "ecdh_anon" in keyExchangeNames:
@@ -1361,8 +1368,19 @@ class CipherSuite:
         """Return SRP cipher suites that use server certificates"""
         return cls._filterSuites(CipherSuite.srpCertSuites, settings, version)
 
+    #: SRP key exchange, DSA authentication
+    srpDsaSuites = []
+    srpDsaSuites.append(TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA) # unsupported
+    srpDsaSuites.append(TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA)  # unsupported
+    srpDsaSuites.append(TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA)  # unsupported
+
+    @classmethod
+    def getSrpDsaSuites(cls, settings, version=None):
+        """Return SRP DSA cipher suites that use server certificates"""
+        return cls._filterSuites(CipherSuite.srpCertSuites, settings, version)
+
     #: All that use SRP key exchange
-    srpAllSuites = srpSuites + srpCertSuites
+    srpAllSuites = srpSuites + srpCertSuites + srpDsaSuites
 
     @classmethod
     def getSrpAllSuites(cls, settings, version=None):
@@ -1460,6 +1478,22 @@ class CipherSuite:
         return cls._filterSuites(CipherSuite.ecdheEcdsaSuites,
                                  settings, version)
 
+    #: DHE key exchange, DSA authentication
+    dheDsaSuites = []
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_GCM_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_GCM_SHA384)
+
+    @classmethod
+    def getDheDsaSuites(cls, settings, version=None):
+        """Provide DSA authenticated ciphersuites matching settings"""
+        return cls._filterSuites(CipherSuite.dheDsaSuites,
+                                 settings, version)
+
     #: anon FFDHE key exchange
     anonSuites = []
     anonSuites.append(TLS_DH_ANON_WITH_AES_256_GCM_SHA384)
@@ -1476,7 +1510,7 @@ class CipherSuite:
         """Provide anonymous DH ciphersuites matching settings"""
         return cls._filterSuites(CipherSuite.anonSuites, settings, version)
 
-    dhAllSuites = dheCertSuites + anonSuites
+    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites
 
     #: anon ECDHE key exchange
     ecdhAnonSuites = []
