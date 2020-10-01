@@ -361,6 +361,49 @@ class TestKeyExchangeVerifyServerKeyExchange(TestKeyExchange):
                                                 bytearray(32),
                                                 None)
 
+class TestServerKeyExchangeDSA(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        certificate = (
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIICuTCCAnWgAwIBAgIUbvurNJts50KIJGyuR+4PfsivKVYwCwYJYIZIAWUDBAMC\n"
+                "MA0xCzAJBgNVBAYTAkNaMB4XDTIwMDkyNTA5NTA1MVoXDTIxMDkyNTA5NTA1MVow\n"
+                "DTELMAkGA1UEBhMCQ1owggG2MIIBKwYHKoZIzjgEATCCAR4CgYEA1TjzsBWim8BY\n"
+                "eNH/zdE2ZgAZOt0zwOKl+CmY6VIFcH3ODrtRTSzR3btr91AQcrq6crMi4a4nfrj5\n"
+                "9o3eLBYQnK6q7KaDJ2Fz5gZXfXvUhGtRfihXNhZZGs3m1ofz5AabEuc89rKi6LqS\n"
+                "xmVs3Xa0cZOFsJlUTgkbwtca4Mwdu+0CFQDNzqhW4HvjrIKzLsEGe21Y5VU1AQKB\n"
+                "gC5o3IiQjqsRPaFFXHL7y+fkoKdf7f8aBgV5u8wUEOajirTp+8eQAeylAlqo9/8j\n"
+                "CMSvTR/gTamAyte9QEgOl2Ineuz8Ja2mnOBLuqm+hGpcQXOCxq9Wg8x2U/axX9RM\n"
+                "aPvEmrPPulGPUCQf7Myaj8aKSxn2SyuOIVj2G3U1QSuAA4GEAAKBgDD9B1i63A6M\n"
+                "2D9UF0Y8mPjqccfu16v5/isPQSQbs5WRL6aWo4GLPk1qQMqa6aadZBJuDgxMwcB+\n"
+                "+zvt+YwSpr2bUu5wCUjwPiDibUAqtn6WQ2OlpzS9iq56SlDuRsFnjVHRK0IUECnn\n"
+                "61ax95/OxZGbTKXI9v9fSLAdojuRBrLko1MwUTAdBgNVHQ4EFgQUNf9O8fv5Q0Fj\n"
+                "FwVR+KISjTV8x8UwHwYDVR0jBBgwFoAUNf9O8fv5Q0FjFwVR+KISjTV8x8UwDwYD\n"
+                "VR0TAQH/BAUwAwEB/zALBglghkgBZQMEAwIDMQAwLgIVAKve6MzbgGyg2coF97SR\n"
+                "8ps3wnhXAhUAyc48/eD/7jnYZXNdneCCB3xxigg=\n"
+                "-----END CERTIFICATE-----\n")
+        x509 = X509()
+        x509.parse(certificate)
+        cls.x509 = x509
+
+    def test_verify_dsa_signature_in_TLS1_2_SHA384(self):
+        skemsg = a2b_hex("0001b90080b10b8f96a080e01dde92de5eae5d54ec52c99fbcfb06a3c69a6a9dca52d23b616073e28675a23d189838ef1e2ee652c013ecb4aea906112324975c3cd49b83bfaccbdd7d90c4bd7098488e9c219a73724effd6fae5644738faa31a4ff55bccc0a151af5f0dc8b4bd45bf37df365c1a65e68cfda76d4da708df1fb2bc2e4a43710080a4d1cbd5c3fd34126765a442efb99905f8104dd258ac507fd6406cff14266d31266fea1e5c41564b777e690f5504f213160217b4b01b886a5e91547f9e2749f4d7fbd7d3b9a92ee1909d0d2263f80a76a6a24c087a091f531dbf0a0169b6a28ad662a4d18e73afa32d779d5918d08bc8858f4dcef97c2a24855e6eeb22b3b2e500807c4707b1ebadeafb719be08d627b90e2cd07ccf91aacd62b8803399d425766e2d87a82824edf2a507feb56ed417cf452600749c70d4cf7f5cc22a074d63ea6e39871a8613e36a717d5d1672407ae6761d1527821ee6ab4f00c92ec42ec0da07bcaa33b287225202d5bfbafc377c41a42e4cacf80c978390ecd98c3316021c79d0402002f302d0215008ed71b80e574d68ae9685ba36b191671dd7d9f9402147cc8b92935fc9a98332676830abeabe2a3b25f90")
+        parser = Parser(skemsg)
+
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+                (3, 3))
+        ske.parse(parser)
+
+        client_random = a2b_hex("793710420a430bd9a804d2a84daa8f9405479d748d37b8774f3b5efca277b9cb")
+        server_random = a2b_hex("47cd9f119efd80994caca420b4f8e5f6fa1a05a5280533519bc12a4a612ae096")
+
+        KeyExchange.verifyServerKeyExchange(ske,
+                                            self.x509.publicKey,
+                                            client_random,
+                                            server_random,
+                                            [(HashAlgorithm.sha256,
+                                              SignatureAlgorithm.dsa)])
 
 class TestServerKeyExchangeP256(unittest.TestCase):
     @classmethod
