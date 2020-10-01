@@ -2391,6 +2391,19 @@ class TestServerKeyExchange(unittest.TestCase):
                          bytearray(b' \xa0\xc1P5\xf7K/\xednd'
                                    b'\xbaQ\xedo\xa13Z\xa5}'))
 
+    def test_hash_with_dsa_in_tls1_2(self):
+        ske = ServerKeyExchange(
+                CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+                (3, 3))
+
+        ske.createDH(dh_p=31, dh_g=2, dh_Ys=16)
+        ske.hashAlg, ske.signAlg = SignatureScheme.dsa_sha1
+
+        hash1 = ske.hash(bytearray(32), bytearray(32))
+
+        self.assertEqual(hash1,
+                         bytearray(b'\x4a\x95\x6f\x85\x4e\xed\x6c\x5f\x84\x17\x92\xd6\xa8\x8d\x8c\xd7\xb2\xd0\xf7\xfb'))
+
     def test_hash_with_rsa_pss_sha256(self):
         ske = ServerKeyExchange(
                 CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA,

@@ -1,5 +1,4 @@
 # Author: Frantisek Krenzelok
-
 """Pure-Python RSA implementation."""
 from ecdsa.der import encode_sequence, encode_integer,  \
 remove_sequence, remove_integer
@@ -14,6 +13,7 @@ elif gmpyLoaded:
     from gmpy import mpz
 
 from .dsakey import DSAKey
+import math
 
 class Python_DSAKey(DSAKey):
     """
@@ -78,13 +78,10 @@ class Python_DSAKey(DSAKey):
         return (q, p)
 
     def hashAndSign(self, data, hAlg="sha1"):
-        digest = bytesToNumber(secureHash(bytearray(data), hAlg))
-        digest_size = numBits(digest)
-
-        # extract min(|hAlg|, N) left bits of digest
-        N = numBits(self.q)
-        if N < digest_size:
-            digest &= ~(~0 << (digest_size - N))
+        hashData = (secureHash(bytearray(data), hAlg))
+        N = int(numBits(self.q) / 8)
+        hashData = hashData[:N]
+        digest = bytesToNumber(hashData)
 
         k = getRandomNumber(1, (self.q-1))
         r = powMod(self.g, k, self.p) % self.q
@@ -92,15 +89,10 @@ class Python_DSAKey(DSAKey):
 
         return encode_sequence(encode_integer(r), encode_integer(s))
 
-    def hashAndVerify(self, signature, data, hAlg="sha1"):
-        # Get r, s components from signature
-        digest = bytesToNumber(secureHash(bytearray(data), hAlg))
-        digest_size = numBits(digest)
-
-        # extract min(|hAlg|, N) left bits of digest
-        N = numBits(self.q)
-        if N < digest_size:
-            digest &= ~(~0 << (digest_size - N))
+    def verify(self, signature, hashData):
+        N = int(numBits(self.q) / 8)
+        hashData = hashData[:N]
+        digest = bytesToNumber(hashData)
 
         # get r, s keys
         if not signature:
@@ -113,6 +105,10 @@ class Python_DSAKey(DSAKey):
         if rest:
             return False
 
+        if gmpyLoaded or GMPY2_LOADED:
+            r = mpz(r)
+            s = mpz(s)
+
         # check the signature
         if 0 < r < self.q and 0 < s < self.q:
             w = invMod(s, self.q)
@@ -120,6 +116,9 @@ class Python_DSAKey(DSAKey):
             u2 = (r * w) % self.q
             v = ((powMod(self.g, u1, self.p) *  \
                     powMod(self.public_key, u2, self.p)) % self.p) % self.q
-
             return r == v
         return False
+
+    def hashAndVerify(self, signature, data, hAlg="sha1"):
+        digest = secureHash(bytearray(data), hAlg)
+        return self.verify(signature, digest)
