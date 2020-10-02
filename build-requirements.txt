@@ -3,4 +3,5 @@ hypothesis
 coveralls
 pylint
 diff_cover
-coveralls
+pytest>=4.6.5
+pluggy>=0.7
