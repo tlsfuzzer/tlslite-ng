@@ -41,7 +41,7 @@ def deprecated_class_name(old_name,
                     # isinstance(old_name(), new_name) to work
                     frame = inspect.currentframe().f_back
                     code = inspect.getframeinfo(frame).code_context
-                    if [line for line in code
+                    if code and [line for line in code
                             if '{0}('.format(old_name) in line]:
                         _warn()
                 else:
