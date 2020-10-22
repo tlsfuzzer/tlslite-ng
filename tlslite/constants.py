@@ -327,6 +327,8 @@ class AlgorithmOID(TLSEnum):
             SignatureScheme.ecdsa_secp384r1_sha384
     oid[bytes(a2b_hex('06082a8648ce3d040304'))] = \
             SignatureScheme.ecdsa_secp521r1_sha512
+    oid[bytes(a2b_hex('06092a864886f70d010104'))] = \
+            (HashAlgorithm.md5, SignatureAlgorithm.rsa)
     oid[bytes(a2b_hex('06092a864886f70d010105'))] = \
             SignatureScheme.rsa_pkcs1_sha1
     oid[bytes(a2b_hex('06092a864886f70d01010e'))] = \
