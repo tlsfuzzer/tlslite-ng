@@ -35,9 +35,8 @@ RSA_SCHEMES = ["pss", "pkcs1"]
 # so place it as the last one
 CURVE_NAMES = ["x25519", "x448", "secp384r1", "secp256r1",
                "secp521r1"]
-ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1", "brainpoolP320r1",
-                                 "brainpoolP384r1", "brainpoolP320r1", "brainpoolP256r1",
-                                 "brainpoolP224r1", "brainpoolP192r1"]
+ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1",
+                                 "brainpoolP384r1", "brainpoolP256r1"]
 if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
@@ -48,11 +47,7 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
                  "secp256k1": ('SECP256k1',),
                  "secp192r1": ('NIST192p', 'P-192'),
                  "secp224r1": ('NIST224p', 'P-224'),
-                 "brainpoolP160r1": ('BRAINPOOLP160r1',),
-                 "brainpoolP192r1": ('BRAINPOOLP192r1',),
-                 "brainpoolP224r1": ('BRAINPOOLP224r1',),
                  "brainpoolP256r1": ('BRAINPOOLP256r1',),
-                 "brainpoolP320r1": ('BRAINPOOLP320r1',),
                  "brainpoolP384r1": ('BRAINPOOLP384r1',),
                  "brainpoolP512r1": ('BRAINPOOLP512r1',)}
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))

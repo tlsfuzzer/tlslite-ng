@@ -303,6 +303,26 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    for curve, keySize in (("brainpoolP256r1", 256),
+                           ("brainpoolP384r1", 384),
+                           ("brainpoolP512r1", 512)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.2".format(test_no, curve))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 3)
+        settings.maxVersion = (3, 3)
+        settings.eccCurves = [curve]
+        settings.keyShares = [curve]
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert isinstance(connection.session.serverCertChain, X509CertChain)
+        assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
+                == keySize
+        connection.close()
+
+        test_no += 1
+
     print("Test {0} - Two good ECDSA certs - secp256r1, TLSv1.2".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -1646,6 +1666,28 @@ def serverTestCmd(argv):
         x509ecdsaP521Key = parsePEMKey(f.read(), private=True,
                                        implementations=["python"])
 
+    with open(os.path.join(dir, "serverBrainpoolP256r1ECCert.pem")) as f:
+        x509CertBrainpoolP256r1ECDSA = X509().parse(f.read())
+    x509ecdsaBrainpoolP256r1Chain = X509CertChain([x509CertBrainpoolP256r1ECDSA])
+    assert x509CertBrainpoolP256r1ECDSA.certAlg == "ecdsa"
+    with open(os.path.join(dir, "serverBrainpoolP256r1ECKey.pem")) as f:
+        x509ecdsaBrainpoolP256r1Key = parsePEMKey(f.read(), private=True,
+                                       implementations=["python"])
+    with open(os.path.join(dir, "serverBrainpoolP384r1ECCert.pem")) as f:
+        x509CertBrainpoolP384r1ECDSA = X509().parse(f.read())
+    x509ecdsaBrainpoolP384r1Chain = X509CertChain([x509CertBrainpoolP384r1ECDSA])
+    assert x509CertBrainpoolP384r1ECDSA.certAlg == "ecdsa"
+    with open(os.path.join(dir, "serverBrainpoolP384r1ECKey.pem")) as f:
+        x509ecdsaBrainpoolP384r1Key = parsePEMKey(f.read(), private=True,
+                                       implementations=["python"])
+    with open(os.path.join(dir, "serverBrainpoolP512r1ECCert.pem")) as f:
+        x509CertBrainpoolP512r1ECDSA = X509().parse(f.read())
+    x509ecdsaBrainpoolP512r1Chain = X509CertChain([x509CertBrainpoolP512r1ECDSA])
+    assert x509CertBrainpoolP512r1ECDSA.certAlg == "ecdsa"
+    with open(os.path.join(dir, "serverBrainpoolP512r1ECKey.pem")) as f:
+        x509ecdsaBrainpoolP512r1Key = parsePEMKey(f.read(), private=True,
+                                       implementations=["python"])
+
     with open(os.path.join(dir, "serverRSANonCACert.pem")) as f:
         x509CertRSANonCA = X509().parse(f.read())
     x509ChainRSANonCA = X509CertChain([x509CertRSANonCA])
@@ -1834,6 +1876,29 @@ def serverTestCmd(argv):
     connection.close()
 
     test_no += 1
+
+    for curve, certChain, key in (("brainpoolP256r1", x509ecdsaBrainpoolP256r1Chain, x509ecdsaBrainpoolP256r1Key),
+                                  ("brainpoolP384r1", x509ecdsaBrainpoolP384r1Chain, x509ecdsaBrainpoolP384r1Key),
+                                  ("brainpoolP512r1", x509ecdsaBrainpoolP512r1Chain, x509ecdsaBrainpoolP512r1Key)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.2".format(test_no, curve))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 3)
+        settings.maxVersion = (3, 3)
+        settings.eccCurves = [curve, "secp256r1"]
+        settings.keyShares = [curve, "secp256r1"]
+        v_host = VirtualHost()
+        v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
+        settings.virtual_hosts = [v_host]
+        connection.handshakeServer(certChain=certChain,
+                                   privateKey=key, settings=settings)
+        assert connection.extendedMasterSecret
+        assert connection.session.serverCertChain == certChain
+        testConnServer(connection)
+        connection.close()
+
+        test_no += 1
 
     for curve, exp_chain in (("secp256r1", x509ecdsaChain),
                              ("secp384r1", x509ecdsaP384Chain)):
