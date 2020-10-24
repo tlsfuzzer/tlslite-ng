@@ -313,7 +313,7 @@ def clientTestCmd(argv):
         settings.minVersion = (3, 3)
         settings.maxVersion = (3, 3)
         settings.eccCurves = [curve]
-        settings.keyShares = [curve]
+        settings.keyShares = []
         connection.handshakeClientCert(settings=settings)
         testConnClient(connection)
         assert isinstance(connection.session.serverCertChain, X509CertChain)
@@ -1887,7 +1887,7 @@ def serverTestCmd(argv):
         settings.minVersion = (3, 3)
         settings.maxVersion = (3, 3)
         settings.eccCurves = [curve, "secp256r1"]
-        settings.keyShares = [curve, "secp256r1"]
+        settings.keyShares = []
         v_host = VirtualHost()
         v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
         settings.virtual_hosts = [v_host]
