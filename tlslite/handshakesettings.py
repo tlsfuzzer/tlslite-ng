@@ -50,6 +50,11 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
                  "brainpoolP256r1": ('BRAINPOOLP256r1',),
                  "brainpoolP384r1": ('BRAINPOOLP384r1',),
                  "brainpoolP512r1": ('BRAINPOOLP512r1',)}
+# list of supported groups in TLS 1.3 as per RFC 8446, chapter 4.2.7. (excluding private use here)
+TLS13_PERMITTED_GROUPS = ["secp256r1", "scep384r1", "secp521r1",
+                          "x25519", "x448", "ffdhe2048",
+                          "ffdhe3072", "ffdhe4096", "ffdhe6144",
+                          "ffdhe8192"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
@@ -454,6 +459,13 @@ class HandshakeSettings(object):
         if unknownDHGroup:
             raise ValueError("Unknown FFDHE group name: '{0}'"
                              .format(unknownDHGroup))
+
+        # TLS 1.3 limits the allowed groups in client key share advertisement (RFC 8446,ch. 4.2.7.)
+        if other.maxVersion == (3, 4):
+            forbiddenGroup = HandshakeSettings._not_matching(other.keyShares, TLS13_PERMITTED_GROUPS)
+            if forbiddenGroup:
+                raise ValueError("Client advertisment of the following groups is forbidden in TLS 1.3: {0}"
+                                 .format(forbiddenGroup))
 
     @staticmethod
     def _sanityCheckDHSettings(other):
