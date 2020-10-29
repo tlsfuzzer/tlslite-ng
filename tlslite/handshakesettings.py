@@ -35,7 +35,8 @@ RSA_SCHEMES = ["pss", "pkcs1"]
 # so place it as the last one
 CURVE_NAMES = ["x25519", "x448", "secp384r1", "secp256r1",
                "secp521r1"]
-ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1"]
+ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1",
+                                 "brainpoolP384r1", "brainpoolP256r1"]
 if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
@@ -45,7 +46,15 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
                  "secp521r1": ('NIST521p', 'P-521'),
                  "secp256k1": ('SECP256k1',),
                  "secp192r1": ('NIST192p', 'P-192'),
-                 "secp224r1": ('NIST224p', 'P-224')}
+                 "secp224r1": ('NIST224p', 'P-224'),
+                 "brainpoolP256r1": ('BRAINPOOLP256r1',),
+                 "brainpoolP384r1": ('BRAINPOOLP384r1',),
+                 "brainpoolP512r1": ('BRAINPOOLP512r1',)}
+# list of supported groups in TLS 1.3 as per RFC 8446, chapter 4.2.7. (excluding private use here)
+TLS13_PERMITTED_GROUPS = ["secp256r1", "secp384r1", "secp521r1",
+                          "x25519", "x448", "ffdhe2048",
+                          "ffdhe3072", "ffdhe4096", "ffdhe6144",
+                          "ffdhe8192"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
@@ -450,6 +459,13 @@ class HandshakeSettings(object):
         if unknownDHGroup:
             raise ValueError("Unknown FFDHE group name: '{0}'"
                              .format(unknownDHGroup))
+
+        # TLS 1.3 limits the allowed groups (RFC 8446,ch. 4.2.7.)
+        if other.maxVersion == (3, 4):
+            forbiddenGroup = HandshakeSettings._not_matching(other.eccCurves, TLS13_PERMITTED_GROUPS)
+            if forbiddenGroup:
+                raise ValueError("The following enabled groups are forbidden in TLS 1.3: {0}"
+                                 .format(forbiddenGroup))
 
     @staticmethod
     def _sanityCheckDHSettings(other):
