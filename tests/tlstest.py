@@ -15,7 +15,7 @@ import sys
 import os
 import os.path
 import socket
-import time
+import timeit
 import getopt
 from tempfile import mkstemp
 try:
@@ -476,10 +476,10 @@ def clientTestCmd(argv):
             connection.handshakeClientCert(settings=settings)
             print("%s %s:" % (connection.getCipherName(), connection.getCipherImplementation()), end=' ')
 
-            startTime = time.clock()
+            startTime = timeit.default_timer()
             connection.write(b"hello"*10000)
             h = connection.read(min=50000, max=50000)
-            stopTime = time.clock()
+            stopTime = timeit.default_timer()
             if stopTime-startTime:
                 print("100K exchanged at rate of %d bytes/sec" % int(100000/(stopTime-startTime)))
             else:
