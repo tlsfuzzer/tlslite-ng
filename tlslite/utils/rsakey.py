@@ -198,12 +198,11 @@ class RSAKey(object):
         :type sLen: int
         :param sLen: length of salt"""
         EM = self.EMSA_PSS_encode(mHash, numBits(self.n) - 1, hAlg, sLen)
-        m = bytesToNumber(EM)
-        if m >= self.n:
+        try:
+            ret = self._raw_private_key_op_bytes(EM)
+        except ValueError:
             raise MessageTooLongError("Encode output too long")
-        s = self._rawPrivateKeyOp(m)
-        S = numberToByteArray(s, numBytes(self.n))
-        return S
+        return ret
 
     def EMSA_PSS_verify(self, mHash, EM, emBits, hAlg, sLen=0):
         """Verify signature in passed in encoded message
@@ -275,11 +274,10 @@ class RSAKey(object):
         :type sLen: int
         :param sLen: Length of salt
         """
-        if len(bytearray(S)) != len(numberToByteArray(self.n)):
+        try:
+            EM = self._raw_public_key_op_bytes(S)
+        except ValueError:
             raise InvalidSignature("Invalid signature")
-        s = bytesToNumber(S)
-        m = self._rawPublicKeyOp(s)
-        EM = numberToByteArray(m, divceil(numBits(self.n) - 1, 8))
         result = self.EMSA_PSS_verify(mHash, EM, numBits(self.n) - 1,
                                       hAlg, sLen)
         if result:
@@ -292,12 +290,7 @@ class RSAKey(object):
         if not self.hasPrivateKey():
             raise AssertionError()
         paddedBytes = self._addPKCS1Padding(bytes, 1)
-        m = bytesToNumber(paddedBytes)
-        if m >= self.n:
-            raise ValueError()
-        c = self._rawPrivateKeyOp(m)
-        sigBytes = numberToByteArray(c, numBytes(self.n))
-        return sigBytes
+        return self._raw_private_key_op_bytes(paddedBytes)
 
     def sign(self, bytes, padding='pkcs1', hashAlg=None, saltLen=None):
         """Sign the passed-in bytes.
@@ -337,14 +330,11 @@ class RSAKey(object):
 
     def _raw_pkcs1_verify(self, sigBytes, bytes):
         """Perform verification operation on raw PKCS#1 padded signature"""
-        if len(sigBytes) != numBytes(self.n):
+        try:
+            checkBytes = self._raw_public_key_op_bytes(sigBytes)
+        except ValueError:
             return False
         paddedBytes = self._addPKCS1Padding(bytes, 1)
-        c = bytesToNumber(sigBytes)
-        if c >= self.n:
-            return False
-        m = self._rawPublicKeyOp(c)
-        checkBytes = numberToByteArray(m, numBytes(self.n))
         return checkBytes == paddedBytes
 
     def verify(self, sigBytes, bytes, padding='pkcs1', hashAlg=None,
@@ -397,12 +387,7 @@ class RSAKey(object):
         :returns: A PKCS1 encryption of the passed-in data.
         """
         paddedBytes = self._addPKCS1Padding(bytes, 2)
-        m = bytesToNumber(paddedBytes)
-        if m >= self.n:
-            raise ValueError()
-        c = self._rawPublicKeyOp(m)
-        encBytes = numberToByteArray(c, numBytes(self.n))
-        return encBytes
+        return self._raw_public_key_op_bytes(paddedBytes)
 
     def decrypt(self, encBytes):
         """Decrypt the passed-in bytes.
@@ -422,13 +407,10 @@ class RSAKey(object):
         if self.key_type != "rsa":
             raise ValueError("Decryption requires RSA key, \"{0}\" present"
                              .format(self.key_type))
-        if len(encBytes) != numBytes(self.n):
+        try:
+            decBytes = self._raw_private_key_op_bytes(encBytes)
+        except ValueError:
             return None
-        c = bytesToNumber(encBytes)
-        if c >= self.n:
-            return None
-        m = self._rawPrivateKeyOp(c)
-        decBytes = numberToByteArray(m, numBytes(self.n))
         #Check first two bytes
         if decBytes[0] != 0 or decBytes[1] != 2:
             return None
@@ -445,6 +427,26 @@ class RSAKey(object):
 
     def _rawPublicKeyOp(self, ciphertext):
         raise NotImplementedError()
+
+    def _raw_private_key_op_bytes(self, message):
+        n = self.n
+        if len(message) != numBytes(n):
+            raise ValueError("Message has incorrect length for the key size")
+        m_int = bytesToNumber(message)
+        if m_int >= n:
+            raise ValueError("Provided message value exceeds modulus")
+        dec_int = self._rawPrivateKeyOp(m_int)
+        return numberToByteArray(dec_int, numBytes(n))
+
+    def _raw_public_key_op_bytes(self, ciphertext):
+        n = self.n
+        if len(ciphertext) != numBytes(n):
+            raise ValueError("Message has incorrect length for the key size")
+        c_int = bytesToNumber(ciphertext)
+        if c_int > n:
+            raise ValueError("Provided message value exceeds modulus")
+        enc_int = self._rawPublicKeyOp(c_int)
+        return numberToByteArray(enc_int, numBytes(n))
 
     def acceptsPassword(self):
         """Return True if the write() method accepts a password for use
