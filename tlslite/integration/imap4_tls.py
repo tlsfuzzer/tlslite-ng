@@ -83,7 +83,7 @@ class IMAP4_TLS(IMAP4, ClientHelper):
         IMAP4.__init__(self, host, port)
 
 
-    def open(self, host = '', port = IMAP4_TLS_PORT):
+    def open(self, host='', port=IMAP4_TLS_PORT, timeout=None):
         """Setup connection to remote server on "host:port".
 
         This connection will be used by the routines:
