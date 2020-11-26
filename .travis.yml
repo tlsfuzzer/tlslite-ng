@@ -40,6 +40,10 @@ jobs:
       dist: xenial
       sudo: true
       env: TACKPY=false
+    - python: 3.9
+      dist: xenial
+      sudo: true
+      env: TACKPY=false
     - python: 2.7
       env: TACKPY=true
     - python: 3.4
