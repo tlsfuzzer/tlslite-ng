@@ -82,13 +82,16 @@ class IMAP4_TLS(IMAP4, ClientHelper):
 
         IMAP4.__init__(self, host, port)
 
-
-    def open(self, host = '', port = IMAP4_TLS_PORT):
+    # the `timeout` is a new argument in python3.9, so checks with
+    # older python versions will complain about unmatched parameters
+    # pylint: disable=arguments-differ
+    def open(self, host='', port=IMAP4_TLS_PORT, timeout=None):
         """Setup connection to remote server on "host:port".
 
         This connection will be used by the routines:
         read, readline, send, shutdown.
         """
+        del timeout
         self.host = host
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -96,3 +99,4 @@ class IMAP4_TLS(IMAP4, ClientHelper):
         self.sock = TLSConnection(self.sock)
         ClientHelper._handshake(self, self.sock)
         self.file = self.sock.makefile('rb')
+    # pylint: enable=arguments-differ
