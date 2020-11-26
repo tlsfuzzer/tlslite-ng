@@ -45,6 +45,10 @@ jobs:
       dist: xenial
       sudo: true
       env: TACKPY=false
+    - python: 3.9
+      dist: xenial
+      sudo: true
+      env: TACKPY=false
     - python: 2.7
       env: TACKPY=true
     - python: 3.4
@@ -63,6 +67,10 @@ jobs:
       dist: xenial
       sudo: true
       env: M2CRYPTO=true
+    - python: 3.9
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true
     - python: 2.7
       env: PYCRYPTO=true
     - python: 3.5
@@ -73,13 +81,13 @@ jobs:
       dist: xenial
       sudo: true
       env: PYCRYPTO=true
-    # pycrypto doesn't work on Python 3.8 as time module doesn't have clock()
+    # pycrypto doesn't work on Python 3.8 or 3.9 as time module doesn't have clock()
     # any more
     #- python: 3.8
     #  dist: xenial
     #  sudo: true
     #  env: PYCRYPTO=true
-    - python: 3.7
+    - python: 3.9
       dist: xenial
       sudo: true
       env: PYCRYPTODOME=true
@@ -97,6 +105,10 @@ jobs:
       dist: xenial
       sudo: true
       env: GMPY=true
+    - python: 3.9
+      dist: xenial
+      sudo: true
+      env: GMPY=true
     - python: 2.7
       env: GMPY2=true
     - python: 3.5
@@ -108,6 +120,10 @@ jobs:
       sudo: true
       env: GMPY2=true
     - python: 3.8
+      dist: xenial
+      sudo: true
+      env: GMPY2=true
+    - python: 3.9
       dist: xenial
       sudo: true
       env: GMPY2=true
@@ -122,6 +138,10 @@ jobs:
       sudo: true
       env: M2CRYPTO=true PYCRYPTO=true GMPY=true GMPY2=true CC_COV=true
     - python: 3.8
+      dist: xenial
+      sudo: true
+      env: M2CRYPTO=true GMPY=true GMPY2=true
+    - python: 3.9
       dist: xenial
       sudo: true
       env: M2CRYPTO=true GMPY=true GMPY2=true
