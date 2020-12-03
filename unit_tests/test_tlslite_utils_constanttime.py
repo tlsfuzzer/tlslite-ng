@@ -11,7 +11,7 @@ except ImportError:
 
 from tlslite.utils.constanttime import ct_lt_u32, ct_gt_u32, ct_le_u32, \
         ct_lsb_prop_u8, ct_isnonzero_u32, ct_neq_u32, ct_eq_u32, \
-        ct_check_cbc_mac_and_pad, ct_compare_digest
+        ct_check_cbc_mac_and_pad, ct_compare_digest, ct_lsb_prop_u16
 
 from hypothesis import given, example
 import hypothesis.strategies as st
@@ -79,6 +79,14 @@ class TestContanttime(unittest.TestCase):
     def test_ct_lsb_prop_u8(self, i):
         self.assertEqual(((i & 0x1) == 1), (ct_lsb_prop_u8(i) == 0xff))
         self.assertEqual(((i & 0x1) == 0), (ct_lsb_prop_u8(i) == 0x00))
+
+    @given(i=st.integers(0, 2**16-1))
+    @example(i=0)
+    @example(i=255)
+    @example(i=2**16-1)
+    def test_ct_lsb_prop_u16(self, i):
+        self.assertEqual(((i & 0x1) == 1), (ct_lsb_prop_u16(i) == 0xffff))
+        self.assertEqual(((i & 0x1) == 0), (ct_lsb_prop_u16(i) == 0x0000))
 
     @given(i=st.integers(0,2**32 - 1))
     @example(i=0)
