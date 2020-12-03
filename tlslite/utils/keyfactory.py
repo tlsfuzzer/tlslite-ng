@@ -129,10 +129,19 @@ def _parseKeyHelper(key, private, public):
         return _createPublicKey(key)
 
     if private:
-        if hasattr(key, "d"):
-            return _createPrivateKey(key)
-        else:
+        if cryptomath.m2cryptoLoaded:
+            if type(key) == Python_RSAKey:
+                return _createPrivateKey(key)
+            elif type(key) == Python_ECDSAKey:
+                return key
+            else:
+                assert type(key) == OpenSSL_RSAKey, type(key)
             return key
+        else:
+            if hasattr(key, "d"):
+                return _createPrivateKey(key)
+            else:
+                return key
 
     return key
 
