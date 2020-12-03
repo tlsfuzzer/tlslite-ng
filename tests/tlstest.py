@@ -1346,6 +1346,31 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - session_ticket resumption in TLSv1.2".format(test_no))
+    synchro.recv(1)
+    session_cache = []
+    connection = connect()
+    connection.session_ticket_cache = session_cache
+    settings = HandshakeSettings()
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverName == address[0]
+    assert not connection.resumed
+    connection.close()
+
+    # resume
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    connection = connect()
+    connection.session_ticket_cache = session_cache
+    connection.handshakeClientCert(serverName=address[0], settings=settings)
+    testConnClient(connection)
+    assert connection.resumed
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - resumption in TLSv1.3".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -2724,6 +2749,30 @@ def serverTestCmd(argv):
         assert(str(e) == "illegal_parameter")
     else:
         raise AssertionError("no exception raised")
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - session_ticket resumption in TLSv1.2".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 3)
+    settings.session_ticket_keys = {}
+    settings.session_ticket_keys["key_name"] = getRandomBytes(16)
+    settings.session_ticket_keys["aes_key"] = getRandomBytes(16)
+    settings.session_ticket_keys["hmac_key"] = getRandomBytes(32)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    # resume
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
     connection.close()
 
     test_no += 1
