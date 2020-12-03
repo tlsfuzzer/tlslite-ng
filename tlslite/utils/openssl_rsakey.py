@@ -8,6 +8,7 @@ from .cryptomath import *
 from .rsakey import *
 from .python_rsakey import Python_RSAKey
 from .compat import compatAscii2Bytes
+import sys
 
 #copied from M2Crypto.util.py, so when we load the local copy of m2
 #we can still use it
@@ -154,6 +155,13 @@ if m2cryptoLoaded:
                         key._hasPrivateKey = False
                     else:
                         raise SyntaxError()
+                    if key._hasPrivateKey:
+                        if sys.version_info < (3, 0):
+                            b64_key = str(key.write())
+                        else:
+                            b64_key = str(key.write(), "ascii")
+                        py_key = Python_RSAKey.parsePEM(b64_key)
+                        key.d = py_key.d
                     return key
                 finally:
                     m2.bio_free(bio)
