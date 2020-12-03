@@ -293,6 +293,14 @@ class HandshakeSettings(object):
         not be longer than 48h.
         Leave empty to disable session ticket support on server side.
 
+    :vartype session_ticket_keys: dict
+    :ivar session_ticket_keys: keys to be used for encrypting and decrypting
+        session tickets in TLS1.2, TLS1.1 and TLS1.0.
+        The server holds and AES(aes_key) key which is used in AES-CBC mode
+        and an HMAC(hmac_key) key which is used with HMAC-SHA-256.
+        The server also holds 128-bit identifier(key_name) to be used as id for
+        the set of keys.
+
     :vartype ticketCipher: str
     :ivar ticketCipher: name of the cipher used for encrypting the session
         tickets. 'aes256gcm' by default, 'aes128gcm' or 'chacha20-poly1305'
@@ -347,6 +355,7 @@ class HandshakeSettings(object):
         self.padding_cb = None
         self.use_heartbeat_extension = True
         self.heartbeat_response_callback = None
+        self.session_ticket_keys = {}
 
     def _init_misc_extensions(self):
         """Default variables for assorted extensions."""
@@ -636,6 +645,7 @@ class HandshakeSettings(object):
         other.max_early_data = self.max_early_data
         other.ticket_count = self.ticket_count
         other.record_size_limit = self.record_size_limit
+        other.session_ticket_keys = self.session_ticket_keys
 
     @staticmethod
     def _remove_all_matches(values, needle):

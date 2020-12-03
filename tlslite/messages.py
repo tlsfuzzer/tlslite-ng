@@ -2055,6 +2055,46 @@ class NewSessionTicket(HelloMessage):
         return self
 
 
+class NewSessionTicket2(HelloMessage):
+    """Handling of the TLS1.2 NewSessionTicket message."""
+
+    def __init__(self):
+        """Create New Session Ticket object."""
+        super(NewSessionTicket2, self).__init__(HandshakeType
+                                               .new_session_ticket)
+        self.ticket_lifetime = 0
+        self.ticket = bytearray(0)
+
+    def create(self, ticket_lifetime, ticket):
+        """Initialise a New Session Ticket."""
+        self.ticket_lifetime = ticket_lifetime
+        self.ticket = ticket
+        return self
+
+    def write(self):
+        """
+        Serialise the message to on the wire data.
+
+        :rtype: bytearray
+        """
+        w = Writer()
+        w.add(self.ticket_lifetime, 4)
+        w.addVarSeq(self.ticket, 1, 2)
+        w2 = Writer()
+        w.bytes += w2.bytes
+
+        return self.postWrite(w)
+
+    def parse(self, parser):
+        """Parse the object from on the wire data."""
+        parser.startLengthCheck(3)
+        self.ticket_lifetime = parser.get(4)
+        self.ticket = parser.getVarBytes(2)
+        parser.stopLengthCheck()
+
+        return self
+
+
 class SessionTicketPayload(object):
     """Serialisation and deserialisation of server state for resumption.
 
@@ -2102,7 +2142,7 @@ class SessionTicketPayload(object):
                             .create(i, []) for i in client_cert_chain.x509List]
 
     def create(self, master_secret, protocol_version, cipher_suite,
-               creation_time, nonce=bytearray(), client_cert_chain=None):
+               creation_time, nonce=None, client_cert_chain=None):
         """Initialise the object with cryptographic data."""
         self.master_secret = master_secret
         self.protocol_version = protocol_version
@@ -2120,14 +2160,15 @@ class SessionTicketPayload(object):
             entry = CertificateEntry(CertificateType.x509)
             self._cert_chain.append(entry.parse(parser))
 
-    def parse(self, parser):
+    def parse(self, parser, expect_nonce=True):
         self.version = parser.get(2)
         if self.version > 1:
             raise ValueError("Unrecognised version number")
         self.master_secret = parser.getVarBytes(2)
         self.protocol_version = (parser.get(1), parser.get(1))
         self.cipher_suite = parser.get(2)
-        self.nonce = parser.getVarBytes(1)
+        if expect_nonce:
+            self.nonce = parser.getVarBytes(1)
         self.creation_time = parser.get(8)
         if self.version == 1:
             self._parse_cert_chain(Parser(parser.getVarBytes(3)))
@@ -2143,8 +2184,9 @@ class SessionTicketPayload(object):
         writer.addOne(self.protocol_version[0])
         writer.addOne(self.protocol_version[1])
         writer.addTwo(self.cipher_suite)
-        writer.addOne(len(self.nonce))
-        writer.bytes += self.nonce
+        if self.nonce:
+            writer.addOne(len(self.nonce))
+            writer.bytes += self.nonce
         writer.add(self.creation_time, 8)
         if self.version == 1:
             wcert = Writer()
