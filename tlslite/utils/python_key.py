@@ -33,8 +33,38 @@ class Python_Key(object):
         elif pemSniff(s, "EC PRIVATE KEY"):
             bytes = dePem(s, "EC PRIVATE KEY")
             return Python_Key._parse_ecc_ssleay(bytes)
+        elif pemSniff(s, "PUBLIC KEY"):
+            bytes = dePem(s, "PUBLIC KEY")
+            return Python_Key._parse_public_key(bytes)
         else:
             raise SyntaxError("Not a PEM private key file")
+
+    @staticmethod
+    def _parse_public_key(bytes):
+        # public keys are encoded as the subject_public_key_info objects
+        spk_info = ASN1Parser(bytes)
+
+        # first element of the SEQUENCE is the AlgorithmIdentifier
+        alg_id = spk_info.getChild(0)
+
+        # AlgId has two elements, the OID of the algorithm and parameters
+        # parameters generally have to be NULL, with exception of RSA-PSS
+
+        alg_oid = alg_id.getChild(0)
+
+        if list(alg_oid.value) != [42, 134, 72, 134, 247, 13, 1, 1, 1]:
+            raise SyntaxError("Only RSA Public keys supported")
+
+        subject_public_key = ASN1Parser(
+            ASN1Parser(spk_info.getChildBytes(1)).value[1:])
+
+        modulus = subject_public_key.getChild(0)
+        exponent = subject_public_key.getChild(1)
+
+        n = bytesToNumber(modulus.value)
+        e = bytesToNumber(exponent.value)
+
+        return Python_RSAKey(n, e, key_type="rsa")
 
     @staticmethod
     def _parse_pkcs8(bytes):
