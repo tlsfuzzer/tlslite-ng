@@ -107,20 +107,22 @@ def parsePEMKey(s, private=False, public=False, passwordCallback=None,
 
 
 def _parseKeyHelper(key, private, public):
-    if private:
-        if not key.hasPrivateKey():
-            raise SyntaxError("Not a private key!")
+    if private and not key.hasPrivateKey():
+        raise SyntaxError("Not a private key!")
 
     if public:
         return _createPublicKey(key)
 
     if private:
-        if hasattr(key, "d"):
-            return _createPrivateKey(key)
-        else:
+        if cryptomath.m2cryptoLoaded:
+            if type(key) == Python_RSAKey:
+                return _createPrivateKey(key)
+            assert type(key) in (OpenSSL_RSAKey, ), type(key)
             return key
-
+        elif hasattr(key, "d"):
+            return _createPrivateKey(key)
     return key
+
 
 def parseAsPublicKey(s):
     """Parse a PEM-formatted public key.

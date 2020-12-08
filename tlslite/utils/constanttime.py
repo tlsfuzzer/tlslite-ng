@@ -23,6 +23,7 @@ def ct_lt_u32(val_a, val_b):
 
     return (val_a^((val_a^val_b)|(((val_a-val_b)&0xffffffff)^val_b)))>>31
 
+
 def ct_gt_u32(val_a, val_b):
     """
     Return 1 if val_a > val_b, 0 otherwise. Constant time.
@@ -34,6 +35,7 @@ def ct_gt_u32(val_a, val_b):
     :rtype: int
     """
     return ct_lt_u32(val_b, val_a)
+
 
 def ct_le_u32(val_a, val_b):
     """
@@ -47,13 +49,25 @@ def ct_le_u32(val_a, val_b):
     """
     return 1 ^ ct_gt_u32(val_a, val_b)
 
+
 def ct_lsb_prop_u8(val):
-    """Propagate LSB to all 8 bits of the returned byte. Constant time."""
+    """Propagate LSB to all 8 bits of the returned int. Constant time."""
     val &= 0x01
     val |= val << 1
     val |= val << 2
     val |= val << 4
     return val
+
+
+def ct_lsb_prop_u16(val):
+    """Propagate LSB to all 16 bits of the returned int. Constant time."""
+    val &= 0x01
+    val |= val << 1
+    val |= val << 2
+    val |= val << 4
+    val |= val << 8
+    return val
+
 
 def ct_isnonzero_u32(val):
     """
@@ -65,6 +79,7 @@ def ct_isnonzero_u32(val):
     """
     val &= 0xffffffff
     return (val|(-val&0xffffffff)) >> 31
+
 
 def ct_neq_u32(val_a, val_b):
     """
