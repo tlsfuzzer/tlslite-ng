@@ -1,11 +1,11 @@
 tlslite-ng version 0.8.0-alpha38 (2020-06-17)
 
-[![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
+[![Build Status](https://travis-ci.com/tlsfuzzer/tlslite-ng.svg?branch=master)](https://travis-ci.com/tlsfuzzer/tlslite-ng)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
-[![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
-[![Code Climate](https://codeclimate.com/github/tomato42/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tomato42/tlslite-ng)
+[![Coverage Status](https://coveralls.io/repos/tlsfuzzer/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tlsfuzzer/tlslite-ng?branch=master)
+[![Code Climate](https://codeclimate.com/github/tlsfuzzer/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tlsfuzzer/tlslite-ng)
 
-[![Build history](https://buildstats.info/travisci/chart/tomato42/tlslite-ng?branch=master&includeBuildsFromPullRequest=false)](https://travis-ci.org/tomato42/tlslite-ng/builds)
+[![Build history](https://buildstats.info/travisci/chart/tlsfuzzer/tlslite-ng?branch=master&includeBuildsFromPullRequest=false)](https://travis-ci.org/tlsfuzzer/tlslite-ng/builds)
 
 
 Table of Contents
@@ -40,14 +40,14 @@ or can be automatically generated using `make docs` with Sphinx installed.
 If you have questions or feedback, feel free to contact me (Hubert Kario
 &lt;hkario at redhat.com>). Issues and pull
 requests can also be submitted through github issue tracking system, at the
-project's main page at [GitHub](https://github.com/tomato42/tlslite-ng), see
-[CONTRIBUTING.md](https://github.com/tomato42/tlslite-ng/blob/master/CONTRIBUTING.md)
+project's main page at [GitHub](https://github.com/tlsfuzzer/tlslite-ng), see
+[CONTRIBUTING.md](https://github.com/tlsfuzzer/tlslite-ng/blob/master/CONTRIBUTING.md)
 file for more information.
 
 tlslite-ng aims to be a drop in replacement for the original TLS Lite.
 
 Security policy of the project is available in the
-[SECURITY.md](https://github.com/tomato42/tlslite-ng/blob/master/SECURITY.md)
+[SECURITY.md](https://github.com/tlsfuzzer/tlslite-ng/blob/master/SECURITY.md)
 file.
 
 Implemented TLS features include:
