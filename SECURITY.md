@@ -23,7 +23,7 @@ ciphers, as well as all CBC mode ciphers working in MAC-then-encrypt mode are
 
 (Note: PyCrypto aes-gcm cipher is also not secure as it uses Python to
 calculate GCM tag, see issue
-[#301](https://github.com/tomato42/tlslite-ng/issues/301))
+[#301](https://github.com/tlsfuzzer/tlslite-ng/issues/301))
 
 ## Supported Versions
 

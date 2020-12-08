@@ -3,7 +3,7 @@
 ## How to prepare
 
 * You need a [GitHub account](https://github.com/signup/free)
-* Submit an [issue ticket](https://github.com/tomato42/tlslite-ng/issues) for
+* Submit an [issue ticket](https://github.com/tlsfuzzer/tlslite-ng/issues) for
   your issue if there is none yet.
   * Describe the issue and include steps to reproduce if it's a bug, mention
     the earliest version that you know is affected and the version you're using.
@@ -108,7 +108,7 @@ dnf install m2crypto python-crypto python3-crypto python-gmpy2 python3-gmpy2
 
 * Push your changes to a topic branch in your fork of the repository.
 * Open a pull request to the original repository and choose the right original
-  branch you want to patch (that usually will be tomato42/master).
+  branch you want to patch (that usually will be tlsfuzzer/master).
 * If you posted issues previously, make sure you reference them in the opening
   commit of the pull request (e.g. 'fixes #12'). But _please do not close the
   issue yourself_. GitHub will do that automatically once the issue is merged.
