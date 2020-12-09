@@ -171,7 +171,15 @@ before_install:
 install:
   - if [[ -e build-requirements-${TRAVIS_PYTHON_VERSION}.txt ]]; then travis_retry pip install -r build-requirements-${TRAVIS_PYTHON_VERSION}.txt; else travis_retry pip install -r build-requirements.txt; fi
   - if [[ $TACKPY == 'true' ]]; then travis_retry pip install tackpy; fi
-  - if [[ $M2CRYPTO == 'true' ]]; then travis_retry pip install --pre m2crypto; fi
+  - |
+      if [[ $M2CRYPTO == 'true' ]]; then
+        # it looks like 0.37.0 broke compatibility with old OpenSSL so try using old version
+        if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]] || [[ $TRAVIS_PYTHON_VERSION == 3.5 ]] || [[ $TRAVIS_PYTHON_VERSION == 3.6 ]] ; then
+           travis_retry pip install 'm2crypto<0.37';
+        else
+           travis_retry pip install --pre m2crypto;
+        fi
+      fi
   - if [[ $PYCRYPTO == 'true' ]]; then travis_retry pip install pycrypto; fi
   - if [[ $PYCRYPTODOME == 'true' ]]; then travis_retry pip install pycryptodome; fi
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
