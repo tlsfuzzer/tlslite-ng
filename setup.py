@@ -11,10 +11,10 @@ with open(os.path.join(here, "README")) as f:
     README = f.read()
 
 setup(name="tlslite-ng",
-      version="0.7.5",
+      version="0.7.6",
       author="Hubert Kario",
       author_email="hkario@redhat.com",
-      url="https://github.com/tomato42/tlslite-ng",
+      url="https://github.com/tlsfuzzer/tlslite-ng",
       description="Pure python implementation of SSL and TLS.",
       long_description=README,
       license="LGPLv2",
