@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha38 (2020-06-17)
+tlslite-ng version 0.8.0-alpha39 (2020-12-19)
 
 [![Build Status](https://travis-ci.com/tlsfuzzer/tlslite-ng.svg?branch=master)](https://travis-ci.com/tlsfuzzer/tlslite-ng)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
