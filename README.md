@@ -1,14 +1,13 @@
 ```
-tlslite-ng version 0.7.5                                           2018-07-31
+tlslite-ng version 0.7.6                                           2020-12-18
 Hubert Kario <hkario at redhat.com>
 https://github.com/tomato42/tlslite-ng/
 ```
 
-[![Build Status](https://travis-ci.org/tomato42/tlslite-ng.svg?branch=master)](https://travis-ci.org/tomato42/tlslite-ng)
-[![Coverage Status](https://coveralls.io/repos/tomato42/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tomato42/tlslite-ng?branch=master)
-[![Code Health](https://landscape.io/github/tomato42/tlslite-ng/master/landscape.svg?style=flat)](https://landscape.io/github/tomato42/tlslite-ng/master)
-[![Code Climate](https://codeclimate.com/github/tomato42/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tomato42/tlslite-ng)
-[![Code Issues](https://www.quantifiedcode.com/api/v1/project/59e6019ef3c84ad7ba30c49ec46d990f/badge.svg)](https://www.quantifiedcode.com/app/project/59e6019ef3c84ad7ba30c49ec46d990f)
+[![Build Status](https://travis-ci.com/tlsfuzzer/tlslite-ng.svg?branch=tlslite-ng-0.7)](https://travis-ci.com/tlsfuzzer/tlslite-ng)
+[![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
+[![Coverage Status](https://coveralls.io/repos/tlsfuzzer/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tlsfuzzer/tlslite-ng?branch=master)
+[![Code Climate](https://codeclimate.com/github/tlsfuzzer/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tlsfuzzer/tlslite-ng)
 
 Table of Contents
 ==================
@@ -585,6 +584,20 @@ encrypt-then-MAC mode for CBC ciphers.
 
 12 History
 ===========
+
+0.7.6 - 2020-12-18
+* workaround CVE-2020-26263 - Bleichenbacher oracle in RSA decryption.
+  Please note that while the code was fortified, because of peculiarities of
+  python, it's not possible to fully fix it. If you require resistance against
+  side-channel attacks please use a different library.
+* stop mis-detecting pycryptodome as pycrypto
+* start running test coverage on Python 3.8, fix test suite incompatibility
+  with python 3.8
+* fix incompatibility of imaplib wrapper with imaplib on python 3.9
+* start running test coverage on Python 3.9
+* drop official support for Python 3.2: while we didn't perform any changes
+  that should make the library stop working on Python 3.2, our dependency
+  python-ecdsa doesn't support it
 
 0.7.5 - 2018-07-31
 * Fix multithreading issue with pure python RSA implementation private key
