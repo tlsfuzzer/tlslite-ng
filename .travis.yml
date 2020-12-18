@@ -161,6 +161,8 @@ before_install:
          PR_FIRST=$(curl --silent --show-error --location $URL | head -1 | grep -o -E '\b[0-9a-f]{40}\b' | tr -d '\n')
          TRAVIS_COMMIT_RANGE=$PR_FIRST^..$TRAVIS_COMMIT
        fi
+
+  - pip list
   # sanity check current commit
   - git rev-parse HEAD
   - echo "TRAVIS_COMMIT_RANGE=$TRAVIS_COMMIT_RANGE"
@@ -185,6 +187,7 @@ install:
   - if [[ $GMPY == 'true' ]]; then travis_retry pip install gmpy; fi
   - if [[ $GMPY2 == 'true' ]]; then travis_retry pip install gmpy2; fi
   - travis_retry pip install -r requirements.txt
+  - pip list
   - if [[ $CC_COV == 'true' ]]; then ./cc-test-reporter before-build; fi
 
 script:

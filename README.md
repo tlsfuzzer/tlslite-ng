@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha38 (2020-06-17)
+tlslite-ng version 0.8.0-alpha39 (2020-12-19)
 
 [![Build Status](https://travis-ci.com/tlsfuzzer/tlslite-ng.svg?branch=master)](https://travis-ci.com/tlsfuzzer/tlslite-ng)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -591,10 +591,17 @@ may not work with all asyncore.dispatcher subclasses.
 * fix compatibility issue with 8192 bit SRP group from RFC 5054
 * fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
   mode
+* workaround CVE-2020-26263 - Bleichenbacher oracle in RSA decryption.
+  Please note that while the code was fortified, because of peculiarities of
+  python, it's not possible to fully fix it. If you require resistance against
+  side-channel attacks please use a different library.
 * fix Python_RSAKey multithreading support - performing private key operation
   in two threads at the same time could make all future calls return incorrect
   results
 * Python 3.7 support (`async` is now a keyword) (Pierre Ståhl)
+* Python 3.8 test suite compatibility
+* Python 3.9 support (slight changes in imaplib caused our wrapper to stop
+  working)
 * Compatibility with M2Crypto on Python 3
 * fix Python 2 comaptibility issue with X.509 DER parsing (Erkki Vahala)
 * TLS 1.3
@@ -664,6 +671,17 @@ may not work with all asyncore.dispatcher subclasses.
 * add multiple well-known DH groups from RFC 2409, RFC 5114 and RFC 3526,
   unify formatting of the existing DH group (use exactly the formatting used
   in the RFC's)
+* add benchmarking tool for RSA (`scripts/speed.py`)
+* add support for gmpy2, use it and gmpy in more places for RSA calculations
+  (minor speed up for RSA operations)
+* refactor certificate selection, make server select certificate based on
+  curves and signature algorithms advertised by client (Ivan Nikolchev)
+* basic support for DSA certificates; not usable in TLS yet (Frantisek
+  Krenzelok)
+* small optimisations to PRF methods, speeds to handshake
+* support for MD5 signatures in X.509 certificates (Jean-Romain Garnier)
+* add support for Brainpool curves in TLS 1.2 and earlier (pytz)
+
 
 0.7.0 - 2017-07-31
 
