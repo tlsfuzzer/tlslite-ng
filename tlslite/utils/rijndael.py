@@ -1041,7 +1041,7 @@ class Rijndael(object):
         """Decrypt a block of ciphertext."""
         if len(ciphertext) != self.block_size:
             raise ValueError('wrong block length, expected {0} got {1}'
-                             .format(self.block_size, len(plaintext)))
+                             .format(self.block_size, len(ciphertext)))
         Kd = self.Kd
 
         BC = self.block_size // 4
