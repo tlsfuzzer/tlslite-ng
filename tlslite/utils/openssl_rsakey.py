@@ -30,6 +30,8 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 
 if m2cryptoLoaded:
+    import M2Crypto
+
     class OpenSSL_RSAKey(RSAKey):
         def __init__(self, n=0, e=0, key_type="rsa"):
             self.rsa = None
@@ -69,8 +71,9 @@ if m2cryptoLoaded:
             return ciphertext
 
         def _raw_private_key_op_bytes(self, message):
-            return bytearray(m2.rsa_private_encrypt(self.rsa, bytes(message),
-                                                    m2.no_padding))
+            return self._call_m2crypto(
+                m2.rsa_private_encrypt, message,
+                "Bad parameters to private key operation")
 
         def _rawPublicKeyOp(self, ciphertext):
             data = numberToByteArray(ciphertext, numBytes(self.n))
@@ -79,9 +82,16 @@ if m2cryptoLoaded:
             message = bytesToNumber(bytearray(string))
             return message
 
+        def _call_m2crypto(self, method, param, err_msg):
+            try:
+                return bytearray(method(self.rsa, bytes(param), m2.no_padding))
+            except M2Crypto.RSA.RSAError:
+                raise ValueError(err_msg)
+
         def _raw_public_key_op_bytes(self, ciphertext):
-            return bytearray(m2.rsa_public_decrypt(self.rsa, bytes(ciphertext),
-                                                   m2.no_padding))
+            return self._call_m2crypto(
+                m2.rsa_public_decrypt, ciphertext,
+                "Bad parameters to public key operation")
 
         def acceptsPassword(self): return True
 
