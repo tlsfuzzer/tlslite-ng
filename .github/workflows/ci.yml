@@ -1,0 +1,214 @@
+name: GitHub CI
+
+on:
+  push:
+    branches:
+      - master
+      - tlslite-ng-0.7
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # first test on vanilla environments
+          - os: ubuntu-16.04
+            python-version: 2.7
+          - os: ubuntu-18.04
+            #python-version: 3.3.7
+            python-version: 3.3
+          - os: ubuntu-18.04
+            #python-version: 3.4.10
+            python-version: 3.4
+          - os: ubuntu-18.04
+            python-version: 3.5
+          - os: ubuntu-18.04
+            python-version: 3.6
+          - os: ubuntu-latest
+            python-version: 3.7
+          - os: ubuntu-latest
+            python-version: 3.8
+          - os: ubuntu-latest
+            python-version: 3.9
+          # TODO: make pypy runnable
+          #- os: ubuntu-latest
+          #  python-version: pypy2
+          #- os: ubuntu-latest
+          #  python-version: pypy3
+          # then test with the different optional dependencies installed
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['tackpy']
+          - os: ubuntu-16.04
+            python-version: 2.7
+            opt-deps: ['m2crypto']
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['m2crypto']
+          - os: ubuntu-latest
+            python-version: 3.7
+            opt-deps: ['m2crypto']
+          - os: ubuntu-latest
+            python-version: 3.8
+            opt-deps: ['m2crypto']
+          - os: ubuntu-latest
+            python-version: 3.9
+            opt-deps: ['m2crypto']
+          - os: ubuntu-latest
+            python-version: 2.7
+            opt-deps: ['pycrypto']
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['pycrypto']
+          - os: ubuntu-latest
+            # note: 3.7 is the last version where pycrypto is installable
+            python-version: 3.7
+            opt-deps: ['pycrypto']
+          - os: ubuntu-latest
+            python-version: 3.9
+            # we don't support pycryptodome, just test that when it's installed
+            # it doesn't break pycrypto code
+            opt-deps: ['pycryptodome']
+          - os: ubuntu-latest
+            python-version: 2.7
+            opt-deps: ['gmpy']
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['gmpy']
+          - os: ubuntu-latest
+            python-version: 3.7
+            opt-deps: ['gmpy']
+          - os: ubuntu-latest
+            python-version: 3.8
+            opt-deps: ['gmpy']
+          - os: ubuntu-latest
+            python-version: 3.9
+            opt-deps: ['gmpy']
+          - os: ubuntu-latest
+            python-version: 2.7
+            opt-deps: ['gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.7
+            opt-deps: ['gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.8
+            opt-deps: ['gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.9
+            opt-deps: ['gmpy2']
+          # finally test with multiple dependencies installed at the same time
+          - os: ubuntu-latest
+            python-version: 2.7
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.6
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.7
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.8
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
+          - os: ubuntu-latest
+            python-version: 3.9
+            # coverage to codeclimate can be submitted just once
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'codeclimate']
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 50
+      - name: Verify git status
+        run: |
+          git status
+          git remote -v
+      - name: Ensure we have baseline branch for quality coverage
+        run: git fetch origin master:refs/remotes/origin/master
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - name: Display installed python package versions
+        run: pip list
+      - name: Ensure working pip on 3.3
+        #if: ${{ matrix.python-version == '3.3.7' }}
+        if: ${{ matrix.python-version == '3.3' }}
+        run: |
+          curl -o get-pip.py https://bootstrap.pypa.io/3.3/get-pip.py;
+          python get-pip.py
+      - name: Install M2Crypto
+        if: ${{ contains(matrix.opt-deps, 'm2crypto') }}
+        run: pip install --pre m2crypto
+      - name: Install tackpy
+        if: ${{ contains(matrix.opt-deps, 'tackpy') }}
+        run: pip install tackpy
+      - name: Install pycrypto
+        if: ${{ contains(matrix.opt-deps, 'pycrypto') }}
+        run: pip install pycrypto
+      - name: Install pycryptodome
+        if: ${{ contains(matrix.opt-deps, 'pycryptodome') }}
+        run: pip install pycryptodome
+      - name: Install gmpy
+        if: ${{ contains(matrix.opt-deps, 'gmpy') }}
+        run: pip install gmpy
+      - name: Install gmpy2 dependencies
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
+        run: sudo apt-get install -y libmpfr-dev libmpc-dev
+      - name: Install gmpy2
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
+        run: pip install gmpy2
+      - name: Install build dependencies
+        run: |
+          if [[ -e build-requirements-${{ matrix.python-version }}.txt ]]; then
+            pip install -r build-requirements-${{ matrix.python-version }}.txt;
+          else
+            pip install -r build-requirements.txt;
+          fi
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Display installed python package versions
+        run: pip list
+      - name: Prepare Codeclimate environment
+        if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+        run: |
+          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter before-build
+      - name: Run unit tests
+        run: coverage run --branch --source tlslite -m unittest discover
+      - name: Run connection tests
+        run: make test-local
+      - name: Combine coverage from both test suites
+        run: |
+          coverage combine --append
+          coverage report -m
+
+      - name: Verify instability
+        run: ./setup.py install
+      - name: Verify install
+        run: make test
+      - name: Lint the code
+        run: |
+          pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" tlslite > pylint_report.txt || :
+          diff-quality --violations=pylint --fail-under=90 pylint_report.txt
+
+      - name: Publish coverage to Coveralls
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: coveralls
+      - name: Publish coverage to Codeclimate
+        if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+        run: |
+          coverage xml
+          ./cc-test-reporter after-build
