@@ -13,7 +13,7 @@ from tlslite.utils.rsakey import RSAKey
 from tlslite.utils.python_rsakey import Python_RSAKey
 from tlslite.utils.cryptomath import *
 from tlslite.errors import *
-from tlslite.utils.keyfactory import parsePEMKey
+from tlslite.utils.keyfactory import parsePEMKey, generateRSAKey
 from tlslite.utils.compat import a2b_hex, remove_whitespace
 try:
     import mock
@@ -1229,6 +1229,7 @@ class TestRSAPSS_mod2048(unittest.TestCase):
             signed = self.rsa.RSASSA_PSS_sign(mHash, 'sha512', 10)
             self.assertEqual(signed, intendedS)
 
+
 class TestEncryptDecrypt(unittest.TestCase):
     n = int("a8d68acd413c5e195d5ef04e1b4faaf242365cb450196755e92e1215ba59802aa"
             "fbadbf2564dd550956abb54f8b1c917844e5f36195d1088c600e07cada5c080ed"
@@ -1266,6 +1267,12 @@ class TestEncryptDecrypt(unittest.TestCase):
     def test_invalid_init(self):
         with self.assertRaises(ValueError):
             Python_RSAKey(self.n, self.e, self.d, self.p)
+
+    def test_with_generated_key(self):
+        key = generateRSAKey(1024)
+
+        txt = bytearray(b"test string")
+        self.assertEqual(txt, key.decrypt(key.encrypt(txt)))
 
 
 class TestRSAPKCS1(unittest.TestCase):
