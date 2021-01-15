@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +39,9 @@ jobs:
           #  python-version: pypy2
           #- os: ubuntu-latest
           #  python-version: pypy3
+          - os: ubuntu-latest
+            container: centos:6
+            python-version: 2.6
           # then test with the different optional dependencies installed
           - os: ubuntu-latest
             python-version: 3.6
@@ -121,8 +125,43 @@ jobs:
             opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'codeclimate']
     steps:
       - uses: actions/checkout@v2
+        if: ${{ !matrix.container }}
         with:
           fetch-depth: 50
+      - uses: actions/checkout@v1
+        if: ${{ matrix.container }}
+        with:
+          fetch-depth: 50
+      - name: Ensure dependencies on CentOS
+        if: ${{ matrix.container }}
+        run: |
+          ls /etc/yum.repos.d/
+          cat /etc/yum.repos.d/CentOS-Base.repo
+          rm /etc/yum.repos.d/CentOS-Base.repo
+          cat > /etc/yum.repos.d/CentOS-Base.repo <<EOF
+          [base]
+          name=CentOS-$releasever - Base
+          baseurl=https://vault.centos.org/6.10/os/x86_64/
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
+
+          [updates]
+          name=CentOS-$releasever - Updates
+          baseurl=https://vault.centos.org/6.10/updates/x86_64/
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
+
+          [extras]
+          name=CentOS-$releasever - Extras
+          baseurl=https://vault.centos.org/6.10/extras/x86_64/
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
+
+          EOF
+          echo installing
+          yum clean all
+          yum repolist all
+          yum install -y git make python curl gcc libffi-devel python-devel glibc-devel openssl-devel
       - name: Verify git status
         run: |
           git status
@@ -130,19 +169,27 @@ jobs:
       - name: Ensure we have baseline branch for quality coverage
         run: git fetch origin master:refs/remotes/origin/master
       - name: Set up Python ${{ matrix.python-version }}
+        if: ${{ !matrix.container }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
       - name: Display installed python package versions
-        run: pip list
+        run: |
+          pip list || :
       - name: Ensure working pip on 3.3
-        #if: ${{ matrix.python-version == '3.3.7' }}
         if: ${{ matrix.python-version == '3.3' }}
         run: |
           curl -o get-pip.py https://bootstrap.pypa.io/3.3/get-pip.py;
           python get-pip.py
+      - name: Ensure working pip on 2.6
+        if: ${{ matrix.python-version == '2.6' }}
+        run: |
+          curl -o get-pip.py https://bootstrap.pypa.io/2.6/get-pip.py;
+          python get-pip.py
+          pip list
+          pip install setuptools==28.8.0 wheel==0.30.0a0
       - name: Install M2Crypto
         if: ${{ contains(matrix.opt-deps, 'm2crypto') }}
         run: pip install --pre m2crypto
@@ -183,8 +230,12 @@ jobs:
           curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
           chmod +x ./cc-test-reporter
           ./cc-test-reporter before-build
-      - name: Run unit tests
+      - name: Run unit tests (2.7+)
+        if: ${{ matrix.python-version != '2.6' }}
         run: coverage run --branch --source tlslite -m unittest discover
+      - name: Run unit tests (2.6)
+        if: ${{ matrix.python-version == '2.6' }}
+        run: coverage run --branch --source tlslite -m unittest2 discover
       - name: Run connection tests
         run: make test-local
       - name: Combine coverage from both test suites
@@ -197,9 +248,16 @@ jobs:
       - name: Verify install
         run: make test
       - name: Lint the code
+        # pylint doesn't work on 2.6: https://bitbucket.org/logilab/pylint/issue/390/py26-compatiblity-broken
+        if: ${{ matrix.python-version != '2.6' }}
         run: |
           pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" tlslite > pylint_report.txt || :
           diff-quality --violations=pylint --fail-under=90 pylint_report.txt
+      - name: Verify that intermediate commits are testable
+        if: ${{ github.event.pull_request }}
+        run: |
+          echo $GITHUB_SHA
+          echo $GITHUB_REF
 
       - name: Publish coverage to Coveralls
         env:
