@@ -255,10 +255,30 @@ jobs:
           diff-quality --violations=pylint --fail-under=90 pylint_report.txt
       - name: Verify that intermediate commits are testable
         if: ${{ github.event.pull_request }}
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          echo $GITHUB_SHA
-          echo $GITHUB_REF
-
+          BASE_DIR="$(pwd)"
+          echo BASE_REF: $BASE_REF
+          echo GITHUB_SHA: $GITHUB_SHA
+          echo GITHUB_REF: $GITHUB_REF
+          git fetch origin $BASE_REF
+          COMMIT_RANGE=origin/$BASE_REF..$GITHUB_SHA
+          echo COMMIT_RANGE: $COMMIT_RANGE
+          echo Will test the following commits:
+          git log --oneline --reverse $COMMIT_RANGE
+          for i in $(git log --pretty=format:%H --reverse $COMMIT_RANGE); do
+            git checkout $i
+            make clean
+            if [[ $PYTHON_VERSION == '2.6' ]]; then
+              unit2 discover || exit 1
+            else
+              python -m unittest discover || exit 1
+            fi
+            make test-local || exit 1
+            cd "$BASE_DIR"
+          done
       - name: Publish coverage to Coveralls
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
