@@ -16,110 +16,139 @@ jobs:
       matrix:
         include:
           # first test on vanilla environments
-          - os: ubuntu-16.04
+          - name: py2.7
+            os: ubuntu-16.04
             python-version: 2.7
-          - os: ubuntu-18.04
+          - name: py3.3
+            os: ubuntu-18.04
             #python-version: 3.3.7
             python-version: 3.3
-          - os: ubuntu-18.04
+          - name: py3.4
+            os: ubuntu-18.04
             #python-version: 3.4.10
             python-version: 3.4
-          - os: ubuntu-18.04
+          - name: py3.5
+            os: ubuntu-18.04
             python-version: 3.5
-          - os: ubuntu-18.04
+          - name: py3.6
+            os: ubuntu-18.04
             python-version: 3.6
-          - os: ubuntu-latest
+          - name: py3.7
+            os: ubuntu-latest
             python-version: 3.7
-          - os: ubuntu-latest
+          - name: py3.8
+            os: ubuntu-latest
             python-version: 3.8
-          - os: ubuntu-latest
+          - name: py3.9
+            os: ubuntu-latest
             python-version: 3.9
-          # TODO: make pypy runnable
-          #- os: ubuntu-latest
-          #  python-version: pypy2
-          #- os: ubuntu-latest
-          #  python-version: pypy3
-          - os: ubuntu-latest
+          - name: py2.6
+            os: ubuntu-latest
             container: centos:6
             python-version: 2.6
           # then test with the different optional dependencies installed
-          - os: ubuntu-latest
+          - name: py3.6 with tackpy
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['tackpy']
-          - os: ubuntu-16.04
+          - name: py2.7 with m2crypto
+            os: ubuntu-16.04
             python-version: 2.7
             opt-deps: ['m2crypto']
-          - os: ubuntu-latest
+          - name: py3.6 with m2crypto
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['m2crypto']
-          - os: ubuntu-latest
+          - name: py3.7 with m2crypto
+            os: ubuntu-latest
             python-version: 3.7
             opt-deps: ['m2crypto']
-          - os: ubuntu-latest
+          - name: py3.8 with m2crypto
+            os: ubuntu-latest
             python-version: 3.8
             opt-deps: ['m2crypto']
-          - os: ubuntu-latest
+          - name: py3.9 with m2crypto
+            os: ubuntu-latest
             python-version: 3.9
             opt-deps: ['m2crypto']
-          - os: ubuntu-latest
+          - name: py2.7 with pycrypto
+            os: ubuntu-latest
             python-version: 2.7
             opt-deps: ['pycrypto']
-          - os: ubuntu-latest
+          - name: py3.6 with pycrypto
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['pycrypto']
-          - os: ubuntu-latest
+          - name: py3.7 with pycrypto
+            os: ubuntu-latest
             # note: 3.7 is the last version where pycrypto is installable
             python-version: 3.7
             opt-deps: ['pycrypto']
-          - os: ubuntu-latest
+          - name: py3.9 with pycryptodome
+            os: ubuntu-latest
             python-version: 3.9
             # we don't support pycryptodome, just test that when it's installed
             # it doesn't break pycrypto code
             opt-deps: ['pycryptodome']
-          - os: ubuntu-latest
+          - name: py2.7 with gmpy
+            os: ubuntu-latest
             python-version: 2.7
             opt-deps: ['gmpy']
-          - os: ubuntu-latest
+          - name: py3.6 with gmpy
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['gmpy']
-          - os: ubuntu-latest
+          - name: py3.7 with gmpy
+            os: ubuntu-latest
             python-version: 3.7
             opt-deps: ['gmpy']
-          - os: ubuntu-latest
+          - name: py3.8 with gmpy
+            os: ubuntu-latest
             python-version: 3.8
             opt-deps: ['gmpy']
-          - os: ubuntu-latest
+          - name: py3.9 with gmpy
+            os: ubuntu-latest
             python-version: 3.9
             opt-deps: ['gmpy']
-          - os: ubuntu-latest
+          - name: py2.7 with gmpy2
+            os: ubuntu-latest
             python-version: 2.7
             opt-deps: ['gmpy2']
-          - os: ubuntu-latest
+          - name: py3.6 with gmpy2
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['gmpy2']
-          - os: ubuntu-latest
+          - name: py3.7 with gmpy2
+            os: ubuntu-latest
             python-version: 3.7
             opt-deps: ['gmpy2']
-          - os: ubuntu-latest
+          - name: py3.8 with gmpy2
+            os: ubuntu-latest
             python-version: 3.8
             opt-deps: ['gmpy2']
-          - os: ubuntu-latest
+          - name: py3.9 with gmpy2
+            os: ubuntu-latest
             python-version: 3.9
             opt-deps: ['gmpy2']
           # finally test with multiple dependencies installed at the same time
-          - os: ubuntu-latest
+          - name: py2.7 with m2crypto, pycrypto, gmpy, and gmpy2
+            os: ubuntu-latest
             python-version: 2.7
             opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - os: ubuntu-latest
+          - name: py3.6 with m2crypto, pycrypto, gmpy, and gmpy2
+            os: ubuntu-latest
             python-version: 3.6
             opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - os: ubuntu-latest
+          - name: py3.7 with m2crypto, pycrypto, gmpy, and gmpy2
+            os: ubuntu-latest
             python-version: 3.7
             opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - os: ubuntu-latest
+          - name: py3.8 with m2crypto, gmpy, and gmpy2
+            os: ubuntu-latest
             python-version: 3.8
             opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - os: ubuntu-latest
+          - name: py3.8 with m2crypto, gmpy, and gmpy2
+            os: ubuntu-latest
             python-version: 3.9
             # coverage to codeclimate can be submitted just once
             opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'codeclimate']
@@ -220,6 +249,14 @@ jobs:
           fi
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Configuration for coverage
+        # for the status reporter we need a system configured with relative_files, but that's not supported on coverage < 5
+        if: ${{ matrix.python-version != '2.6' && matrix.python-version != '3.3' && matrix.python-version != '3.4' }}
+        run: |
+          cat > .coveragerc <<EOF
+          [run]
+          relative_files = True
+          EOF
       - name: Display installed python package versions
         run: pip list
       - name: Prepare Codeclimate environment
@@ -264,7 +301,7 @@ jobs:
           echo GITHUB_SHA: $GITHUB_SHA
           echo GITHUB_REF: $GITHUB_REF
           git fetch origin $BASE_REF
-          COMMIT_RANGE=origin/$BASE_REF..$GITHUB_SHA
+          COMMIT_RANGE=origin/$BASE_REF..HEAD
           echo COMMIT_RANGE: $COMMIT_RANGE
           echo Will test the following commits:
           git log --oneline --reverse $COMMIT_RANGE
@@ -280,9 +317,21 @@ jobs:
             cd "$BASE_DIR"
           done
       - name: Publish coverage to Coveralls
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-        run: coveralls
+        if: ${{ !matrix.container && matrix.python-version != '3.3' && matrix.python-version != '3.4' }}
+        uses: AndreMiras/coveralls-python-action@develop
+        with:
+          github-token: ${{ github.token }}
+          parallel: true
+          flag-name: ${{ matrix.name }}
+          debug: true
+      #- name: Publish coverage to Coveralls
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #    COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      #    COVERALLS_FLAG_NAME: ${{ matrix.python-version }} (${{ toJSON(matrix.opt-deps) }})
+      #    COVERALLS_PARALLEL: true
+      #    COVERALLS_SERVICE_NAME: github-actions
+      #  run: coveralls
       - name: Publish coverage to Codeclimate
         if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
         env:
@@ -290,3 +339,28 @@ jobs:
         run: |
           coverage xml
           ./cc-test-reporter after-build
+
+#  coveralls:
+#    name: Indicate completion to coveralls.io
+#    needs: test
+#    runs-on: ubuntu-latest
+#    container: python:3-slim
+#    steps:
+#      - name: Finished
+#        run: |
+#          pip3 install --upgrade coveralls
+#          coveralls --finish
+#        env:
+#          COVERALLS_SERVICE_NAME: github
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          #COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+
+  coveralls_finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Coveralls Finished
+      uses: AndreMiras/coveralls-python-action@develop
+      with:
+        parallel-finished: true
+        debug: true
