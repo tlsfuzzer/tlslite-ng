@@ -329,14 +329,16 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
       - name: Finished
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_SERVICE_NAME: git hub actions
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         run: |
-          pip install --upgrade coveralls
-          coveralls --service=github --finish
+          if [[ "${{ github.event.pull_request }}" ]]; then
+            PR_NUM=${GITHUB_REF#refs/pull/}
+            PR_NUM=${PR_NUM%/merge}
+            BUILD_NUM=${GITHUB_SHA}-PR-${PR_NUM}
+          else
+            BUILD_NUM=${GITHUB_SHA}
+          fi
+          curl -k https://coveralls.io/webhook?repo_token=$COVERALLS_REPO_TOKEN -d "payload[build_num]=${BUILD_NUM}&payload[status]=done"
