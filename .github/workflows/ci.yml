@@ -42,7 +42,7 @@ jobs:
             python-version: 3.9
           - name: py2.6
             os: ubuntu-latest
-            container: centos:6
+            container: registry.access.redhat.com/rhel6/rhel
             python-version: 2.6
           # then test with the different optional dependencies installed
           - name: py3.6 with tackpy
@@ -164,28 +164,6 @@ jobs:
         if: ${{ matrix.container }}
         run: |
           ls /etc/yum.repos.d/
-          cat /etc/yum.repos.d/CentOS-Base.repo
-          rm /etc/yum.repos.d/CentOS-Base.repo
-          cat > /etc/yum.repos.d/CentOS-Base.repo <<EOF
-          [base]
-          name=CentOS-$releasever - Base
-          baseurl=https://vault.centos.org/6.10/os/x86_64/
-          gpgcheck=1
-          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
-
-          [updates]
-          name=CentOS-$releasever - Updates
-          baseurl=https://vault.centos.org/6.10/updates/x86_64/
-          gpgcheck=1
-          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
-
-          [extras]
-          name=CentOS-$releasever - Extras
-          baseurl=https://vault.centos.org/6.10/extras/x86_64/
-          gpgcheck=1
-          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
-
-          EOF
           echo installing
           yum clean all
           yum repolist all
