@@ -1,6 +1,6 @@
 coverage
 hypothesis
-coveralls
+coveralls==1.11.1
 pylint
 diff_cover
 pytest>=4.6.5
