@@ -311,10 +311,10 @@ jobs:
       - name: Publish coverage to Coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERALLS_FLAG_NAME: ${{ matrix.name }}
           COVERALLS_PARALLEL: true
-          COVERALLS_SERVICE_NAME: git hub actions
+          COVERALLS_SERVICE_NAME: github
         run: coveralls
       - name: Publish coverage to Codeclimate
         if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
@@ -336,7 +336,8 @@ jobs:
       - name: Finished
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_SERVICE_NAME: git hub actions
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_SERVICE_NAME: github
         run: |
           pip install --upgrade coveralls
           coveralls --service=github --finish
