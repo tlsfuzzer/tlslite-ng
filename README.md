@@ -678,6 +678,12 @@ may not work with all asyncore.dispatcher subclasses.
 * small optimisations to PRF methods, speeds to handshake
 * support for MD5 signatures in X.509 certificates (Jean-Romain Garnier)
 * add support for Brainpool curves in TLS 1.2 and earlier (pytz)
+* fix wrong error message in AES implementation (Bernt Røskar Brenna)
+* migrate to Github Action for CI
+* fix API break caused by the workaround for Bleichenbacher; RSA keys generated
+  in-memory with m2crypto wouldn't work for decryption/encryption
+* handle too short RSA ciphertexts for the key size consistently between
+  backends
 
 
 0.7.0 - 2017-07-31
