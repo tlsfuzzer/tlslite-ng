@@ -1,12 +1,9 @@
 tlslite-ng version 0.8.0-alpha39 (2020-12-19)
 
-[![Build Status](https://travis-ci.com/tlsfuzzer/tlslite-ng.svg?branch=master)](https://travis-ci.com/tlsfuzzer/tlslite-ng)
+[![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
 [![Coverage Status](https://coveralls.io/repos/tlsfuzzer/tlslite-ng/badge.svg?branch=master)](https://coveralls.io/r/tlsfuzzer/tlslite-ng?branch=master)
 [![Code Climate](https://codeclimate.com/github/tlsfuzzer/tlslite-ng/badges/gpa.svg)](https://codeclimate.com/github/tlsfuzzer/tlslite-ng)
-
-[![Build history](https://buildstats.info/travisci/chart/tlsfuzzer/tlslite-ng?branch=master&includeBuildsFromPullRequest=false)](https://travis-ci.org/tlsfuzzer/tlslite-ng/builds)
-
 
 Table of Contents
 ==================
