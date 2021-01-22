@@ -311,10 +311,9 @@ jobs:
       - name: Publish coverage to Coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
           COVERALLS_FLAG_NAME: ${{ matrix.name }}
           COVERALLS_PARALLEL: true
-          COVERALLS_SERVICE_NAME: git hub actions
+          COVERALLS_SERVICE_NAME: github
         run: coveralls
       - name: Publish coverage to Codeclimate
         if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
@@ -328,20 +327,14 @@ jobs:
     name: Indicate completion to coveralls.io
     needs: test
     runs-on: ubuntu-latest
+    container: python:3-slim
     steps:
-      - name: Finished
+      - name: Install coveralls
+        run: |
+          pip3 install --upgrade coveralls
+      - name: Send "finished" signal to coveralls
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          COVERALLS_SERVICE_NAME: github
         run: |
-          echo "GITHUB_SHA:" $GITHUB_SHA
-          echo "GITHUB_REF:" $GITHUB_REF
-          if [[ "${{ github.event.pull_request }}" ]]; then
-            PR_NUM=${GITHUB_REF#refs/pull/}
-            PR_NUM=${PR_NUM%/merge}
-            BUILD_NUM=${GITHUB_SHA}-PR-${PR_NUM}
-          else
-            BUILD_NUM=${GITHUB_SHA}
-          fi
-          echo "BUILD_NUM:" $BUILD_NUM
-          curl -k https://coveralls.io/webhook?repo_token=$COVERALLS_REPO_TOKEN -d "payload[build_num]=${BUILD_NUM}&payload[status]=done"
+          coveralls --finish
