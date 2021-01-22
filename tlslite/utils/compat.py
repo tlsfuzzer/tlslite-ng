@@ -38,6 +38,10 @@ if sys.version_info >= (3,0):
             return bytes(val, 'ascii')
         return val
 
+    def compat_b2a(val):
+        """Convert an ASCII bytes string to string."""
+        return str(val, 'ascii')
+
     def raw_input(s):
         return input(s)
     
@@ -140,6 +144,10 @@ else:
     def compatAscii2Bytes(val):
         """Convert ASCII string to bytes."""
         return val
+
+    def compat_b2a(val):
+        """Convert an ASCII bytes string to string."""
+        return str(val)
 
     # So, python 2.6 requires strings, python 3 requires 'bytes',
     # and python 2.7 can handle bytearrays...     

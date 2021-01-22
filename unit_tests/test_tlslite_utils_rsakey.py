@@ -13,7 +13,7 @@ from tlslite.utils.rsakey import RSAKey
 from tlslite.utils.python_rsakey import Python_RSAKey
 from tlslite.utils.cryptomath import *
 from tlslite.errors import *
-from tlslite.utils.keyfactory import parsePEMKey
+from tlslite.utils.keyfactory import parsePEMKey, generateRSAKey
 from tlslite.utils.compat import a2b_hex, remove_whitespace
 try:
     import mock
@@ -1229,6 +1229,7 @@ class TestRSAPSS_mod2048(unittest.TestCase):
             signed = self.rsa.RSASSA_PSS_sign(mHash, 'sha512', 10)
             self.assertEqual(signed, intendedS)
 
+
 class TestEncryptDecrypt(unittest.TestCase):
     n = int("a8d68acd413c5e195d5ef04e1b4faaf242365cb450196755e92e1215ba59802aa"
             "fbadbf2564dd550956abb54f8b1c917844e5f36195d1088c600e07cada5c080ed"
@@ -1266,6 +1267,12 @@ class TestEncryptDecrypt(unittest.TestCase):
     def test_invalid_init(self):
         with self.assertRaises(ValueError):
             Python_RSAKey(self.n, self.e, self.d, self.p)
+
+    def test_with_generated_key(self):
+        key = generateRSAKey(1024)
+
+        txt = bytearray(b"test string")
+        self.assertEqual(txt, key.decrypt(key.encrypt(txt)))
 
 
 class TestRSAPKCS1(unittest.TestCase):
@@ -2050,6 +2057,85 @@ fef8a3834e17e5358d822980dc446e845b3ab4702b1ee41fe5db716d92348d5091c15d35a110
 
         self.assertNotEqual(msg, b'lorem ipsum')
         self.assertEqual(msg, plaintext)
+
+    def test_negative_11_bytes_long_with_null_padded_ciphertext(self):
+        # an invalid ciphertext, with a zero byte in first byte of
+        # ciphertext, decrypts to a random 11 byte long synthethic
+        # plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+0096136621faf36d5290b16bd26295de27f895d1faa51c800dafce73d001d60796cd4e2ac3f
+a2162131d859cd9da5a0c8a42281d9a63e5f353971b72e36b5722e4ac444d77f892a5443deb
+3dca49fa732fe855727196e23c26eeac55eeced8267a209ebc0f92f4656d64a6c13f7f7ce54
+4ebeb0f668fe3a6c0f189e4bcd5ea12b73cf63e0c8350ee130dd62f01e5c97a1e13f52fde96
+a9a1bc9936ce734fdd61f27b18216f1d6de87f49cf4f2ea821fb8efd1f92cdad529baf7e31a
+ff9bff4074f2cad2b4243dd15a711adcf7de900851fbd6bcb53dac399d7c880531d06f25f70
+02e1aaf1722765865d2c2b902c7736acd27bc6cbd3e38b560e2eecf7d4b576
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertNotEqual(dec[-12:-11], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("ba27b1842e7c21c0e7ef6a"))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_bytes_long_with_null_truncated_ciphertext(self):
+        # same as test_negative_11_bytes_long_with_null_padded_ciphertext
+        # but with the zero bytes at the beginning removed
+        ciphertext = a2b_hex(remove_whitespace("""
+96136621faf36d5290b16bd26295de27f895d1faa51c800dafce73d001d60796cd4e2ac3f
+a2162131d859cd9da5a0c8a42281d9a63e5f353971b72e36b5722e4ac444d77f892a5443deb
+3dca49fa732fe855727196e23c26eeac55eeced8267a209ebc0f92f4656d64a6c13f7f7ce54
+4ebeb0f668fe3a6c0f189e4bcd5ea12b73cf63e0c8350ee130dd62f01e5c97a1e13f52fde96
+a9a1bc9936ce734fdd61f27b18216f1d6de87f49cf4f2ea821fb8efd1f92cdad529baf7e31a
+ff9bff4074f2cad2b4243dd15a711adcf7de900851fbd6bcb53dac399d7c880531d06f25f70
+02e1aaf1722765865d2c2b902c7736acd27bc6cbd3e38b560e2eecf7d4b576
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n)-1)
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(b"\x00" + ciphertext)
+        self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertNotEqual(dec[-12:-11], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("ba27b1842e7c21c0e7ef6a"))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        # tlslite-ng considers a too short ciphertext a publicly known error
+        # so it returns an error (None)
+        self.assertEqual(msg, None)
+
+    def test_negative_11_byte_long_with_double_null_padded_ciphertext(self):
+        # an invalid ciphertext, with two zero byte in first bytes of
+        # ciphertext, that decrypts to a random 11 byte long synthethic
+        # plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+0000587cccc6b264bdfe0dc2149a988047fa921801f3502ea64624c510c6033d2f427e3f136
+c26e88ea9f6519e86a542cec96aad1e5e9013c3cc203b6de15a69183050813af5c9ad797031
+36d4b92f50ce171eefc6aa7988ecf02f319ffc5eafd6ee7a137f8fce64b255bb1b8dd19cfe7
+67d64fdb468b9b2e9e7a0c24dae03239c8c714d3f40b7ee9c4e59ac15b17e4d328f1100756b
+ce17133e8e7493b54e5006c3cbcdacd134130c5132a1edebdbd01a0c41452d16ed7a0788003
+c34730d0808e7e14c797a21f2b45a8aa1644357fd5e988f99b017d9df37563a354c788dc0e2
+f9466045622fa3f3e17db63414d27761f57392623a2bef6467501c63e8d645"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertNotEqual(dec[-12:-11], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("d5cf555b1d6151029a429a"))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
 
     def test_negative_11_byte_long_null_type_byte(self):
         # an otherwise correct plaintext, but with wrong second byte
