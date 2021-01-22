@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha39 (2020-12-19)
+tlslite-ng version 0.8.0-alpha40 (2021-01-22)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -678,6 +678,12 @@ may not work with all asyncore.dispatcher subclasses.
 * small optimisations to PRF methods, speeds to handshake
 * support for MD5 signatures in X.509 certificates (Jean-Romain Garnier)
 * add support for Brainpool curves in TLS 1.2 and earlier (pytz)
+* fix wrong error message in AES implementation (Bernt Røskar Brenna)
+* migrate to Github Action for CI
+* fix API break caused by the workaround for Bleichenbacher; RSA keys generated
+  in-memory with m2crypto wouldn't work for decryption/encryption
+* handle too short RSA ciphertexts for the key size consistently between
+  backends
 
 
 0.7.0 - 2017-07-31
