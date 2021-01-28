@@ -52,19 +52,40 @@ class Python_Key(object):
 
         alg_oid = alg_id.getChild(0)
 
-        if list(alg_oid.value) != [42, 134, 72, 134, 247, 13, 1, 1, 1]:
-            raise SyntaxError("Only RSA Public keys supported")
+        if list(alg_oid.value) == [42, 134, 72, 134, 247, 13, 1, 1, 1]:
+            key_type = "rsa"
+        elif list(alg_oid.value) == [42, 134, 72, 206, 56, 4, 1]:
+            key_type = "dsa"
+        else:
+            raise SyntaxError("Only RSA or DSA Public keys supported")
 
-        subject_public_key = ASN1Parser(
-            ASN1Parser(spk_info.getChildBytes(1)).value[1:])
+        if key_type == "rsa":
+            subject_public_key = ASN1Parser(
+                ASN1Parser(spk_info.getChildBytes(1)).value[1:])
 
-        modulus = subject_public_key.getChild(0)
-        exponent = subject_public_key.getChild(1)
+            modulus = subject_public_key.getChild(0)
+            exponent = subject_public_key.getChild(1)
 
-        n = bytesToNumber(modulus.value)
-        e = bytesToNumber(exponent.value)
+            n = bytesToNumber(modulus.value)
+            e = bytesToNumber(exponent.value)
 
-        return Python_RSAKey(n, e, key_type="rsa")
+            return Python_RSAKey(n, e, key_type="rsa")
+
+        elif key_type == "dsa":
+            # public key
+            subject_public_key = ASN1Parser(
+                ASN1Parser(spk_info.getChildBytes(1)).value[1:])
+
+            public_key = bytesToNumber(subject_public_key.value)
+
+            # domain parameters
+            domain = alg_id.getChild(1)
+
+            p = bytesToNumber(domain.getChild(0).value)
+            q = bytesToNumber(domain.getChild(1).value)
+            g = bytesToNumber(domain.getChild(2).value)
+
+            return Python_DSAKey(p, q, g, y=public_key)
 
     @staticmethod
     def _parse_pkcs8(bytes):

@@ -1,11 +1,11 @@
 # Author: Frantisek Krenzelok
 """Pure-Python RSA implementation."""
 from ecdsa.der import encode_sequence, encode_integer,  \
-remove_sequence, remove_integer
+    remove_sequence, remove_integer
 
 from .cryptomath import getRandomNumber, getRandomPrime,    \
-powMod, numBits, bytesToNumber, invMod,   \
-secureHash, GMPY2_LOADED, gmpyLoaded
+    powMod, numBits, bytesToNumber, invMod,   \
+    secureHash, GMPY2_LOADED, gmpyLoaded
 
 from .compat import compatHMAC
 
@@ -80,9 +80,12 @@ class Python_DSAKey(DSAKey):
 
     def hashAndSign(self, data, hAlg="sha1"):
         hashData = (secureHash(bytearray(data), hAlg))
+        return self.sign(hashData)
+
+    def sign(self, data):
         N = numBits(self.q)
-        digest_len = len(hashData) * 8
-        digest = bytesToNumber(hashData)
+        digest_len = len(data) * 8
+        digest = bytesToNumber(data)
         if N < digest_len:
             digest >>= digest_len - N
 

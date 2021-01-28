@@ -105,27 +105,22 @@ class KeyExchange(object):
         try:
             serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
                 getattr(SignatureScheme, sigHash)
-            hashName = SignatureScheme.getHash(sigHash)
 
         except AttributeError:
             serverKeyExchange.signAlg = SignatureAlgorithm.dsa
             serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
-            keyType = 'dsa'
-            hashName = sigHash
 
-        hash_bytes = serverKeyExchange.hash(self.clientHello.random,
-                                            self.serverHello.random)
+        hashBytes = serverKeyExchange.hash(self.clientHello.random,
+                                           self.serverHello.random)
 
         serverKeyExchange.signature = \
-            self.privateKey.sign(hashBytes,
-                                 hashAlg=hashName)
+            self.privateKey.sign(hashBytes)
 
         if not serverKeyExchange.signature:
             raise TLSInternalError("Empty signature")
 
         if not self.privateKey.verify(serverKeyExchange.signature,
-                                      hashBytes,
-                                      hashAlg=hashName):
+                                      hashBytes):
             raise TLSInternalError("Server Key Exchange signature invalid")
 
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
@@ -218,9 +213,6 @@ class KeyExchange(object):
     @staticmethod
     def _tls12_verify_dsa_SKE(serverKeyExchange, publicKey, clientRandom,
                               serverRandom, validSigAlgs):
-        hashName = HashAlgorithm.toRepr(serverKeyExchange.hashAlg)
-        if not hashName:
-            raise TLSIllegalParameterException("Unknown hash algorithm")
 
         hashBytes = serverKeyExchange.hash(clientRandom, serverRandom)
 
