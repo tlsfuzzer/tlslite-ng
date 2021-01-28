@@ -60,6 +60,9 @@ class DSAKey(object):
         """
         raise NotImplementedError()
 
+    def sign(self, data):
+        raise NotImplementedError()
+
     def hashAndVerify(self, signature, data, hAlg="sha1"):
         """Hash and verify the passed-in bytes with signature.
 

@@ -105,27 +105,22 @@ class KeyExchange(object):
         try:
             serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
                 getattr(SignatureScheme, sigHash)
-            hashName = SignatureScheme.getHash(sigHash)
 
         except AttributeError:
             serverKeyExchange.signAlg = SignatureAlgorithm.dsa
             serverKeyExchange.hashAlg = getattr(HashAlgorithm, sigHash)
-            keyType = 'dsa'
-            hashName = sigHash
 
-        hash_bytes = serverKeyExchange.hash(self.clientHello.random,
-                                            self.serverHello.random)
+        hashBytes = serverKeyExchange.hash(self.clientHello.random,
+                                           self.serverHello.random)
 
         serverKeyExchange.signature = \
-            self.privateKey.sign(hashBytes,
-                                 hashAlg=hashName)
+            self.privateKey.sign(hashBytes)
 
         if not serverKeyExchange.signature:
             raise TLSInternalError("Empty signature")
 
         if not self.privateKey.verify(serverKeyExchange.signature,
-                                      hashBytes,
-                                      hashAlg=hashName):
+                                      hashBytes):
             raise TLSInternalError("Server Key Exchange signature invalid")
 
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
@@ -967,3 +962,28 @@ class ECDHKeyExchange(RawDHKeyExchange):
             S = ecdhYc * private
 
             return numberToByteArray(S.x(), getPointByteSize(ecdhYc))
+
+# the DHE_DSS part comes from IETF ciphersuite names, we want to keep it
+#pylint: disable = invalid-name
+class DHE_DSSKeyExchange(AuthenticatedKeyExchange, ADHKeyExchange):
+    """
+    Handling of authenticated ephemeral Diffe-Hellman Key exchange.
+    """
+
+    def __init__(self, cipherSuite, clientHello, serverHello, privateKey,
+                 dhParams=None, dhGroups=None):
+        """
+        Create helper object for Diffie-Hellamn key exchange.
+
+        :param dhParams: Diffie-Hellman parameters that will be used by
+            server. First element of the tuple is the generator, the second
+            is the prime. If not specified it will use a secure set (currently
+            a 2048-bit safe prime).
+        :type dhParams: 2-element tuple of int
+        """
+        super(DHE_DSSKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                 serverHello, dhParams,
+                                                 dhGroups)
+#pylint: enable = invalid-name
+        self.privateKey = privateKey
+

@@ -35,7 +35,8 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, \
-        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
+        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange, \
+        DHE_DSSKeyExchange
 from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
@@ -2249,6 +2250,7 @@ class TLSConnection(TLSRecordLayer):
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
               cipherSuite in CipherSuite.dheCertSuites or
+              cipherSuite in CipherSuite.dheDsaSuites or
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
             try:
@@ -2286,6 +2288,14 @@ class TLSConnection(TLSRecordLayer):
                                                    privateKey,
                                                    acceptedCurves,
                                                    defaultCurve)
+            elif cipherSuite in CipherSuite.dheDsaSuites:
+                dhGroups = self._groupNamesToList(settings)
+                keyExchange = DHE_DSSKeyExchange(cipherSuite,
+                                                 clientHello,
+                                                 serverHello,
+                                                 privateKey,
+                                                 settings.dhParams,
+                                                 dhGroups)
             else:
                 assert(False)
             for result in self._serverCertKeyExchange(clientHello, serverHello,
@@ -3356,6 +3366,8 @@ class TLSConnection(TLSRecordLayer):
             if ffGroupIntersect:
                 cipherSuites += CipherSuite.getDheCertSuites(settings,
                                                              version)
+                cipherSuites += CipherSuite.getDheDsaSuites(settings,
+                                                            version)
             cipherSuites += CipherSuite.getCertSuites(settings, version)
         elif anon:
             cipherSuites += CipherSuite.getAnonSuites(settings, version)
@@ -4430,7 +4442,7 @@ class TLSConnection(TLSRecordLayer):
                                 SignatureAlgorithm.ecdsa))
 
         if not certType or certType == "dsa":
-            for schemeName in settings.dsaSigHashes:
+            for hashName in settings.dsaSigHashes:
                 if version > (3, 3):
                     continue
 
