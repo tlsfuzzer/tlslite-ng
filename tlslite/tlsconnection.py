@@ -1654,7 +1654,8 @@ class TLSConnection(TLSRecordLayer):
         serverCertChain = None
         publicKey = None
         if cipherSuite in CipherSuite.certAllSuites or \
-                cipherSuite in CipherSuite.ecdheEcdsaSuites:
+                cipherSuite in CipherSuite.ecdheEcdsaSuites or \
+                cipherSuite in CipherSuite.dheDsaSuites:
             # get the certificate
             for result in self._clientGetKeyFromChain(serverCertificate,
                                                       settings,
@@ -1666,6 +1667,7 @@ class TLSConnection(TLSRecordLayer):
 
             #Check the server's signature, if the server chose an authenticated
             # PFS-enabled ciphersuite
+
             if serverKeyExchange:
                 valid_sig_algs = \
                     self._sigHashesToList(settings,
@@ -1862,7 +1864,7 @@ class TLSConnection(TLSRecordLayer):
                             .format(curve_name)):
                         yield result
         else:
-            # for RSA keys
+            # for RSA and DSA keys
             if len(publicKey) < settings.minKeySize:
                 for result in self._sendError(
                         AlertDescription.handshake_failure,
@@ -2249,6 +2251,7 @@ class TLSConnection(TLSRecordLayer):
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
               cipherSuite in CipherSuite.dheCertSuites or
+              cipherSuite in CipherSuite.dheDsaSuites or
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
             try:
@@ -2268,7 +2271,8 @@ class TLSConnection(TLSRecordLayer):
                                              clientHello,
                                              serverHello,
                                              privateKey)
-            elif cipherSuite in CipherSuite.dheCertSuites:
+            elif cipherSuite in CipherSuite.dheCertSuites or \
+                    cipherSuite in CipherSuite.dheDsaSuites:
                 dhGroups = self._groupNamesToList(settings)
                 keyExchange = DHE_RSAKeyExchange(cipherSuite,
                                                  clientHello,
@@ -3356,6 +3360,8 @@ class TLSConnection(TLSRecordLayer):
             if ffGroupIntersect:
                 cipherSuites += CipherSuite.getDheCertSuites(settings,
                                                              version)
+                cipherSuites += CipherSuite.getDheDsaSuites(settings,
+                                                            version)
             cipherSuites += CipherSuite.getCertSuites(settings, version)
         elif anon:
             cipherSuites += CipherSuite.getAnonSuites(settings, version)
@@ -4430,7 +4436,7 @@ class TLSConnection(TLSRecordLayer):
                                 SignatureAlgorithm.ecdsa))
 
         if not certType or certType == "dsa":
-            for schemeName in settings.dsaSigHashes:
+            for hashName in settings.dsaSigHashes:
                 if version > (3, 3):
                     continue
 

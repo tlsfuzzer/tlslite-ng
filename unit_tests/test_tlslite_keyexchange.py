@@ -49,6 +49,7 @@ from tlslite.keyexchange import KeyExchange, RSAKeyExchange, \
         RawDHKeyExchange, FFDHKeyExchange
 from tlslite.utils.x25519 import x25519, X25519_G, x448, X448_G
 from tlslite.mathtls import RFC7919_GROUPS
+from tlslite.utils.python_key import Python_Key
 
 srv_raw_key = str(
     "-----BEGIN RSA PRIVATE KEY-----\n"\
@@ -105,6 +106,52 @@ srv_raw_ec_certificate = str(
     "-----END CERTIFICATE-----\n"
     )
 
+srv_raw_dsa_key = str(
+    "-----BEGIN DSA PRIVATE KEY-----\n"
+    "MIH4AgEAAkEA3bykTVXw4lkeb3Lyke23Z91tzd6/R/DupNUYKy7/jWmZO0in3u/q\n"
+    "Me04PgHTX5eisY9DCNalZTySSeCuR0VUQQIVAMJ1mwmJR8zmPZ3cYOk5/lumvYlx\n"
+    "AkAct23wcqNoBbNk10bYlrNFrmTKkkeyCgM0mbijjTY3COXk0j1ooPhxgHNzSvUD\n"
+    "c7AAKw1TJq1I+uD9Vmeb5d9RAkEAmRWHykeVYDN5dI+BOJ/krscIFG6dxX2JlSO9\n"
+    "ro0IiCv5WTVHGXICZH4qyC5zqfFJEvVAYehoNVEKXaDaak3aMwIUbvnbV9GKJauF\n"
+    "95LUridc8j6zpno=\n"
+    "-----END DSA PRIVATE KEY-----\n"
+)
+
+srv_raw_dsa_certificate = str(
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIDDjCCAfagAwIBAgIBAjANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQKDApFeGFt\n"
+    "cGxlIENBMB4XDTIxMDExODE2MTkyOVoXDTIyMDExODE2MTkyOVowKTETMBEGA1UE\n"
+    "CgwKZHNhIHNlcnZlcjESMBAGA1UEAwwJbG9jYWxob3N0MIHxMIGoBgcqhkjOOAQB\n"
+    "MIGcAkEA3bykTVXw4lkeb3Lyke23Z91tzd6/R/DupNUYKy7/jWmZO0in3u/qMe04\n"
+    "PgHTX5eisY9DCNalZTySSeCuR0VUQQIVAMJ1mwmJR8zmPZ3cYOk5/lumvYlxAkAc\n"
+    "t23wcqNoBbNk10bYlrNFrmTKkkeyCgM0mbijjTY3COXk0j1ooPhxgHNzSvUDc7AA\n"
+    "Kw1TJq1I+uD9Vmeb5d9RA0QAAkEAmRWHykeVYDN5dI+BOJ/krscIFG6dxX2JlSO9\n"
+    "ro0IiCv5WTVHGXICZH4qyC5zqfFJEvVAYehoNVEKXaDaak3aM6OBhjCBgzAOBgNV\n"
+    "HQ8BAf8EBAMCA6gwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFBVFiXvS\n"
+    "j8MauAtVMVNo9nKJk8GzMD0GA1UdIwQ2MDSAFAdb3he+en3JjZopa3eIGFifRQz2\n"
+    "oRmkFzAVMRMwEQYDVQQKDApFeGFtcGxlIENBggEBMA0GCSqGSIb3DQEBCwUAA4IB\n"
+    "AQBzXhhSKU9/kBSUObb73qVSiXtbJh9QKs2i8yXjaO1N5bUOcrLN23Gd/D7Ks88x\n"
+    "fwMZJ3APLbHvcLdml8pmltKI9zMvp+9sxsuWp5orsvcTOTvNJYors9U6BtlcTkk7\n"
+    "INOEW/L0QWCAH/nahKE7DSE1P6reIdn4wAVdClqGQ2cTOz3Zsz/tlDr1lw3Pu2XE\n"
+    "59iRxDIBzR/lcO6fJk8nXyQqsRR+O7N4A/DGihZu9CCkon7QpeJ0nfZQ0WSkJthw\n"
+    "/phujv3f3zesefuoObHZBrFv7FxYdlMOsXr9Aiui79kbJ8vjm3CBGYqWWfWayjUz\n"
+    "1+KDP2/UOPic/NF62WNi9D55\n"
+    "-----END CERTIFICATE-----\n"
+    "\n"
+)
+
+
+client_raw_dsa_public_key = str(
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MIHxMIGoBgcqhkjOOAQBMIGcAkEA3bykTVXw4lkeb3Lyke23Z91tzd6/R/DupNUY\n"
+    "Ky7/jWmZO0in3u/qMe04PgHTX5eisY9DCNalZTySSeCuR0VUQQIVAMJ1mwmJR8zm\n"
+    "PZ3cYOk5/lumvYlxAkAct23wcqNoBbNk10bYlrNFrmTKkkeyCgM0mbijjTY3COXk\n"
+    "0j1ooPhxgHNzSvUDc7AAKw1TJq1I+uD9Vmeb5d9RA0QAAkEAmRWHykeVYDN5dI+B\n"
+    "OJ/krscIFG6dxX2JlSO9ro0IiCv5WTVHGXICZH4qyC5zqfFJEvVAYehoNVEKXaDa\n"
+    "ak3aMw==\n"
+    "-----END PUBLIC KEY-----\n"
+)
+
 class TestKeyExchange(unittest.TestCase):
 
     expected_sha1_SKE = bytearray(
@@ -140,6 +187,10 @@ class TestKeyExchange(unittest.TestCase):
             b'\x19\xe0#\xfe,M\xd7R\'\xb0\x02 <\xd6\x03\xdd\x1fS\x12o\xaaa\x9e'
             b'\x7f\xf1)\x93\xa9cr\xa1\xb3\xa7\r\xdb\xbbV\xb2\xac\xf6ZJ\xe3\x0e'
             )
+
+    expected_tls1_2_dsa_SKE = a2b_hex(
+            "0c00003b00013b00010200010e0402002e302c02145dbf79bacfc613fc664989d9"
+            "5769d452244fc09002141906263ace665f09b9221886b0acc82339b836f4")
 
 class TestKeyExchangeBasics(TestKeyExchange):
     def test___init__(self):
@@ -207,6 +258,40 @@ class TestKeyExchangeBasics(TestKeyExchange):
 
         self.assertEqual(server_key_exchange.write(), self.expected_tls1_1_SKE)
 
+    def test_signServerKeyExchange_with_sha256_dsa_in_TLS1_2(self):
+        srv_private_key = parsePEMKey(srv_raw_dsa_key, private=True)
+        client_public_key = parsePEMKey(client_raw_dsa_public_key)
+        cipher_suite = CipherSuite.TLS_DHE_DSS_WITH_AES_256_GCM_SHA384
+        client_random = a2b_hex("b9e296fd5e8fe94a4efeada64444583aee6716b2a69893"
+                                "8f6034be03ad4caac2")
+        server_random = a2b_hex("96e132aa7ad29def997deb78dec61520c28d60e0c01b10"
+                                "4533267abb15f23b9a")
+
+        client_hello = ClientHello().create((3, 3),
+                                            bytearray(client_random),
+                                            bytearray(0),
+                                            cipher_suite)
+
+        server_hello = ServerHello().create((3, 3),
+                                            bytearray(server_random),
+                                            bytearray(0),
+                                            cipher_suite)
+
+        keyExchange = KeyExchange(cipher_suite,
+                                  client_hello,
+                                  server_hello,
+                                  srv_private_key)
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 3))\
+                              .createDH(59, 2, 14)
+
+        keyExchange.signServerKeyExchange(server_key_exchange, "sha256")
+
+        keyExchange.verifyServerKeyExchange(server_key_exchange,
+                                            client_public_key,
+                                            client_random, server_random,
+                                            [(HashAlgorithm.sha256,
+                                              SignatureAlgorithm.dsa)])
+
     def test_signServerKeyExchange_with_sha1_ecdsa_in_TLS1_2(self):
         srv_private_key = parsePEMKey(srv_raw_ec_key, private=True)
         client_hello = ClientHello()
@@ -273,35 +358,7 @@ class TestKeyExchangeBasics(TestKeyExchange):
             keyExchange.privateKey.sign = mock.Mock(
                 return_value=bytearray(b'wrong'))
             keyExchange.signServerKeyExchange(server_key_exchange)
-"""
-    def test_signServerKeyExchange_with_sha1_dsa_in_TLS1_1:
-    
-        dsa_key = (
-            "-----BEGIN DSA PRIVATE KEY-----\n"
-            "MIGXAgEAAiEAmeFbCUhVUZgVpljXObhmRaQYIQ12YSr9zlCja2kpTiUCFQCfCyag\n"
-            "vEDkgK5nHqscaYlF32ekRwIgYgpNP8JjVxfJ4P3IErO07qqzWS21hSyMhsaCN0an\n"
-            "0OsCICUjj3Np+JO42v8Mc8oH6T8yNd5X0ssy8XdK3Bo9nfNpAhQJkJXFuhZDER1X\n"
-            "wOwvNiFYUPPZaA==\n"
-            "-----END DSA PRIVATE KEY-----\n")
 
-        srv_private_key = parsePEMKey(dsa_key, private=True) 
-        client_hello = ClientHello()
-        cipher_suite = CipherSuite.TLS_DHE_DSS_WITH_AES_128_CBC_SHA
-        server_hello = ServerHello().create((3, 2),
-                                            bytearray(32),
-                                            bytearray(0),
-                                            cipher_suite)
-        keyExchange = KeyExchange(cipher_suite,
-                                  client_hello,
-                                  server_hello,
-                                  srv_private_key)
-        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 2)) \
-            .createDH(5, 2, 3)
-
-        keyExchange.signServerKeyExchange(server_key_exchange, 'sha1')
-
-        self.assertEqual(server_key_exchange.write(), ske)
-"""
 class TestKeyExchangeVerifyServerKeyExchange(TestKeyExchange):
     def setUp(self):
         self.srv_cert_chain = X509CertChain([X509().parse(srv_raw_certificate)])

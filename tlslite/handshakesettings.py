@@ -24,7 +24,7 @@ ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
 MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
 ALL_MAC_NAMES = MAC_NAMES + ["md5"]
 KEY_EXCHANGE_NAMES = ["ecdhe_ecdsa", "rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha",
-                      "srp_sha_rsa", "ecdh_anon", "dh_anon"]
+                      "srp_sha_rsa", "ecdh_anon", "dh_anon", "dhe_dsa"]
 CIPHER_IMPLEMENTATIONS = ["openssl", "pycrypto", "python"]
 CERTIFICATE_TYPES = ["x509"]
 RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
@@ -144,7 +144,7 @@ class HandshakeSettings(object):
     :vartype minKeySize: int
     :ivar minKeySize: The minimum bit length for asymmetric keys.
 
-        If the other party tries to use SRP, RSA, or Diffie-Hellman
+        If the other party tries to use SRP, RSA, DSA, or Diffie-Hellman
         parameters smaller than this length, an alert will be
         signalled.  The default is 1023.
 
@@ -152,7 +152,7 @@ class HandshakeSettings(object):
     :vartype maxKeySize: int
     :ivar maxKeySize: The maximum bit length for asymmetric keys.
 
-        If the other party tries to use SRP, RSA, or Diffie-Hellman
+        If the other party tries to use SRP, RSA, DSA, or Diffie-Hellman
         parameters larger than this length, an alert will be signalled.
         The default is 8193.
 
@@ -523,7 +523,7 @@ class HandshakeSettings(object):
                              .format(unknownRSAPad))
 
         unknownSigHash = not_matching(other.dsaSigHashes,
-                                      ALL_RSA_SIGNATURE_HASHES)
+                                      DSA_SIGNATURE_HASHES)
         if unknownSigHash:
             raise ValueError("Unknown DSA signature hash: '{0}'"
                              .format(unknownSigHash))

@@ -230,7 +230,7 @@ class X509(object):
         # Adjust for BIT STRING encapsulation and get hex value
         if public_key.value[0]:
             raise SyntaxError()
-        y = public_key.value[3:]
+        y = ASN1Parser(public_key.value[1:])
 
         # Get the {A, p, q}
         p = global_parameters.getChild(0)
@@ -238,7 +238,7 @@ class X509(object):
         g = global_parameters.getChild(2)
 
         # Decode them into numbers
-        y = bytesToNumber(y)
+        y = bytesToNumber(y.value)
         p = bytesToNumber(p.value)
         q = bytesToNumber(q.value)
         g = bytesToNumber(g.value)
