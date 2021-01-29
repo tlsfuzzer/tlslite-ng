@@ -21,9 +21,10 @@ import socket
 from itertools import chain
 from .utils.compat import formatExceptionTrace
 from .tlsrecordlayer import TLSRecordLayer
-from .session import Session
+from .session import Session, Ticket
 from .constants import *
-from .utils.cryptomath import derive_secret, getRandomBytes, HKDF_expand_label
+from .utils.cryptomath import derive_secret, getRandomBytes, HKDF_expand_label, \
+        HMAC_SHA256, numberToByteArray
 from .utils.dns_utils import is_valid_hostname
 from .utils.lists import getFirstMatching
 from .errors import *
@@ -38,7 +39,7 @@ from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
 from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
-        createAESGCM, createCHACHA20
+        createAESGCM, createCHACHA20, createAES
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -86,6 +87,7 @@ class TLSConnection(TLSRecordLayer):
         # used only for TLS 1.2 and earlier
         self._peer_record_size_limit = None
         self._pha_supported = False
+        self.session_ticket_cache = None
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -575,10 +577,10 @@ class TLSConnection(TLSRecordLayer):
         #If the server elected to resume the session, it is handled here.
         for result in self._clientResume(session, serverHello, 
                         clientHello.random, 
-                        settings.cipherImplementations,
                         nextProto, settings):
             if result in (0,1): yield result
             else: break
+
         if result == "resumed_and_finished":
             self._handshakeDone(resumed=True)
             self._serverRandom = serverHello.random
@@ -782,6 +784,23 @@ class TLSConnection(TLSRecordLayer):
         if settings.record_size_limit:
             extensions.append(RecordSizeLimitExtension().create(
                 settings.record_size_limit))
+
+        # If SessionTicket support is enabled and we have a valid ticket we send
+        # it in attempt to resume the session, if SessionTicket support is enabled
+        # but we don't have a valid ticket, we send an empty one.
+        if self.session_ticket_cache is not None:
+            if len(self.session_ticket_cache) !=0:
+                for cached_ticket in self.session_ticket_cache:
+                    if cached_ticket.valid:
+                        extensions.append(SessionTicketExtension().create(
+                            cached_ticket.ticket))
+                        break
+                    else:
+                        # No need to keep expired tickets
+                        del self.session_ticket_cache[cached_ticket]
+            else:
+                extensions.append(SessionTicketExtension().create(
+                    bytearray(0)))
 
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
@@ -1554,41 +1573,69 @@ class TLSConnection(TLSRecordLayer):
                 return bytearray(nextProtos[0])
         return None
  
-    def _clientResume(self, session, serverHello, clientRandom, 
-                      cipherImplementations, nextProto, settings):
-        #If the server agrees to resume
-        if session and session.sessionID and \
-            serverHello.session_id == session.sessionID:
+    def _clientResume(self, session=None, serverHello=None, clientRandom=None,
+                      nextProto=None, settings=None):
 
-            if serverHello.cipher_suite != session.cipherSuite:
-                for result in self._sendError(\
-                    AlertDescription.illegal_parameter,\
-                    "Server's ciphersuite doesn't match session"):
-                    yield result
+        # If we have SessionTickets enabled in TLS1.2, try to get a valid one
+        ticket = None
+        if self.session_ticket_cache is not None:
+            if len(self.session_ticket_cache) !=0:
+                # We already deleted the expired ones, so we use the first one
+                # available
+                ticket = self.session_ticket_cache[0]
+        # If we have a valid one try to resume with it
+        if ticket:
+            master_secret = ticket.master_secret
+            cipher_suite = ticket.cipher_suite
 
             #Calculate pending connection states
-            self._calcPendingStates(session.cipherSuite, 
-                                    session.masterSecret, 
-                                    clientRandom, serverHello.random, 
-                                    cipherImplementations)                                   
+            self._calcPendingStates(cipher_suite,
+                                    master_secret,
+                                    clientRandom, serverHello.random,
+                                    settings.cipherImplementations)
 
-            #Exchange ChangeCipherSpec and Finished messages
-            for result in self._getFinished(session.masterSecret,
-                                            session.cipherSuite):
+            for result in self._getFinished(master_secret, cipher_suite):
                 yield result
-            # buffer writes so that CCS and Finished go out in one TCP packet
-            self.sock.buffer_writes = True
-            for result in self._sendFinished(session.masterSecret,
-                                             session.cipherSuite,
-                                             nextProto,
-                                             settings=settings):
-                yield result
-            self.sock.flush()
-            self.sock.buffer_writes = False
 
-            #Set the session for this connection
-            self.session = session
+            for result in self._sendFinished(master_secret, cipher_suite, settings=settings):
+                yield result
+
             yield "resumed_and_finished"
+
+        else:
+        #Otherwise try to resume using sessionID
+            if session and session.sessionID and \
+                serverHello.session_id == session.sessionID:
+
+                if serverHello.cipher_suite != session.cipherSuite:
+                    for result in self._sendError(\
+                        AlertDescription.illegal_parameter,\
+                        "Server's ciphersuite doesn't match session"):
+                        yield result
+
+                #Calculate pending connection states
+                self._calcPendingStates(session.cipherSuite,
+                                        session.masterSecret,
+                                        clientRandom, serverHello.random,
+                                        settings.cipherImplementations)
+
+                #Exchange ChangeCipherSpec and Finished messages
+                for result in self._getFinished(session.masterSecret,
+                                                session.cipherSuite):
+                    yield result
+                # buffer writes so that CCS and Finished go out in one TCP packet
+                self.sock.buffer_writes = True
+                for result in self._sendFinished(session.masterSecret,
+                                                 session.cipherSuite,
+                                                 nextProto,
+                                                 settings=settings):
+                    yield result
+                self.sock.flush()
+                self.sock.buffer_writes = False
+
+                #Set the session for this connection
+                self.session = session
+                yield "resumed_and_finished"
 
     def _clientKeyExchange(self, settings, cipherSuite,
                            clientCertChain, privateKey,
@@ -2215,6 +2262,15 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(RecordSizeLimitExtension().create(
                 min(2**14, settings.record_size_limit)))
 
+        # If the client indicates that it supports resumption using SessionTickets,
+        # we send zero len ticket in the extension to indicate that we are going to
+        # send a new ticket in a NewSessionTicket message
+        send_session_ticket = False
+        session_ticket = clientHello.getExtension(ExtensionType.session_ticket)
+        if session_ticket and len(session_ticket.ticket) == 0:
+            send_session_ticket = True
+            extensions.append(SessionTicketExtension().create(
+                bytearray(0)))
 
         # don't send empty list of extensions
         if not extensions:
@@ -2230,6 +2286,20 @@ class TLSConnection(TLSRecordLayer):
         serverHello.create(self.version, random, sessionID,
                            cipherSuite, CertificateType.x509, tackExt,
                            nextProtos, extensions=extensions)
+
+        # If the client did send session ticket, try to resume with it.
+        if session_ticket and len(session_ticket.ticket) != 0:
+            # If the client sent non-zero sessionID, we need
+            # to echo back that exact sessionID
+            if clientHello.session_id and len(clientHello.session_id) != 0:
+                serverHello.session_id = clientHello.session_id
+            for result in self._serverResume(serverHello, clientHello, settings, session_ticket.ticket):
+                if result in (0,1): yield result
+                else: break
+
+        if result == "resumed_and_finished":
+            self._handshakeDone(resumed=True)
+            return
 
         # Perform the SRP key exchange
         clientCertChain = None
@@ -2320,7 +2390,7 @@ class TLSConnection(TLSRecordLayer):
         for result in self._serverFinished(premasterSecret, 
                                 clientHello.random, serverHello.random,
                                 cipherSuite, settings.cipherImplementations,
-                                nextProtos, settings):
+                                nextProtos, settings, send_session_ticket, clientCertChain):
                 if result in (0,1): yield result
                 else: break
         masterSecret = result
@@ -2416,50 +2486,82 @@ class TLSConnection(TLSRecordLayer):
         iv = HKDF_expand_label(ticket_secret, b"iv", b"", 12, prf_name)
         return key, iv
 
-    def _serverSendTickets(self, settings):
+    def _serverSendTickets(self, settings, master_secret=None,
+                           cipher_suite=None, client_cert_chain=None):
         """Send session tickets to client."""
-        if not settings.ticketKeys:
-            return
+        if self.version < (3, 4):
+            if not settings.session_ticket_keys:
+                return
+        else:
+            if not settings.ticketKeys:
+                return
 
-        for _ in range(settings.ticket_count):
-            # prepare the ticket
+        # TLS1.0 - TLS1.2
+        if self.version < (3, 4) and \
+                self.version > (3, 0):
             ticket = SessionTicketPayload()
-            ticket.create(self.session.resumptionMasterSecret,
+            ticket.create(master_secret,
                           self.version,
-                          self.session.cipherSuite,
+                          cipher_suite,
                           int(time.time()),
-                          getRandomBytes(len(settings.ticketKeys[0])),
-                          client_cert_chain=self.session.clientCertChain)
+                          client_cert_chain=client_cert_chain)
 
-            # encrypt the ticket
+            iv = getRandomBytes(16)
+            key_name = settings.session_ticket_keys["key_name"]
+            aes_key = settings.session_ticket_keys["aes_key"]
+            hmac_key = settings.session_ticket_keys["hmac_key"]
 
-            # generate keys for the encryption
-            nonce = getRandomBytes(32)
-            key, iv = self._derive_key_iv(nonce, settings.ticketKeys[0],
-                                          settings)
+            cipher = createAES(aes_key, iv)
+            encrypted_state = cipher.encrypt(ticket.write())
+            hmac = HMAC_SHA256(hmac_key, key_name + iv)
 
-            if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
-                cipher = createAESGCM(key,
-                                      settings.cipherImplementations)
-            elif settings.ticketCipher in ("aes128ccm", "aes256ccm"):
-                cipher = createAESCCM(key, settings.cipherImplementations)
-            elif settings.ticketCipher in ("aes128ccm_8", "aes256ccm_8"):
-                cipher = createAESCCM_8(key, settings.cipherImplementations)
-            else:
-                assert settings.ticketCipher == "chacha20-poly1305"
-                cipher = createCHACHA20(key,
-                                        settings.cipherImplementations)
-
-            encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
-
-            # encapsulate the ticket and send to client
-            new_ticket = NewSessionTicket()
+            new_ticket = NewSessionTicket2()
             new_ticket.create(settings.ticketLifetime,
-                              getRandomNumber(1, 8**4),
-                              ticket.nonce,
-                              nonce + encrypted_ticket,
-                              [])
+                              key_name + iv + hmac +
+                              numberToByteArray(len(encrypted_state), 2) +
+                              encrypted_state)
             self._queue_message(new_ticket)
+        else:
+            #TLS1.3
+            for _ in range(settings.ticket_count):
+                # prepare the ticket
+                ticket = SessionTicketPayload()
+                ticket.create(self.session.resumptionMasterSecret,
+                              self.version,
+                              self.session.cipherSuite,
+                              int(time.time()),
+                              getRandomBytes(len(settings.ticketKeys[0])),
+                              client_cert_chain=self.session.clientCertChain)
+
+                # encrypt the ticket
+
+                # generate keys for the encryption
+                nonce = getRandomBytes(32)
+                key, iv = self._derive_key_iv(nonce, settings.ticketKeys[0],
+                                              settings)
+
+                if settings.ticketCipher in ("aes128gcm", "aes256gcm"):
+                    cipher = createAESGCM(key,
+                                          settings.cipherImplementations)
+                elif settings.ticketCipher in ("aes128ccm", "aes256ccm"):
+                    cipher = createAESCCM(key, settings.cipherImplementations)
+                elif settings.ticketCipher in ("aes128ccm_8", "aes256ccm_8"):
+                    cipher = createAESCCM_8(key, settings.cipherImplementations)
+                else:
+                    assert settings.ticketCipher == "chacha20-poly1305"
+                    cipher = createCHACHA20(key,
+                                            settings.cipherImplementations)
+
+                encrypted_ticket = cipher.seal(iv, ticket.write(), b'')
+
+                # encapsulate the ticket and send to client
+                new_ticket = NewSessionTicket()
+                new_ticket.create(settings.ticketLifetime,
+                                  getRandomNumber(1, 8**4),
+                                  ticket.nonce,
+                                  nonce + encrypted_ticket,
+                                  [])
+                self._queue_message(new_ticket)
 
         # send tickets to client
         if settings.ticket_count:
@@ -4185,7 +4287,8 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverFinished(self,  premasterSecret, clientRandom, serverRandom,
                         cipherSuite, cipherImplementations, nextProtos,
-                        settings):
+                        settings, send_session_ticket=False,
+                        client_cert_chain=None):
         if self.extendedMasterSecret:
             cvhh = self._certificate_verify_handshake_hash
             # in case of resumption or lack of certificate authentication,
@@ -4216,10 +4319,51 @@ class TLSConnection(TLSRecordLayer):
             yield result
 
         for result in self._sendFinished(masterSecret, cipherSuite,
-                settings=settings):
+                                         settings=settings,
+                                         send_session_ticket=send_session_ticket,
+                                         client_cert_chain=client_cert_chain):
             yield result
         
         yield masterSecret        
+
+
+    def _serverResume(self, server_hello, client_hello, settings, ticket):
+
+        # Unpack the ticket
+        recieved_key_name = ticket[:16]
+        recieved_iv = ticket[16:32]
+        recieved_hmac = ticket[32:64]
+        #Bytes 64 and 65 are the length, we don't need them
+        recieved_encrypted_state = ticket[66:]
+
+        key_name = settings.session_ticket_keys["key_name"]
+        aes_key = settings.session_ticket_keys["aes_key"]
+        hmac_key = settings.session_ticket_keys["hmac_key"]
+
+        cipher = createAES(aes_key, recieved_iv)
+        recieved_state = cipher.decrypt(recieved_encrypted_state)
+        parser = Parser(recieved_state)
+        recieved_state = SessionTicketPayload().parse(parser, expect_nonce=False)
+
+        master_secret = recieved_state.master_secret
+        version = recieved_state.protocol_version
+        cipher_suite = recieved_state.cipher_suite
+
+        #Calculate pending connection states
+        self._calcPendingStates(cipher_suite, master_secret,
+                                client_hello.random, server_hello.random,
+                                settings.cipherImplementations)
+
+        for result in self._sendMsg(server_hello):
+            yield result
+
+        for result in self._sendFinished(master_secret, cipher_suite, settings=settings):
+            yield result
+
+        for result in self._getFinished(master_secret, cipher_suite):
+            yield result
+
+        yield "resumed_and_finished"
 
 
     #*********************************************************
@@ -4228,7 +4372,15 @@ class TLSConnection(TLSRecordLayer):
 
 
     def _sendFinished(self, masterSecret, cipherSuite=None, nextProto=None,
-            settings=None):
+            settings=None, send_session_ticket=False, client_cert_chain=None):
+
+        if send_session_ticket:
+            for result in self._serverSendTickets(settings,
+                                                  masterSecret,
+                                                  cipherSuite,
+                                                  client_cert_chain):
+                yield result
+
         # send the CCS and Finished in single TCP packet
         self.sock.buffer_writes = True
         #Send ChangeCipherSpec
@@ -4270,17 +4422,45 @@ class TLSConnection(TLSRecordLayer):
         self.sock.buffer_writes = False
 
     def _getFinished(self, masterSecret, cipherSuite=None,
-                     expect_next_protocol=False, nextProto=None):
-        #Get and check ChangeCipherSpec
-        for result in self._getMsg(ContentType.change_cipher_spec):
-            if result in (0,1):
-                yield result
-        changeCipherSpec = result
+                    expect_next_protocol=False, nextProto=None):
 
-        if changeCipherSpec.type != 1:
-            for result in self._sendError(AlertDescription.illegal_parameter,
-                                         "ChangeCipherSpec type incorrect"):
-                yield result
+        expect_ccs_message = True
+        # If we use SessionTicket resumption on client side, there are multiple situations where the server
+        # has the option to send new ticket
+        if self.session_ticket_cache is not None:
+            for result in self._getMsg((ContentType.handshake, ContentType.change_cipher_spec), HandshakeType.new_session_ticket):
+                if result in (0,1):
+                    yield result
+                else: break
+
+            if isinstance(result, NewSessionTicket2):
+                session_ticket = result
+                # If we receive new ticket we clear the old ones
+                del self.session_ticket_cache[:]
+                self.session_ticket_cache.append(Ticket(session_ticket.ticket,
+                                                        session_ticket.ticket_lifetime,
+                                                        masterSecret, cipherSuite))
+
+            else:
+                assert isinstance(result, ChangeCipherSpec)
+                expect_ccs_message = False
+
+                changeCipherSpec = result
+                if changeCipherSpec.type != 1:
+                    for result in self._sendError(AlertDescription.illegal_parameter,
+                                                 "ChangeCipherSpec type incorrect"):
+                        yield result
+
+        if expect_ccs_message:
+            for result in self._getMsg(ContentType.change_cipher_spec):
+                if result in (0,1):
+                    yield result
+            changeCipherSpec = result
+
+            if changeCipherSpec.type != 1:
+                for result in self._sendError(AlertDescription.illegal_parameter,
+                                             "ChangeCipherSpec type incorrect"):
+                    yield result
 
         #Switch to pending read state
         self._changeReadState()

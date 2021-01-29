@@ -180,3 +180,40 @@ class Session(object):
         :returns: The name of the HMAC hash algo used with this connection.
         """
         return CipherSuite.canonicalMacName(self.cipherSuite)
+
+
+class Ticket(object):
+    """
+    This class holds the ticket and ticket lifetime which are recieved from the server,
+    together with master secret and ciphersuite which are needed to resume a session
+    using SessionTickets in TLSv1.2.
+    Currently objects of this class are only used in client side session cache where
+    we can itterate over them and use them for resumption when possible.
+
+    :vartype ticket: bytearray
+    :ivar ticket: the actual ticket recieved from the server
+
+    :vartype ticket_lifetime: int
+    :ivar ticket_lifetime: lifetime of the ticket defined by the server
+
+    :vartype master_secret: bytearray
+    :ivar master_secret: master secret used to resume the session
+
+    :vartype cipher_suite: int
+    :ivar cipher_suite: ciphersuite used to resume the session
+
+    :vartype time_recieved: int
+    :ivar time_recieved: the actuall time when we recieve the ticket
+    """
+
+    def __init__(self, ticket, ticket_lifetime, master_secret, cipher_suite):
+        self.ticket = ticket
+        self.ticket_lifetime = ticket_lifetime
+        self.master_secret = master_secret
+        self.cipher_suite = cipher_suite
+        self.time_received = time.time()
+
+    def valid(self):
+        if time.time() > self.time_received:
+            return True
+        return False
