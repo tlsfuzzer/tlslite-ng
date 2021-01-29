@@ -318,7 +318,10 @@ jobs:
       - name: Publish coverage to Codeclimate
         if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
         env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+          # yes, one could argue that making even a "write-only" token public is bad practice
+          # but it's practice that the codeclimate explicitly supports:
+          # https://docs.codeclimate.com/docs/finding-your-test-coverage-token#should-i-keep-my-test-reporter-id-secret
+          CC_TEST_REPORTER_ID: 192c24c0112eddbedbb0570c7e0111858061be407451b285e27b5a43f70b99d8
         run: |
           coverage xml
           ./cc-test-reporter after-build
