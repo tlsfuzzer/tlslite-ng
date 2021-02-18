@@ -849,6 +849,34 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 0)
+    settings.maxVersion = (3, 0)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.dheDsaSuites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 DSA, TLSv1.2".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.dheDsaSuites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    connection.close()
+
     print("Test {0} - good mutual X.509, TLSv1.3 no certs".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -1704,6 +1732,13 @@ def serverTestCmd(argv):
         x509KeyECDSANonCA = parsePEMKey(f.read(), private=True,
                                        implementations=["python"])
 
+    with open(os.path.join(dir, "serverDSACert.pem")) as f:
+        x509CertDSA = X509().parse(f.read())
+    x509ChainDSA = X509CertChain([x509CertDSA])
+    assert x509CertDSA.certAlg == "dsa"
+    with open(os.path.join(dir, "serverDSAKey.pem")) as f:
+        x509KeyDSA = parsePEMKey(f.read(), private=True,
+                                    implementations=["python"])
     test_no = 0
 
     print("Test {0} - Anonymous server handshake".format(test_no))
@@ -1818,6 +1853,7 @@ def serverTestCmd(argv):
     connection.close()
 
     test_no += 1
+
 
     print("Test {0} - good X.509 ECDSA, SSLv3".format(test_no))
     synchro.send(b'R')
@@ -2280,6 +2316,33 @@ def serverTestCmd(argv):
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
     assert len(connection.session.clientCertChain.getEndEntityPublicKey()) ==\
             256
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 0)
+    settings.maxVersion = (3, 0)
+    connection.handshakeServer(certChain=x509ChainDSA,
+                               privateKey=x509KeyDSA, settings=settings)
+    assert not connection.extendedMasterSecret
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 DSA, TLSv1.2".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509ChainDSA,
+                               privateKey=x509KeyDSA, settings=settings)
+    testConnServer(connection)
     connection.close()
 
     test_no += 1

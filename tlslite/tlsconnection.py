@@ -281,7 +281,7 @@ class TLSConnection(TLSRecordLayer):
         # it is waiting to read.
         #
         # If 'async_' is True, the generator is returned to the caller,
-        # otherwise it is executed to completion here.  
+        # otherwise it is executed to completion here.
         if async_:
             return handshaker
         for result in handshaker:
@@ -432,10 +432,10 @@ class TLSConnection(TLSRecordLayer):
             srpUsername, password = srpParams
         if certParams:
             assert(not srpParams)
-            assert(not anonParams)            
+            assert(not anonParams)
             clientCertChain, privateKey = certParams
         if anonParams:
-            assert(not srpParams)         
+            assert(not srpParams)
             assert(not certParams)
 
         #Validate parameters
@@ -463,7 +463,7 @@ class TLSConnection(TLSRecordLayer):
                              .format(serverName))
 
         # Validates the settings and filters out any unsupported ciphers
-        # or crypto libraries that were requested        
+        # or crypto libraries that were requested
         if not settings:
             settings = HandshakeSettings()
         settings = settings.validate()
@@ -475,13 +475,13 @@ class TLSConnection(TLSRecordLayer):
             if "x509" not in settings.certificateTypes:
                 raise ValueError("Client certificate doesn't match "\
                                  "Handshake Settings")
-                                  
+
         if session:
-            # session.valid() ensures session is resumable and has 
+            # session.valid() ensures session is resumable and has
             # non-empty sessionID
             if not session.valid():
                 session = None #ignore non-resumable sessions...
-            elif session.resumable: 
+            elif session.resumable:
                 if session.srpUsername != srpUsername:
                     raise ValueError("Session username doesn't match")
                 if session.serverName != serverName:
@@ -504,14 +504,14 @@ class TLSConnection(TLSRecordLayer):
         # *****************************
 
         # Send the ClientHello.
-        for result in self._clientSendClientHello(settings, session, 
+        for result in self._clientSendClientHello(settings, session,
                                         srpUsername, srpParams, certParams,
                                         anonParams, serverName, nextProtos,
                                         reqTack, alpn):
             if result in (0,1): yield result
             else: break
         clientHello = result
-        
+
         #Get the ServerHello.
         for result in self._clientGetServerHello(settings, session,
                                                  clientHello):
@@ -573,8 +573,8 @@ class TLSConnection(TLSRecordLayer):
             self.extendedMasterSecret = True
 
         #If the server elected to resume the session, it is handled here.
-        for result in self._clientResume(session, serverHello, 
-                        clientHello.random, 
+        for result in self._clientResume(session, serverHello,
+                        clientHello.random,
                         settings.cipherImplementations,
                         nextProto, settings):
             if result in (0,1): yield result
@@ -613,10 +613,10 @@ class TLSConnection(TLSRecordLayer):
                                                acceptedCurves)
 
         #If the server selected a certificate-based RSA ciphersuite,
-        #the client finishes reading the post-ServerHello messages. If 
+        #the client finishes reading the post-ServerHello messages. If
         #a CertificateRequest message was sent, the client responds with
         #a Certificate message containing its certificate chain (if any),
-        #and also produces a CertificateVerify message that signs the 
+        #and also produces a CertificateVerify message that signs the
         #ClientKeyExchange.
         else:
             keyExchange = RSAKeyExchange(cipherSuite, clientHello,
@@ -642,7 +642,7 @@ class TLSConnection(TLSRecordLayer):
         #initiates an exchange of Finished messages.
         # socket buffering is turned off in _clientFinished
         for result in self._clientFinished(premasterSecret,
-                            clientHello.random, 
+                            clientHello.random,
                             serverHello.random,
                             cipherSuite, settings.cipherImplementations,
                             nextProto, settings):
@@ -685,6 +685,7 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getEcdheCertSuites(settings)
             cipherSuites += CipherSuite.getDheCertSuites(settings)
             cipherSuites += CipherSuite.getCertSuites(settings)
+            cipherSuites += CipherSuite.getDheDsaSuites(settings)
         elif anonParams:
             cipherSuites += CipherSuite.getEcdhAnonSuites(settings)
             cipherSuites += CipherSuite.getAnonSuites(settings)
@@ -1567,10 +1568,10 @@ class TLSConnection(TLSRecordLayer):
                     yield result
 
             #Calculate pending connection states
-            self._calcPendingStates(session.cipherSuite, 
-                                    session.masterSecret, 
-                                    clientRandom, serverHello.random, 
-                                    cipherImplementations)                                   
+            self._calcPendingStates(session.cipherSuite,
+                                    session.masterSecret,
+                                    clientRandom, serverHello.random,
+                                    cipherImplementations)
 
             #Exchange ChangeCipherSpec and Finished messages
             for result in self._getFinished(session.masterSecret,
@@ -1598,7 +1599,8 @@ class TLSConnection(TLSRecordLayer):
         """Perform the client side of key exchange"""
         # if server chose cipher suite with authentication, get the certificate
         if cipherSuite in CipherSuite.certAllSuites or \
-                cipherSuite in CipherSuite.ecdheEcdsaSuites:
+                cipherSuite in CipherSuite.ecdheEcdsaSuites or \
+                cipherSuite in CipherSuite.dheDsaSuites:
             for result in self._getMsg(ContentType.handshake,
                                        HandshakeType.certificate,
                                        certificateType):
@@ -1634,6 +1636,7 @@ class TLSConnection(TLSRecordLayer):
             #abort if Certificate Request with inappropriate ciphersuite
             if cipherSuite not in CipherSuite.certAllSuites \
                 and cipherSuite not in CipherSuite.ecdheEcdsaSuites \
+                and CipherSuite not in CipherSuite.dheDsaSuites\
                 or cipherSuite in CipherSuite.srpAllSuites:
                 for result in self._sendError(\
                         AlertDescription.unexpected_message,
@@ -1651,7 +1654,8 @@ class TLSConnection(TLSRecordLayer):
         serverCertChain = None
         publicKey = None
         if cipherSuite in CipherSuite.certAllSuites or \
-                cipherSuite in CipherSuite.ecdheEcdsaSuites:
+                cipherSuite in CipherSuite.ecdheEcdsaSuites or \
+                cipherSuite in CipherSuite.dheDsaSuites:
             # get the certificate
             for result in self._clientGetKeyFromChain(serverCertificate,
                                                       settings,
@@ -1663,6 +1667,7 @@ class TLSConnection(TLSRecordLayer):
 
             #Check the server's signature, if the server chose an authenticated
             # PFS-enabled ciphersuite
+
             if serverKeyExchange:
                 valid_sig_algs = \
                     self._sigHashesToList(settings,
@@ -1859,7 +1864,7 @@ class TLSConnection(TLSRecordLayer):
                             .format(curve_name)):
                         yield result
         else:
-            # for RSA keys
+            # for RSA and DSA keys
             if len(publicKey) < settings.minKeySize:
                 for result in self._sendError(
                         AlertDescription.handshake_failure,
@@ -2246,6 +2251,7 @@ class TLSConnection(TLSRecordLayer):
         # Perform a certificate-based key exchange
         elif (cipherSuite in CipherSuite.certSuites or
               cipherSuite in CipherSuite.dheCertSuites or
+              cipherSuite in CipherSuite.dheDsaSuites or
               cipherSuite in CipherSuite.ecdheCertSuites or
               cipherSuite in CipherSuite.ecdheEcdsaSuites):
             try:
@@ -2265,7 +2271,8 @@ class TLSConnection(TLSRecordLayer):
                                              clientHello,
                                              serverHello,
                                              privateKey)
-            elif cipherSuite in CipherSuite.dheCertSuites:
+            elif cipherSuite in CipherSuite.dheCertSuites or \
+                    cipherSuite in CipherSuite.dheDsaSuites:
                 dhGroups = self._groupNamesToList(settings)
                 keyExchange = DHE_RSAKeyExchange(cipherSuite,
                                                  clientHello,
@@ -3353,6 +3360,8 @@ class TLSConnection(TLSRecordLayer):
             if ffGroupIntersect:
                 cipherSuites += CipherSuite.getDheCertSuites(settings,
                                                              version)
+                cipherSuites += CipherSuite.getDheDsaSuites(settings,
+                                                            version)
             cipherSuites += CipherSuite.getCertSuites(settings, version)
         elif anon:
             cipherSuites += CipherSuite.getAnonSuites(settings, version)
@@ -4387,7 +4396,8 @@ class TLSConnection(TLSRecordLayer):
                 if schemeID in hashAndAlgsExt.sigalgs:
                     name = SignatureScheme.toRepr(schemeID)
                     if not name and schemeID[1] in (SignatureAlgorithm.rsa,
-                                                    SignatureAlgorithm.ecdsa):
+                                                    SignatureAlgorithm.ecdsa,
+                                                    SignatureAlgorithm.dsa):
                         name = HashAlgorithm.toRepr(schemeID[0])
 
                     if name:
@@ -4424,6 +4434,14 @@ class TLSConnection(TLSRecordLayer):
 
                 sigAlgs.append((getattr(HashAlgorithm, hashName),
                                 SignatureAlgorithm.ecdsa))
+
+        if not certType or certType == "dsa":
+            for hashName in settings.dsaSigHashes:
+                if version > (3, 3):
+                    continue
+
+                sigAlgs.append((getattr(HashAlgorithm, hashName),
+                                SignatureAlgorithm.dsa))
 
         if not certType or certType in ("rsa", "rsa-pss"):
             for schemeName in settings.rsaSchemes:

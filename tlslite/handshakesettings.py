@@ -24,10 +24,11 @@ ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
 MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
 ALL_MAC_NAMES = MAC_NAMES + ["md5"]
 KEY_EXCHANGE_NAMES = ["ecdhe_ecdsa", "rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha",
-                      "srp_sha_rsa", "ecdh_anon", "dh_anon"]
+                      "srp_sha_rsa", "ecdh_anon", "dh_anon", "dhe_dsa"]
 CIPHER_IMPLEMENTATIONS = ["openssl", "pycrypto", "python"]
 CERTIFICATE_TYPES = ["x509"]
 RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
+DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
 RSA_SCHEMES = ["pss", "pkcs1"]
@@ -143,7 +144,7 @@ class HandshakeSettings(object):
     :vartype minKeySize: int
     :ivar minKeySize: The minimum bit length for asymmetric keys.
 
-        If the other party tries to use SRP, RSA, or Diffie-Hellman
+        If the other party tries to use SRP, RSA, DSA, or Diffie-Hellman
         parameters smaller than this length, an alert will be
         signalled.  The default is 1023.
 
@@ -151,7 +152,7 @@ class HandshakeSettings(object):
     :vartype maxKeySize: int
     :ivar maxKeySize: The maximum bit length for asymmetric keys.
 
-        If the other party tries to use SRP, RSA, or Diffie-Hellman
+        If the other party tries to use SRP, RSA, DSA, or Diffie-Hellman
         parameters larger than this length, an alert will be signalled.
         The default is 8193.
 
@@ -233,6 +234,16 @@ class HandshakeSettings(object):
 
         The allowed hashes are: "md5", "sha1", "sha224", "sha256",
         "sha384" and "sha512". The default list does not include md5.
+
+    :vartype dsaSigHashes: list(str)
+    :ivar dsaSigHashes: List of hashes supported (and advertised as such) for
+        TLS 1.2 signatures over Server Key Exchange or Certificate Verify with
+        DSA signature algorithm.
+
+        The list is sorted from most wanted to least wanted algorithm.
+
+        The allowed hashes are: "sha1", "sha224", "sha256",
+        "sha384" and "sha512".
 
     :vartype ecdsaSigHashes: list(str)
     :ivar ecdsaSigHashes: List of hashes supported (and advertised as such) for
@@ -337,6 +348,7 @@ class HandshakeSettings(object):
         self.maxKeySize = 8193
         self.rsaSigHashes = list(RSA_SIGNATURE_HASHES)
         self.rsaSchemes = list(RSA_SCHEMES)
+        self.dsaSigHashes = list(DSA_SIGNATURE_HASHES)
         self.virtual_hosts = []
         # DH key settings
         self.eccCurves = list(CURVE_NAMES)
@@ -510,8 +522,14 @@ class HandshakeSettings(object):
             raise ValueError("Unknown RSA padding mode: '{0}'"
                              .format(unknownRSAPad))
 
+        unknownSigHash = not_matching(other.dsaSigHashes,
+                                      DSA_SIGNATURE_HASHES)
+        if unknownSigHash:
+            raise ValueError("Unknown DSA signature hash: '{0}'"
+                             .format(unknownSigHash))
+
         if not other.rsaSigHashes and not other.ecdsaSigHashes and \
-                other.maxVersion >= (3, 3):
+                not other.dsaSigHashes and other.maxVersion >= (3, 3):
             raise ValueError("TLS 1.2 requires signature algorithms to be set")
 
     @staticmethod
@@ -668,6 +686,7 @@ class HandshakeSettings(object):
         other.certificateTypes = self.certificateTypes
         other.rsaSigHashes = self.rsaSigHashes
         other.rsaSchemes = self.rsaSchemes
+        other.dsaSigHashes = self.dsaSigHashes
         other.ecdsaSigHashes = self.ecdsaSigHashes
         other.virtual_hosts = self.virtual_hosts
         # DH key params

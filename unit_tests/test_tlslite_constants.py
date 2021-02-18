@@ -240,6 +240,25 @@ class TestCipherSuite(unittest.TestCase):
                          [CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
                           CipherSuite.TLS_AES_128_GCM_SHA256])
 
+    def test_filter_for_certificate_with_dsa(self):
+        cert_list = mock.MagicMock()
+        cert = mock.MagicMock()
+        cert.certAlg = "dsa"
+        cert_list.x509List = [cert]
+
+        orig_ciphers = [CipherSuite.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+                        CipherSuite.TLS_AES_128_GCM_SHA256]
+
+        new_ciphers = CipherSuite.filter_for_certificate(
+            orig_ciphers, cert_list)
+
+        self.assertEqual(new_ciphers,
+                         [CipherSuite.TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+                          CipherSuite.TLS_AES_128_GCM_SHA256])
+
     def test_filter_for_certificate_with_ecdsa(self):
         cert_list = mock.MagicMock()
         cert = mock.MagicMock()

@@ -1,12 +1,13 @@
 # Author: Frantisek Krenzelok
-
 """Pure-Python RSA implementation."""
 from ecdsa.der import encode_sequence, encode_integer,  \
-remove_sequence, remove_integer
+    remove_sequence, remove_integer
 
 from .cryptomath import getRandomNumber, getRandomPrime,    \
-powMod, numBits, bytesToNumber, invMod, secureHash,         \
-GMPY2_LOADED, gmpyLoaded
+    powMod, numBits, bytesToNumber, invMod,   \
+    secureHash, GMPY2_LOADED, gmpyLoaded
+
+from .compat import compatHMAC
 
 if GMPY2_LOADED:
     from gmpy2 import mpz
@@ -78,13 +79,15 @@ class Python_DSAKey(DSAKey):
         return (q, p)
 
     def hashAndSign(self, data, hAlg="sha1"):
-        digest = bytesToNumber(secureHash(bytearray(data), hAlg))
-        digest_size = numBits(digest)
+        hashData = (secureHash(bytearray(data), hAlg))
+        return self.sign(hashData)
 
-        # extract min(|hAlg|, N) left bits of digest
+    def sign(self, data):
         N = numBits(self.q)
-        if N < digest_size:
-            digest &= ~(~0 << (digest_size - N))
+        digest_len = len(data) * 8
+        digest = bytesToNumber(data)
+        if N < digest_len:
+            digest >>= digest_len - N
 
         k = getRandomNumber(1, (self.q-1))
         r = powMod(self.g, k, self.p) % self.q
@@ -92,15 +95,15 @@ class Python_DSAKey(DSAKey):
 
         return encode_sequence(encode_integer(r), encode_integer(s))
 
-    def hashAndVerify(self, signature, data, hAlg="sha1"):
-        # Get r, s components from signature
-        digest = bytesToNumber(secureHash(bytearray(data), hAlg))
-        digest_size = numBits(digest)
-
-        # extract min(|hAlg|, N) left bits of digest
+    def verify(self, signature, hashData):
         N = numBits(self.q)
-        if N < digest_size:
-            digest &= ~(~0 << (digest_size - N))
+        digest_len = len(hashData) * 8
+        digest = bytesToNumber(hashData)
+
+        if N < digest_len:
+            digest >>= digest_len - N
+
+        signature = compatHMAC(signature)
 
         # get r, s keys
         if not signature:
@@ -113,6 +116,10 @@ class Python_DSAKey(DSAKey):
         if rest:
             return False
 
+        if gmpyLoaded or GMPY2_LOADED:
+            r = mpz(r)
+            s = mpz(s)
+
         # check the signature
         if 0 < r < self.q and 0 < s < self.q:
             w = invMod(s, self.q)
@@ -120,6 +127,9 @@ class Python_DSAKey(DSAKey):
             u2 = (r * w) % self.q
             v = ((powMod(self.g, u1, self.p) *  \
                     powMod(self.public_key, u2, self.p)) % self.p) % self.q
-
             return r == v
         return False
+
+    def hashAndVerify(self, signature, data, hAlg="sha1"):
+        digest = secureHash(bytearray(data), hAlg)
+        return self.verify(signature, digest)
