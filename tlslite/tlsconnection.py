@@ -2714,7 +2714,10 @@ class TLSConnection(TLSRecordLayer):
                 ctx = b''
 
                 # Get list of valid Signing Algorithms
-                valid_sig_algs = self._sigHashesToList(settings)
+                # we don't support DSA for client certificates yet
+                cr_settings = settings.validate()
+                cr_settings.dsaSigHashes = []
+                valid_sig_algs = self._sigHashesToList(cr_settings)
                 assert valid_sig_algs
 
                 certificate_request = CertificateRequest(self.version)
@@ -4009,7 +4012,10 @@ class TLSConnection(TLSRecordLayer):
             certificateRequest = CertificateRequest(self.version)
             if not reqCAs:
                 reqCAs = []
-            valid_sig_algs = self._sigHashesToList(settings)
+            cr_settings = settings.validate()
+            # we don't support DSA in client certificates yet
+            cr_settings.dsaSigHashes = []
+            valid_sig_algs = self._sigHashesToList(cr_settings)
             certificateRequest.create([ClientCertificateType.rsa_sign,
                                        ClientCertificateType.ecdsa_sign],
                                       reqCAs,
