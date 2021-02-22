@@ -734,7 +734,9 @@ class TLSConnection(TLSRecordLayer):
                     create(bytearray(b'')))
                 self._client_keypair = certParams
 
+            # fake session_id for middlebox compatibility mode
             session_id = getRandomBytes(32)
+
             extensions.append(SupportedVersionsExtension().
                               create(settings.versions))
 
@@ -964,6 +966,13 @@ class TLSConnection(TLSRecordLayer):
                                               "update to Client Hello"):
                     yield result
 
+            if clientHello.session_id != hello_retry.session_id:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Received HRR session_id does not match the one in "
+                        "ClientHello"):
+                    yield result
+
             ext = clientHello.getExtension(ExtensionType.pre_shared_key)
             if ext:
                 # move the extension to end (in case extension like cookie was
@@ -979,8 +988,12 @@ class TLSConnection(TLSRecordLayer):
                                                 if session else None)
 
             # resend the client hello with performed changes
-            ccs = ChangeCipherSpec().create()
-            for result in self._sendMsgs([ccs, clientHello]):
+            msgs = []
+            if clientHello.session_id:
+                ccs = ChangeCipherSpec().create()
+                msgs.append(ccs)
+            msgs.append(clientHello)
+            for result in self._sendMsgs(msgs):
                 yield result
             self._ccs_sent = True
 
@@ -1022,6 +1035,13 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.protocol_version,
                     "Too new version: {0} (max: {1})"
                     .format(real_version, settings.maxVersion)):
+                yield result
+        if real_version > (3, 3) and \
+                serverHello.session_id != clientHello.session_id:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Received ServerHello session_id does not match the one "
+                    "in ClientHello"):
                 yield result
         cipherSuites = CipherSuite.filterForVersion(clientHello.cipher_suites,
                                                     minVersion=real_version,
@@ -1460,7 +1480,7 @@ class TLSConnection(TLSRecordLayer):
         cl_finished = Finished(self.version, prf_size)
         cl_finished.create(cl_verify_data)
 
-        if not self._ccs_sent:
+        if not self._ccs_sent and clientHello.session_id:
             ccs = ChangeCipherSpec().create()
             msgs = [ccs, cl_finished]
         else:
@@ -1469,6 +1489,8 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsgs(msgs):
             yield result
 
+        # CCS messages are not allowed in post handshake authentication
+        self._middlebox_compat_mode = False
 
         # fully switch to application data
         self._changeWriteState()
@@ -2637,7 +2659,7 @@ class TLSConnection(TLSRecordLayer):
 
         msgs = []
         msgs.append(serverHello)
-        if not self._ccs_sent:
+        if not self._ccs_sent and clientHello.session_id:
             ccs = ChangeCipherSpec().create()
             msgs.append(ccs)
         for result in self._sendMsgs(msgs):
@@ -2887,6 +2909,9 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.decrypt_error,
                     "Finished value is not valid"):
                 yield result
+
+        # disallow CCS messages after handshake
+        self._middlebox_compat_mode = False
 
         resumption_master_secret = derive_secret(secret,
                                                  bytearray(b'res master'),
@@ -3647,8 +3672,11 @@ class TLSConnection(TLSRecordLayer):
                 hrr.create((3, 3), TLS_1_3_HRR, clientHello.session_id,
                            cipherSuite, extensions=hrr_ext)
 
-                ccs = ChangeCipherSpec().create()
-                for result in self._sendMsgs([hrr, ccs]):
+                msgs = [hrr]
+                if clientHello.session_id:
+                    ccs = ChangeCipherSpec().create()
+                    msgs.append(ccs)
+                for result in self._sendMsgs(msgs):
                     yield result
                 self._ccs_sent = True
 

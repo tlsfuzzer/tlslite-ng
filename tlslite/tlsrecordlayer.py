@@ -202,6 +202,11 @@ class TLSRecordLayer(object):
         # doesn't provide a certificate
         self.client_cert_required = False
 
+        # boolean to control if ChangeCipherSpec in TLS1.3 is allowed or not
+        # we start with True, as peers MUST always processe the messages
+        # before the handshake is done, only then we disable it (for PHA)
+        self._middlebox_compat_mode = True
+
     @property
     def _send_record_limit(self):
         """Maximum size of payload that can be sent."""
@@ -1006,6 +1011,7 @@ class TLSRecordLayer(object):
                 # continue
                 if self.version > (3, 3) and \
                         ContentType.handshake in expectedType and \
+                        self._middlebox_compat_mode and \
                         recordHeader.type == ContentType.change_cipher_spec:
                     ccs = ChangeCipherSpec().parse(p)
                     if ccs.type != 1:

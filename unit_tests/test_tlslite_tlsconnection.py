@@ -14,7 +14,8 @@ import threading
 
 from tlslite.recordlayer import RecordLayer
 from tlslite.messages import ServerHello, ClientHello, Alert, RecordHeader3
-from tlslite.constants import CipherSuite, AlertDescription, ContentType
+from tlslite.constants import CipherSuite, AlertDescription, ContentType, \
+    GroupName, TLS_1_3_HRR
 from tlslite.tlsconnection import TLSConnection
 from tlslite.errors import TLSLocalAlert, TLSRemoteAlert
 from tlslite.x509 import X509
@@ -22,6 +23,8 @@ from tlslite.x509certchain import X509CertChain
 from tlslite.utils.keyfactory import parsePEMKey
 from tlslite.handshakesettings import HandshakeSettings
 from tlslite.session import Session
+from tlslite.extensions import SrvSupportedVersionsExtension, \
+    ServerKeyShareExtension, KeyShareEntry, HRRKeyShareExtension
 
 from unit_tests.mocksock import MockSocket
 
@@ -204,6 +207,86 @@ class TestTLSConnection(unittest.TestCase):
 
         self.assertEqual(err.exception.description,
                          AlertDescription.insufficient_security)
+
+    def test_client_with_server_responing_with_wrong_session_id_in_TLS1_3(self):
+        # socket to generate the faux response
+        gen_sock = MockSocket(bytearray(0))
+
+        gen_record_layer = RecordLayer(gen_sock)
+        gen_record_layer.version = (3, 3)
+
+        srv_ext = []
+        srv_ext.append(SrvSupportedVersionsExtension().create((3, 4)))
+        srv_ext.append(ServerKeyShareExtension().create(
+            KeyShareEntry().create(
+            GroupName.secp256r1, bytearray(b'\x03' + b'\x01' * 32))))
+
+        server_hello = ServerHello().create(
+                version=(3, 3),
+                random=bytearray(32),
+                session_id=bytearray(b"test"),
+                cipher_suite=CipherSuite.TLS_AES_128_GCM_SHA256,
+                certificate_type=None,
+                tackExt=None,
+                next_protos_advertised=None,
+                extensions=srv_ext)
+
+        for res in gen_record_layer.sendRecord(server_hello):
+            if res in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # test proper
+        sock = MockSocket(gen_sock.sent[0])
+
+        conn = TLSConnection(sock)
+
+        with self.assertRaises(TLSLocalAlert) as err:
+            conn.handshakeClientCert()
+
+        self.assertEqual(err.exception.description,
+                         AlertDescription.illegal_parameter)
+
+    def test_client_with_server_responing_with_wrong_session_id_in_TLS1_3_HRR(self):
+        # socket to generate the faux response
+        gen_sock = MockSocket(bytearray(0))
+
+        gen_record_layer = RecordLayer(gen_sock)
+        gen_record_layer.version = (3, 3)
+
+        srv_ext = []
+        srv_ext.append(SrvSupportedVersionsExtension().create((3, 4)))
+        srv_ext.append(HRRKeyShareExtension().create(
+            GroupName.secp521r1))
+
+        server_hello = ServerHello().create(
+                version=(3, 3),
+                random=TLS_1_3_HRR,
+                session_id=bytearray(b"test"),
+                cipher_suite=CipherSuite.TLS_AES_128_GCM_SHA256,
+                certificate_type=None,
+                tackExt=None,
+                next_protos_advertised=None,
+                extensions=srv_ext)
+
+        for res in gen_record_layer.sendRecord(server_hello):
+            if res in (0, 1):
+                self.assertTrue(False, "Blocking socket")
+            else:
+                break
+
+        # test proper
+        sock = MockSocket(gen_sock.sent[0])
+
+        conn = TLSConnection(sock)
+
+        with self.assertRaises(TLSLocalAlert) as err:
+            conn.handshakeClientCert()
+
+        self.assertEqual(err.exception.description,
+                         AlertDescription.illegal_parameter)
+
 
     def prepare_mock_socket_with_handshake_failure(self):
         alertObj = Alert().create(AlertDescription.handshake_failure)
