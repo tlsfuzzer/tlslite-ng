@@ -26,7 +26,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
-        HeartbeatExtension, IntExtension, RecordSizeLimitExtension
+        HeartbeatExtension, IntExtension, RecordSizeLimitExtension, \
+        SessionTicketExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -2810,6 +2811,87 @@ class TestCookieExtension(unittest.TestCase):
     def test___repr___with_none(self):
         ext = CookieExtension()
         self.assertEqual(repr(ext), "CookieExtension(cookie=None)")
+
+
+class TestSessionTicketExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = SessionTicketExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.ticket)
+
+        self.assertEqual(ext.extType, 35)
+
+    def test_create(self):
+        ticket = mock.Mock()
+        ext = SessionTicketExtension().create(ticket)
+
+        self.assertIsInstance(ext, SessionTicketExtension)
+        self.assertIs(ext.ticket, ticket)
+
+    def test_write(self):
+        ticket = b"\x7b\x16\xa8\xd3\xac\xa8\xb9\x4f\x4f\x3e\xd1\x24\x21\xd0\x9c\xa7" \
+                 b"\x68\x20\xd3\x49\xbc\x53\x85\xfa\x84\x94\x44\x2a\x13\x9f\x36\xbd" \
+                 b"\x27\xda\x74\xad\x90\xb1\xf9\x4d\x51\x2c\x90\x83\x32\x57\xc7\x7d" \
+                 b"\x79\xcb\xba\x5e\xff\x12\x31\x7f\xf7\x20\x6d\x95\xac\xd3\x00\x15" \
+                 b"\x00\x40\xfc\x8a\x7b\x99\x02\x53\xa1\xdd\x2a\x46\x2a\xcc\x34\x23" \
+                 b"\x10\x48\xb8\x31\xed\xc5\x96\x83\xb8\x7a\xef\x8b\x1b\x60\x55\x4b" \
+                 b"\x0b\x42\x70\x69\x2f\x80\x84\xb5\x9f\x00\xfe\x91\x67\x4a\x58\xee" \
+                 b"\xc6\xf6\xe5\x87\x39\x6e\xd4\x40\x1a\x82\xc7\x62\x35\xa1\x2d\x5a" \
+                 b"\x15\x98"
+
+        ext = SessionTicketExtension().create(ticket)
+
+        self.assertEqual(bytearray(
+            b"\x00\x23" +         # ext type
+            b"\x00\x82" +         # ext length
+            ticket), ext.write()) # ticket
+
+    def test_parse(self):
+        ext = TLSExtension()
+
+        ticket = b"\x7b\x16\xa8\xd3\xac\xa8\xb9\x4f\x4f\x3e\xd1\x24\x21\xd0\x9c\xa7" \
+                 b"\x68\x20\xd3\x49\xbc\x53\x85\xfa\x84\x94\x44\x2a\x13\x9f\x36\xbd" \
+                 b"\x27\xda\x74\xad\x90\xb1\xf9\x4d\x51\x2c\x90\x83\x32\x57\xc7\x7d" \
+                 b"\x79\xcb\xba\x5e\xff\x12\x31\x7f\xf7\x20\x6d\x95\xac\xd3\x00\x15" \
+                 b"\x00\x40\xfc\x8a\x7b\x99\x02\x53\xa1\xdd\x2a\x46\x2a\xcc\x34\x23" \
+                 b"\x10\x48\xb8\x31\xed\xc5\x96\x83\xb8\x7a\xef\x8b\x1b\x60\x55\x4b" \
+                 b"\x0b\x42\x70\x69\x2f\x80\x84\xb5\x9f\x00\xfe\x91\x67\x4a\x58\xee" \
+                 b"\xc6\xf6\xe5\x87\x39\x6e\xd4\x40\x1a\x82\xc7\x62\x35\xa1\x2d\x5a" \
+                 b"\x15\x98"
+
+        parser = Parser(bytearray(
+            b"\x00\x23" + # ext type
+            b"\x00\x82" + # ext length
+            ticket))      # ticket
+
+        ext = ext.parse(parser)
+        self.assertIsInstance(ext, SessionTicketExtension)
+        self.assertEqual(ext.ticket, ticket)
+
+    def test_write_empty(self):
+        ticket = bytearray(0)
+
+        ext = SessionTicketExtension().create(ticket)
+
+        self.assertEqual(bytearray(
+            b"\x00\x23" +         # ext type
+            b"\x00\x00" +         # ext length
+            ticket), ext.write()) # ticket
+
+    def test_parse_empty(self):
+        ext = TLSExtension()
+
+        ticket = bytearray(0)
+
+        parser = Parser(bytearray(
+            b"\x00\x23" + # ext type
+            b"\x00\x00" + # ext length
+            ticket))      # ticket
+
+        ext = ext.parse(parser)
+        self.assertIsInstance(ext, SessionTicketExtension)
+        self.assertEqual(ext.ticket, ticket)
 
 
 if __name__ == '__main__':

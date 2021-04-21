@@ -22,7 +22,7 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
         NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest, \
-        KeyUpdate
+        KeyUpdate, NewSessionTicket1_0
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
@@ -3658,6 +3658,53 @@ class TestNewSessionTicket(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             ticket.parse(parser)
+
+
+class TestNewSessionTicket1_0(unittest.TestCase):
+    def test___init__(self):
+        ticket = NewSessionTicket1_0()
+
+        self.assertEqual(ticket.ticket_lifetime, 0)
+        self.assertEqual(ticket.ticket, bytearray(0))
+
+    def test_create(self):
+        ticket = NewSessionTicket1_0()
+        lifetime = mock.Mock()
+        ticket_proper = mock.Mock()
+
+        ticket = ticket.create(lifetime, ticket_proper)
+
+        self.assertIs(ticket.ticket_lifetime, lifetime)
+        self.assertIs(ticket.ticket, ticket_proper)
+
+    def test_write(self):
+        ticket = NewSessionTicket1_0()
+        ticket = ticket.create(1, bytearray(b'ticket'))
+
+
+        self.assertEqual(ticket.write(), bytearray(
+            b'\x04'  # handshake type - new session ticket
+            b'\x00\x00\x0c'  # overall length
+            b'\x00\x00\x00\x01'  # ticket_lifetime
+            b'\x00\x06'  # ticket length
+            b'ticket'  # ticket
+            ))
+
+    def test_parse(self):
+        ticket = NewSessionTicket1_0()
+
+        parser = Parser(bytearray(
+            b'\x00\x00\x0c'  # overall length
+            b'\x00\x00\x00\x01'  # ticket_lifetime
+            b'\x00\x06'  # ticket length
+            b'ticket'  # ticket
+            ))
+
+        ticket = ticket.parse(parser)
+
+        self.assertIsInstance(ticket, NewSessionTicket1_0)
+        self.assertEqual(ticket.ticket_lifetime, 1)
+        self.assertEqual(ticket.ticket, bytearray(b'ticket'))
 
 
 class TestHeartbeat(unittest.TestCase):
