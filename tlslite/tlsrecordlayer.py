@@ -1194,7 +1194,10 @@ class TLSRecordLayer(object):
                 elif subType == HandshakeType.encrypted_extensions:
                     yield EncryptedExtensions().parse(p)
                 elif subType == HandshakeType.new_session_ticket:
-                    yield NewSessionTicket().parse(p)
+                    if self.version < (3, 4):
+                        yield NewSessionTicket1_0().parse(p)
+                    else:
+                        yield NewSessionTicket().parse(p)
                 elif subType == HandshakeType.key_update:
                     yield KeyUpdate().parse(p)
                 else:

@@ -2055,6 +2055,46 @@ class NewSessionTicket(HelloMessage):
         return self
 
 
+class NewSessionTicket1_0(HelloMessage):
+    """Handling of the TLS1.0-TLS1.2 NewSessionTicket message."""
+
+    def __init__(self):
+        """Create New Session Ticket object."""
+        super(NewSessionTicket1_0, self).__init__(HandshakeType
+                                               .new_session_ticket)
+        self.ticket_lifetime = 0
+        self.ticket = bytearray(0)
+
+    def create(self, ticket_lifetime, ticket):
+        """Initialise a New Session Ticket."""
+        self.ticket_lifetime = ticket_lifetime
+        self.ticket = ticket
+        return self
+
+    def write(self):
+        """
+        Serialise the message to on the wire data.
+
+        :rtype: bytearray
+        """
+        w = Writer()
+        w.add(self.ticket_lifetime, 4)
+        w.addVarSeq(self.ticket, 1, 2)
+        w2 = Writer()
+        w.bytes += w2.bytes
+
+        return self.postWrite(w)
+
+    def parse(self, parser):
+        """Parse the object from on the wire data."""
+        parser.startLengthCheck(3)
+        self.ticket_lifetime = parser.get(4)
+        self.ticket = parser.getVarBytes(2)
+        parser.stopLengthCheck()
+
+        return self
+
+
 class SessionTicketPayload(object):
     """Serialisation and deserialisation of server state for resumption.
 
