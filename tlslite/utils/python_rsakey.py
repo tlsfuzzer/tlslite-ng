@@ -113,13 +113,21 @@ class Python_RSAKey(RSAKey):
 
         key_type can be "rsa" for a universal rsaEncryption key or
         "rsa-pss" for a key that can be used only for RSASSA-PSS."""
+        # p, q, and t are standard names for the variables in RSA, so
+        # ignore the fact those are one character long variable names
+        # pylint: disable=invalid-name
         key = Python_RSAKey()
-        p = getRandomPrime(bits//2, False)
-        q = getRandomPrime(bits//2, False)
-        if gmpyLoaded or GMPY2_LOADED:
-            p = mpz(p)
-            q = mpz(q)
-        t = lcm(p-1, q-1)
+        while True:
+            p = getRandomPrime(bits//2, False)
+            q = getRandomPrime(bits//2, False)
+            if gmpyLoaded or GMPY2_LOADED:
+                p = mpz(p)
+                q = mpz(q)
+            t = lcm(p-1, q-1)
+            # since we need to calculate inverse of 65537 mod t, they
+            # must be relatively prime (coprime)
+            if gcd(t, 65537) == 1:
+                break
         key.n = p * q
         if gmpyLoaded or GMPY2_LOADED:
             key.e = mpz(65537)
@@ -132,6 +140,7 @@ class Python_RSAKey(RSAKey):
         key.dQ = key.d % (q-1)
         key.qInv = invMod(q, p)
         key.key_type = key_type
+        # pylint: enable=invalid-name
         return key
 
     @staticmethod

@@ -387,16 +387,13 @@ def getRandomPrime(bits, display=False):
     #29 % 30 and keep them there
     low = ((2 ** (bits-1)) * 3) // 2
     high = 2 ** bits - 30
-    p = getRandomNumber(low, high)
-    p += 29 - (p % 30)
-    while 1:
-        if display: print(".", end=' ')
-        p += 30
-        if p >= high:
-            p = getRandomNumber(low, high)
-            p += 29 - (p % 30)
-        if isPrime(p, display=display):
-            return p
+    while True:
+        if display:
+            print(".", end=' ')
+        cand_p = getRandomNumber(low, high)
+        cand_p += 29 - (cand_p % 30)
+        if isPrime(cand_p, display=display):
+            return cand_p
 
 
 #Unused at the moment...
