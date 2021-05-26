@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha40 (2021-01-22)
+tlslite-ng version 0.8.0-alpha41 (2021-05-26)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -673,8 +673,8 @@ may not work with all asyncore.dispatcher subclasses.
   (minor speed up for RSA operations)
 * refactor certificate selection, make server select certificate based on
   curves and signature algorithms advertised by client (Ivan Nikolchev)
-* basic support for DSA certificates; not usable in TLS yet (Frantisek
-  Krenzelok)
+* basic support for DSA certificates; verification of DSA signatures
+  in ServerKeyExchange (Frantisek Krenzelok)
 * small optimisations to PRF methods, speeds to handshake
 * support for MD5 signatures in X.509 certificates (Jean-Romain Garnier)
 * add support for Brainpool curves in TLS 1.2 and earlier (pytz)
@@ -684,6 +684,8 @@ may not work with all asyncore.dispatcher subclasses.
   in-memory with m2crypto wouldn't work for decryption/encryption
 * handle too short RSA ciphertexts for the key size consistently between
   backends
+* strict handling of CCS in TLS 1.3 (don't allow it post handshake)
+* improved RSA key generation - don't generate biased primes
 
 
 0.7.0 - 2017-07-31
