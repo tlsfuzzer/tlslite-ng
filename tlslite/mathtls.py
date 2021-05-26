@@ -735,7 +735,7 @@ def PRF_SSL(secret, seed, length):
             index += 1
     return bytes
 
-@deprecated_method("Please use calcKey method instead.")
+@deprecated_method("Please use calc_key function instead.")
 def calcExtendedMasterSecret(version, cipherSuite, premasterSecret,
                              handshakeHashes):
     """Derive Extended Master Secret from premaster and handshake msgs"""
@@ -759,7 +759,7 @@ def calcExtendedMasterSecret(version, cipherSuite, premasterSecret,
     return masterSecret
 
 
-@deprecated_method("Please use calcKey method instead.")
+@deprecated_method("Please use calc_key function instead.")
 def calcMasterSecret(version, cipherSuite, premasterSecret, clientRandom,
                      serverRandom):
     """Derive Master Secret from premaster secret and random values"""
@@ -784,7 +784,7 @@ def calcMasterSecret(version, cipherSuite, premasterSecret, clientRandom,
         raise AssertionError()
     return masterSecret
 
-@deprecated_method("Please use calcKey method instead.")
+@deprecated_method("Please use calc_key function instead.")
 def calcFinished(version, masterSecret, cipherSuite, handshakeHashes,
                  isClient):
     """Calculate the Handshake protocol Finished value
