@@ -339,7 +339,7 @@ class TestSignatureScheme(unittest.TestCase):
     def test_getKeyType_with_eddsa(self):
         ret = SignatureScheme.getKeyType('ed25519')
 
-        self.assertEqual(ret, 'ecdsa')
+        self.assertEqual(ret, 'eddsa')
 
     def test_getHash_with_eddsa(self):
         ret = SignatureScheme.getHash('ed25519')

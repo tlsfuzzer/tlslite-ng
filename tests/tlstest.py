@@ -538,6 +538,40 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good X.509 Ed25519, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.tls13Suites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type \
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed448, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.tls13Suites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type \
+            == "Ed448"
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good RSA and ECDSA, TLSv1.3, rsa"
           .format(test_no))
     synchro.recv(1)
@@ -876,6 +910,42 @@ def clientTestCmd(argv):
             constants.CipherSuite.dheDsaSuites
     assert isinstance(connection.session.serverCertChain, X509CertChain)
     connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed25519, TLSv1.2".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.ecdheEcdsaSuites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type \
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed448, TLSv1.2".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert connection.session.cipherSuite in\
+            constants.CipherSuite.ecdheEcdsaSuites
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type \
+            == "Ed448"
+    connection.close()
+
+    test_no += 1
 
     print("Test {0} - good mutual X.509, TLSv1.3 no certs".format(test_no))
     synchro.recv(1)
@@ -1739,6 +1809,23 @@ def serverTestCmd(argv):
     with open(os.path.join(dir, "serverDSAKey.pem")) as f:
         x509KeyDSA = parsePEMKey(f.read(), private=True,
                                     implementations=["python"])
+
+    with open(os.path.join(dir, "serverEd25519Cert.pem")) as f:
+        x509CertEd25519 = X509().parse(f.read())
+    x509Ed25519Chain = X509CertChain([x509CertEd25519])
+    assert x509CertEd25519.certAlg == "Ed25519"
+    with open(os.path.join(dir, "serverEd25519Key.pem")) as f:
+        x509Ed25519Key = parsePEMKey(f.read(), private=True,
+                                     implementations=["python"])
+
+    with open(os.path.join(dir, "serverEd448Cert.pem")) as f:
+        x509CertEd448 = X509().parse(f.read())
+    x509Ed448Chain = X509CertChain([x509CertEd448])
+    assert x509CertEd448.certAlg == "Ed448"
+    with open(os.path.join(dir, "serverEd448Key.pem")) as f:
+        x509Ed448Key = parsePEMKey(f.read(), private=True,
+                                   implementations=["python"])
+
     test_no = 0
 
     print("Test {0} - Anonymous server handshake".format(test_no))
@@ -2080,6 +2167,34 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good X.509 Ed25519, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Ed25519Chain,
+                               privateKey=x509Ed25519Key, settings=settings)
+    assert connection.extendedMasterSecret
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed448, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Ed448Chain,
+                               privateKey=x509Ed448Key, settings=settings)
+    assert connection.extendedMasterSecret
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
     for prot in ["TLSv1.3", "TLSv1.2"]:
         for c_type, exp_chain in (("rsa", x509Chain),
                                   ("ecdsa", x509ecdsaChain)):
@@ -2342,6 +2457,32 @@ def serverTestCmd(argv):
     settings.maxVersion = (3, 3)
     connection.handshakeServer(certChain=x509ChainDSA,
                                privateKey=x509KeyDSA, settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed25519, TLSv1.2".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509Ed25519Chain,
+                               privateKey=x509Ed25519Key, settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 Ed448, TLSv1.2".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509Ed448Chain,
+                               privateKey=x509Ed448Key, settings=settings)
     testConnServer(connection)
     connection.close()
 

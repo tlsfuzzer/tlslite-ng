@@ -9,6 +9,7 @@ from .rsakey import RSAKey
 from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
 from .python_dsakey import Python_DSAKey
+from .python_eddsakey import Python_EdDSAKey
 from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
@@ -131,7 +132,8 @@ def _parseKeyHelper(key, private, public):
         if cryptomath.m2cryptoLoaded:
             if type(key) == Python_RSAKey:
                 return _createPrivateKey(key)
-            assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey, Python_DSAKey), type(key)
+            assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey,
+                Python_DSAKey, Python_EdDSAKey), type(key)
             return key
         elif hasattr(key, "d"):
             return _createPrivateKey(key)
@@ -236,6 +238,19 @@ def _create_public_ecdsa_key(point_x, point_y, curve_name,
         if impl == "python":
             return Python_ECDSAKey(point_x, point_y, curve_name)
     raise ValueError("No acceptable implementation")
+
+
+def _create_public_eddsa_key(public_key,
+                             implementations=("python",)):
+    """
+    Convert the python-ecdsa public key into concrete implementation of
+    verifier.
+    """
+    for impl in implementations:
+        if impl == "python":
+            return Python_EdDSAKey(public_key)
+    raise ValueError("No acceptable implementation")
+
 
 def _create_public_dsa_key(p, q, g, y,
                            implementations=("python",)):

@@ -2408,6 +2408,99 @@ class TestECDHE_RSAKeyExchange_with_x448(unittest.TestCase):
             client_keyExchange.processServerKeyExchange(None, srv_key_ex)
 
 
+class TestEdDSASignatures(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cert = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIBPDCB76ADAgECAhQkqENccCvOQyI4iKFuuOKwl860bTAFBgMrZXAwFDESMBAG\n"
+            "A1UEAwwJbG9jYWxob3N0MB4XDTIxMDcyNjE0MjcwN1oXDTIxMDgyNTE0MjcwN1ow\n"
+            "FDESMBAGA1UEAwwJbG9jYWxob3N0MCowBQYDK2VwAyEA1KMGmAZealfgakBuCx/E\n"
+            "n69fo072qm90eM40ulGex0ajUzBRMB0GA1UdDgQWBBTHKWv5l/SxnkkYJhh5r3Pv\n"
+            "ESAh1DAfBgNVHSMEGDAWgBTHKWv5l/SxnkkYJhh5r3PvESAh1DAPBgNVHRMBAf8E\n"
+            "BTADAQH/MAUGAytlcANBAF/vSBfOHAdRl29sWDTkuqy1dCuSf7j7jKE/Be8Fk7xs\n"
+            "WteXJmIa0HlRAZjxNfWbsSGLnTYbsGTbxKx3QU9H9g0=\n"
+            "-----END CERTIFICATE-----\n")
+
+        x509 = X509()
+        x509.parse(cert)
+
+        cls.x509 = x509
+
+        priv_key = (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MC4CAQAwBQYDK2VwBCIEIAjtEwCECqbot5RZxSmiNDWcPp+Xc9Y9WJcUhti3JgSP\n"
+            "-----END PRIVATE KEY-----\n")
+
+        key = parsePEMKey(priv_key, private=True)
+
+        cls.key = key
+
+        cls.cipher_suite = CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+        cls.server_key_exchange = None
+        cls.expected_ed25519_ske = bytearray(
+            b'\x0c\x00\x00h\x03\x00\x1d \x01\x01\x01\x01\x01\x01\x01\x01\x01'
+            b'\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
+            b'\x01\x01\x01\x01\x01\x01\x01\x01\x08\x07\x00@\xbc\xd1\x98\xf5KA'
+            b'\xf2\xf7\xf5t\xcb\xb4\x84\xfb.\xafF\xe1\x1aD\x17OB\xa9\x99F&\xb4'
+            b'\xe7\x9aq\xb1=\n\xd1\x9f\x82\xa3\xb0&@8\x986A\xa7bf\x91W\xec\xca'
+            b'-2\xbd\xca\x05\xce\xbb\xe3w\x9d\xe2\t')
+
+    def setUp(self):
+        self.server_key_exchange = ServerKeyExchange(self.cipher_suite, (3, 3))\
+            .parse(Parser(self.expected_ed25519_ske[1:]))
+        self.client_hello = ClientHello()
+
+    def test_create_tls1_2_eddsa_sig(self):
+        client_hello = ClientHello()
+        cipher_suite = self.cipher_suite
+        server_hello = ServerHello().create((3, 3),
+                                            bytearray(32),
+                                            bytearray(0),
+                                            cipher_suite)
+        key_exchange = KeyExchange(cipher_suite,
+                                   client_hello,
+                                   server_hello,
+                                   self.key)
+
+        server_key_exchange = ServerKeyExchange(cipher_suite, (3, 3))\
+                              .createECDH(ECCurveType.named_curve,
+                                          GroupName.x25519,
+                                          bytearray(b'\x01'*32))
+
+        key_exchange.signServerKeyExchange(server_key_exchange, "ed25519")
+
+        self.assertEqual(server_key_exchange.write(),
+                         self.expected_ed25519_ske)
+
+    def test_verify_tls1_2_eddsa_sig(self):
+        KeyExchange.verifyServerKeyExchange(self.server_key_exchange,
+                                            self.x509.publicKey,
+                                            self.client_hello.random,
+                                            bytearray(32),
+                                            [SignatureScheme.ed25519])
+
+    def test_empty_tls1_2_eddsa_sig(self):
+        self.server_key_exchange.signature = bytearray(0)
+
+        with self.assertRaises(TLSIllegalParameterException):
+            KeyExchange.verifyServerKeyExchange(self.server_key_exchange,
+                                                self.key,
+                                                self.client_hello.random,
+                                                bytearray(32),
+                                                [SignatureScheme.ed25519])
+
+    def test_invalid_tls1_2_eddsa_sig(self):
+        self.server_key_exchange.signature[1] ^= 0xff
+
+        with self.assertRaises(TLSDecryptionFailed):
+            KeyExchange.verifyServerKeyExchange(self.server_key_exchange,
+                                                self.key,
+                                                self.client_hello.random,
+                                                bytearray(32),
+                                                [SignatureScheme.ed25519])
+
+
 class TestRawDHKeyExchange(unittest.TestCase):
     def test___init__(self):
         group = mock.Mock()

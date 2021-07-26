@@ -1592,6 +1592,8 @@ class ServerKeyExchange(HandshakeMsg):
                                          format(self.hashAlg))
             else:
                 hashAlg = SignatureScheme.getHash(sigScheme)
+            if hashAlg == "intrinsic":
+                return bytesToHash
             return secureHash(bytesToHash, hashAlg)
         # DSA and ECDSA ciphers in TLS 1.1 and earlier sign the messages using
         # SHA-1 only

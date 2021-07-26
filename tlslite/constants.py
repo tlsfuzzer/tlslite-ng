@@ -260,9 +260,8 @@ class SignatureScheme(TLSEnum):
 
         E.g. for "rsa_pkcs1_sha1" it returns "rsa"
         """
-        # they need to be threated as ECDSA algorithms, see RFC 8422
         if scheme in ("ed25519", "ed448"):
-            return "ecdsa"
+            return "eddsa"
         try:
             getattr(SignatureScheme, scheme)
         except AttributeError:
@@ -363,6 +362,10 @@ class AlgorithmOID(TLSEnum):
             SignatureScheme.dsa_sha384
     oid[bytes(a2b_hex('0609608648016503040304'))] = \
             SignatureScheme.dsa_sha512
+    oid[bytes(a2b_hex('06032b6570'))] = \
+            SignatureScheme.ed25519
+    oid[bytes(a2b_hex('06032b6571'))] = \
+            SignatureScheme.ed448
 
 
 class GroupName(TLSEnum):
@@ -1265,7 +1268,7 @@ class CipherSuite:
                 # rsa-pss
                 includeSuites.symmetric_difference_update(
                     CipherSuite.certSuites)
-            if cert_chain.x509List[0].certAlg == "ecdsa":
+            if cert_chain.x509List[0].certAlg in ("ecdsa", "Ed25519", "Ed448"):
                 includeSuites.update(CipherSuite.ecdheEcdsaSuites)
             if cert_chain.x509List[0].certAlg == "dsa":
                 includeSuites.update(CipherSuite.dheDsaSuites)

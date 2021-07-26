@@ -13,6 +13,7 @@ except ImportError:
 from tlslite.x509 import X509
 from tlslite.utils.python_ecdsakey import Python_ECDSAKey
 from tlslite.utils.python_dsakey import Python_DSAKey
+from tlslite.utils.python_eddsakey import Python_EdDSAKey
 from tlslite.x509certchain import X509CertChain
 
 class Test_DSA_X509(unittest.TestCase):
@@ -110,3 +111,50 @@ class TestX509CertChain(unittest.TestCase):
 
         self.assertEqual(hash(x509cc1), hash(x509cc2))
         self.assertEqual(x509cc1, x509cc2)
+
+
+class TestX509WithEdDSA(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIBPDCB76ADAgECAhQkqENccCvOQyI4iKFuuOKwl860bTAFBgMrZXAwFDESMBAG\n"
+            "A1UEAwwJbG9jYWxob3N0MB4XDTIxMDcyNjE0MjcwN1oXDTIxMDgyNTE0MjcwN1ow\n"
+            "FDESMBAGA1UEAwwJbG9jYWxob3N0MCowBQYDK2VwAyEA1KMGmAZealfgakBuCx/E\n"
+            "n69fo072qm90eM40ulGex0ajUzBRMB0GA1UdDgQWBBTHKWv5l/SxnkkYJhh5r3Pv\n"
+            "ESAh1DAfBgNVHSMEGDAWgBTHKWv5l/SxnkkYJhh5r3PvESAh1DAPBgNVHRMBAf8E\n"
+            "BTADAQH/MAUGAytlcANBAF/vSBfOHAdRl29sWDTkuqy1dCuSf7j7jKE/Be8Fk7xs\n"
+            "WteXJmIa0HlRAZjxNfWbsSGLnTYbsGTbxKx3QU9H9g0=\n"
+            "-----END CERTIFICATE-----\n")
+        cls.priv_key = (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MC4CAQAwBQYDK2VwBCIEIAjtEwCECqbot5RZxSmiNDWcPp+Xc9Y9WJcUhti3JgSP\n"
+            "-----END PRIVATE KEY-----\n")
+        cls.ed448_data = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "MIIBiDCCAQigAwIBAgIUZoaDDgE5Cy2GuAMtk4lnsmrPF04wBQYDK2VxMBQxEjAQ\n"
+            "BgNVBAMMCWxvY2FsaG9zdDAeFw0yMTA3MjYxODAzMzhaFw0yMTA4MjUxODAzMzha\n"
+            "MBQxEjAQBgNVBAMMCWxvY2FsaG9zdDBDMAUGAytlcQM6AKxTNGJ39O4kUx7BopPK\n"
+            "prb1Jkoo0csq0Cmpa+VhpDlbR9/gVsb3pchexzjxXyRkNv71naHmOkQvAKNTMFEw\n"
+            "HQYDVR0OBBYEFBb153yRh5IZOfBxoakGVuviFKujMB8GA1UdIwQYMBaAFBb153yR\n"
+            "h5IZOfBxoakGVuviFKujMA8GA1UdEwEB/wQFMAMBAf8wBQYDK2VxA3MAiXEqTPRb\n"
+            "u+56ebfiGjdE++H+YvHVxxxycqKAIAikfsLFfw2LUGQVBMhl+nzS4zRDOKa34uGz\n"
+            "DwEApFuOWurH/y8zqM5NFyXfwbHRlhG4xwUet52CbrtC7Dy1HYnvWdEjbKDSJXpJ\n"
+            "MmNSiO0oBtQ62CsA\n"
+            "-----END CERTIFICATE-----\n")
+
+    def test_pem_cert(self):
+        x509 = X509()
+        x509.parse(self.data)
+
+        self.assertIsNotNone(x509.publicKey)
+        self.assertIsInstance(x509.publicKey, Python_EdDSAKey)
+        self.assertEqual(x509.certAlg, "Ed25519")
+
+    def test_pem_ed448_cert(self):
+        x509 = X509()
+        x509.parse(self.ed448_data)
+
+        self.assertIsNotNone(x509.publicKey)
+        self.assertIsInstance(x509.publicKey, Python_EdDSAKey)
+        self.assertEqual(x509.certAlg, "Ed448")
