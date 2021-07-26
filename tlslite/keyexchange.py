@@ -123,6 +123,34 @@ class KeyExchange(object):
                                       hashBytes):
             raise TLSInternalError("Server Key Exchange signature invalid")
 
+    def _tls12_sign_eddsa_ske(self, server_key_exchange, sig_hash):
+        """Sign a TLSv1.2 SKE message."""
+        server_key_exchange.hashAlg, server_key_exchange.signAlg = \
+                getattr(SignatureScheme, sig_hash)
+        pad_type = None
+        hash_name = None
+        salt_len = None
+
+        hash_bytes = server_key_exchange.hash(self.clientHello.random,
+                                              self.serverHello.random)
+
+        server_key_exchange.signature = \
+            self.privateKey.hashAndSign(hash_bytes,
+                                        pad_type,
+                                        hash_name,
+                                        salt_len)
+
+        if not server_key_exchange.signature:
+            raise TLSInternalError("Empty signature")
+
+        if not self.privateKey.hashAndVerify(
+                server_key_exchange.signature,
+                hash_bytes,
+                pad_type,
+                hash_name,
+                salt_len):
+            raise TLSInternalError("Server Key Exchange signature invalid")
+
     def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
         """Sign a TLSv1.2 SKE message."""
         try:
@@ -189,6 +217,8 @@ class KeyExchange(object):
                 self._tls12_sign_ecdsa_SKE(serverKeyExchange, sigHash)
             elif self.privateKey.key_type == "dsa":
                 self._tls12_sign_dsa_SKE(serverKeyExchange, sigHash)
+            elif self.privateKey.key_type in ("Ed25519", "Ed448"):
+                self._tls12_sign_eddsa_ske(serverKeyExchange, sigHash)
             else:
                 self._tls12_signSKE(serverKeyExchange, sigHash)
 
@@ -211,6 +241,21 @@ class KeyExchange(object):
                                       "invalid")
 
     @staticmethod
+    def _tls12_verify_eddsa_ske(server_key_exchange, public_key, client_random,
+                                server_random, valid_sig_algs):
+        """Verify SeverKeyExchange messages with EdDSA signatures."""
+        del valid_sig_algs
+        sig_bytes = server_key_exchange.signature
+        if not sig_bytes:
+            raise TLSIllegalParameterException("Empty signature")
+
+        hash_bytes = server_key_exchange.hash(client_random, server_random)
+
+        if not public_key.hashAndVerify(sig_bytes,
+                                        hash_bytes):
+            raise TLSDecryptionFailed("Server Key Exchange signature invalid")
+
+    @staticmethod
     def _tls12_verify_dsa_SKE(serverKeyExchange, publicKey, clientRandom,
                               serverRandom, validSigAlgs):
 
@@ -229,6 +274,13 @@ class KeyExchange(object):
             raise TLSIllegalParameterException("Server selected "
                                                "invalid signature "
                                                "algorithm")
+        if (serverKeyExchange.hashAlg, serverKeyExchange.signAlg) in (
+                SignatureScheme.ed25519, SignatureScheme.ed448):
+            return KeyExchange._tls12_verify_eddsa_ske(serverKeyExchange,
+                                                       publicKey,
+                                                       clientRandom,
+                                                       serverRandom,
+                                                       validSigAlgs)
         if serverKeyExchange.signAlg == SignatureAlgorithm.ecdsa:
             return KeyExchange._tls12_verify_ecdsa_SKE(serverKeyExchange,
                                                        publicKey,
@@ -344,7 +396,8 @@ class KeyExchange(object):
                                     b' CertificateVerify' +
                                     b'\x00') + \
                           handshakeHashes.digest(prf_name)
-            verifyBytes = secureHash(verifyBytes, hash_name)
+            if hash_name != "intrinsic":
+                verifyBytes = secureHash(verifyBytes, hash_name)
         else:
             raise ValueError("Unsupported TLS version {0}".format(version))
         return verifyBytes

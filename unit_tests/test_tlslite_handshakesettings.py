@@ -241,6 +241,7 @@ class TestHandshakeSettings(unittest.TestCase):
         hs.rsaSigHashes = []
         hs.dsaSigHashes = []
         hs.ecdsaSigHashes = []
+        hs.more_sig_schemes = []
         with self.assertRaises(ValueError):
             hs.validate()
 
@@ -261,6 +262,12 @@ class TestHandshakeSettings(unittest.TestCase):
     def test_invalid_curve_name(self):
         hs = HandshakeSettings()
         hs.eccCurves = ['P-256']
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    def test_invalid_additional_signature(self):
+        hs = HandshakeSettings()
+        hs.more_sig_schemes = ["rsa_pkcs1_sha1"]
         with self.assertRaises(ValueError):
             hs.validate()
 
