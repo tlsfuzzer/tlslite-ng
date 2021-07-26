@@ -345,6 +345,14 @@ class AlgorithmOID(TLSEnum):
             SignatureScheme.rsa_pss_rsae_sha384
     oid[bytes(a2b_hex('300b0609608648016503040203'))] = \
             SignatureScheme.rsa_pss_rsae_sha512
+    # for RSA-PSS an AlgorithmIdentifier with and without NULL parameters
+    # is valid. See RFC 4055 Section 2.1
+    oid[bytes(a2b_hex('300d06096086480165030402010500'))] = \
+            SignatureScheme.rsa_pss_rsae_sha256
+    oid[bytes(a2b_hex('300d06096086480165030402020500'))] = \
+            SignatureScheme.rsa_pss_rsae_sha384
+    oid[bytes(a2b_hex('300d06096086480165030402030500'))] = \
+            SignatureScheme.rsa_pss_rsae_sha512
     oid[bytes(a2b_hex('06072A8648CE380403'))] = \
             SignatureScheme.dsa_sha1
     oid[bytes(a2b_hex('0609608648016503040301'))] = \
