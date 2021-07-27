@@ -369,7 +369,11 @@ class KeyExchange(object):
             else:
                 verifyBytes = handshakeHashes.digest("sha1")
         elif version == (3, 3):
-            if signatureAlg[1] != SignatureAlgorithm.ecdsa:
+            if signatureAlg in (SignatureScheme.ed25519,
+                    SignatureScheme.ed448):
+                hashName = "intrinsic"
+                padding = None
+            elif signatureAlg[1] != SignatureAlgorithm.ecdsa:
                 scheme = SignatureScheme.toRepr(signatureAlg)
                 if scheme is None:
                     hashName = HashAlgorithm.toRepr(signatureAlg[0])
@@ -436,12 +440,21 @@ class KeyExchange(object):
                                                   clientRandom,
                                                   serverRandom,
                                                   key_type=privateKey.key_type)
-        if signatureAlgorithm and \
+        if signatureAlgorithm and signatureAlgorithm in (
+                SignatureScheme.ed25519, SignatureScheme.ed448):
+            padding = None
+            hashName = "intrinsic"
+            saltLen = None
+            sig_func = privateKey.hashAndSign
+            ver_func = privateKey.hashAndVerify
+        elif signatureAlgorithm and \
                 signatureAlgorithm[1] == SignatureAlgorithm.ecdsa:
             padding = None
             hashName = HashAlgorithm.toRepr(signatureAlgorithm[0])
             saltLen = None
             verifyBytes = verifyBytes[:privateKey.private_key.curve.baselen]
+            sig_func = privateKey.sign
+            ver_func = privateKey.verify
         else:
             scheme = SignatureScheme.toRepr(signatureAlgorithm)
             # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
@@ -455,13 +468,15 @@ class KeyExchange(object):
                 if padding == 'pss':
                     hashName = SignatureScheme.getHash(scheme)
                     saltLen = getattr(hashlib, hashName)().digest_size
+            sig_func = privateKey.sign
+            ver_func = privateKey.verify
 
-        signedBytes = privateKey.sign(verifyBytes,
-                                      padding,
-                                      hashName,
-                                      saltLen)
-        if not privateKey.verify(signedBytes, verifyBytes, padding, hashName,
-                                 saltLen):
+        signedBytes = sig_func(verifyBytes,
+                               padding,
+                               hashName,
+                               saltLen)
+        if not ver_func(signedBytes, verifyBytes, padding, hashName,
+                        saltLen):
             raise TLSInternalError("Certificate Verify signature invalid")
         certificateVerify = CertificateVerify(version)
         certificateVerify.create(signedBytes, signatureAlgorithm)

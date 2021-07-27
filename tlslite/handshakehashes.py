@@ -24,6 +24,7 @@ class HandshakeHashes(object):
         self._handshakeSHA256 = hashlib.sha256()
         self._handshakeSHA384 = hashlib.sha384()
         self._handshakeSHA512 = hashlib.sha512()
+        self._handshake_buffer = bytearray()
 
     def update(self, data):
         """
@@ -38,6 +39,7 @@ class HandshakeHashes(object):
         self._handshakeSHA256.update(text)
         self._handshakeSHA384.update(text)
         self._handshakeSHA512.update(text)
+        self._handshake_buffer += text
 
     def digest(self, digest=None):
         """
@@ -61,6 +63,8 @@ class HandshakeHashes(object):
             return self._handshakeSHA384.digest()
         elif digest == 'sha512':
             return self._handshakeSHA512.digest()
+        elif digest == "intrinsic":
+            return self._handshake_buffer
         else:
             raise ValueError("Unknown digest name")
 
@@ -107,4 +111,5 @@ class HandshakeHashes(object):
         other._handshakeSHA256 = self._handshakeSHA256.copy()
         other._handshakeSHA384 = self._handshakeSHA384.copy()
         other._handshakeSHA512 = self._handshakeSHA512.copy()
+        other._handshake_buffer = bytearray(self._handshake_buffer)
         return other
