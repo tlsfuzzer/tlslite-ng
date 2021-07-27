@@ -883,6 +883,45 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual Ed25519 X.509".format(test_no))
+    with open(os.path.join(dir, "clientEd25519Cert.pem")) as f:
+        x509EdCert = X509().parse(f.read())
+    x509EdChain = X509CertChain([x509EdCert])
+    with open(os.path.join(dir, "clientEd25519Key.pem")) as f:
+        x509EdKey = parsePEMKey(f.read(), private=True)
+
+    synchro.recv(1)
+    connection = connect()
+    connection.handshakeClientCert(x509EdChain, x509EdKey)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual Ed25519 X.509, TLS 1.2".format(test_no))
+    with open(os.path.join(dir, "clientEd25519Cert.pem")) as f:
+        x509EdCert = X509().parse(f.read())
+    x509EdChain = X509CertChain([x509EdCert])
+    with open(os.path.join(dir, "clientEd25519Key.pem")) as f:
+        x509EdKey = parsePEMKey(f.read(), private=True)
+
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(x509EdChain, x509EdKey, settings=settings)
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -985,6 +1024,24 @@ def clientTestCmd(argv):
     assert b == b''
     testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509 Ed25519, PHA, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeClientCert(x509EdChain, x509EdKey, settings=settings)
+    synchro.recv(1)
+    b = connection.read(0, 0)
+    assert b == b''
+    testConnClient(connection)
+    assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
     connection.close()
 
     test_no += 1
@@ -2435,6 +2492,36 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good mutual Ed25519 X.509".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    connection.handshakeServer(certChain=x509Ed25519Chain,
+                               privateKey=x509Ed25519Key, reqCert=True)
+    testConnServer(connection)
+    assert(isinstance(connection.session.clientCertChain, X509CertChain))
+    assert connection.session.clientCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual Ed25519 X.509, TLS 1.2".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 3)
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509Ed25519Chain,
+                               privateKey=x509Ed25519Key, reqCert=True,
+                               settings=settings)
+    testConnServer(connection)
+    assert(isinstance(connection.session.clientCertChain, X509CertChain))
+    assert connection.session.clientCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
     synchro.send(b'R')
     connection = connect()
@@ -2530,6 +2617,29 @@ def serverTestCmd(argv):
 
     assert connection.session.clientCertChain is not None
     assert isinstance(connection.session.clientCertChain, X509CertChain)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good mutual X.509 Ed25519, PHA, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.minVersion = (3, 4)
+    settings.maxVersion = (3, 4)
+    connection.handshakeServer(certChain=x509Ed25519Chain,
+                               privateKey=x509Ed25519Key,
+                               settings=settings)
+    assert connection.session.clientCertChain is None
+    for result in connection.request_post_handshake_auth(settings):
+        assert result in (0, 1)
+    synchro.send(b'R')
+    testConnServer(connection)
+
+    assert connection.session.clientCertChain is not None
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.session.clientCertChain.getEndEntityPublicKey().key_type\
+            == "Ed25519"
     connection.close()
 
     test_no += 1
