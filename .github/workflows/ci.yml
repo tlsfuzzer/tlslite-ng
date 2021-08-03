@@ -302,8 +302,8 @@ jobs:
       - name: Install dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |
-          wget https://files.pythonhosted.org/packages/98/16/70be2716e24eaf5d81074bb3c05429d60292c2a96613a78ac3d69526ad2a/ecdsa-0.16.1-py2.py3-none-any.whl
-          pip install ecdsa-0.16.1-py2.py3-none-any.whl
+          wget https://files.pythonhosted.org/packages/84/0b/61a79cf7f50cdbb703112e903c1a4d3744afedca62220aabfd5a5b5a516d/ecdsa-0.18.0b1-py2.py3-none-any.whl
+          pip install ecdsa-0.18.0b1-py2.py3-none-any.whl
       - name: Install dependencies
         if: ${{ matrix.python-version != '2.6' }}
         run: pip install -r requirements.txt
