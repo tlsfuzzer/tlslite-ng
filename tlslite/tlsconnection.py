@@ -1327,7 +1327,13 @@ class TLSConnection(TLSRecordLayer):
                     break
             publicKey, serverCertChain, tackExt = result
 
-            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+            if signature_scheme in (SignatureScheme.ed25519,
+                                    SignatureScheme.ed448):
+                pad_type = None
+                hash_name = "intrinsic"
+                salt_len = None
+                method = publicKey.hashAndVerify
+            elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 pad_type = None
                 hash_name = HashAlgorithm.toRepr(signature_scheme[0])
                 matching_hash = self._curve_name_to_hash_name(
@@ -1338,17 +1344,19 @@ class TLSConnection(TLSRecordLayer):
                         "certificate it presented (curve mismatch)")
 
                 salt_len = None
+                method = publicKey.verify
             else:
                 scheme = SignatureScheme.toRepr(signature_scheme)
                 pad_type = SignatureScheme.getPadding(scheme)
                 hash_name = SignatureScheme.getHash(scheme)
                 salt_len = getattr(hashlib, hash_name)().digest_size
+                method = publicKey.verify
 
-            if not publicKey.verify(certificate_verify.signature,
-                                    signature_context,
-                                    pad_type,
-                                    hash_name,
-                                    salt_len):
+            if not method(certificate_verify.signature,
+                          signature_context,
+                          pad_type,
+                          hash_name,
+                          salt_len):
                 raise TLSDecryptionFailed("server Certificate Verify "
                                           "signature "
                                           "verification failed")
@@ -1426,23 +1434,34 @@ class TLSConnection(TLSRecordLayer):
                                                 signature_scheme, None, None,
                                                 None, prfName, b'client')
 
-                if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+                if signature_scheme in (SignatureScheme.ed25519,
+                        SignatureScheme.ed448):
+                    pad_type = None
+                    hash_name = "intrinsic"
+                    salt_len = None
+                    sig_func = privateKey.hashAndSign
+                    ver_func = privateKey.hashAndVerify
+                elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                     pad_type = None
                     hash_name = HashAlgorithm.toRepr(signature_scheme[0])
                     salt_len = None
+                    sig_func = privateKey.sign
+                    ver_func = privateKey.verify
                 else:
                     pad_type = SignatureScheme.getPadding(scheme)
                     hash_name = SignatureScheme.getHash(scheme)
                     salt_len = getattr(hashlib, hash_name)().digest_size
+                    sig_func = privateKey.sign
+                    ver_func = privateKey.verify
 
-                signature = privateKey.sign(signature_context,
-                                            pad_type,
-                                            hash_name,
-                                            salt_len)
-                if not privateKey.verify(signature, signature_context,
-                                         pad_type,
-                                         hash_name,
-                                         salt_len):
+                signature = sig_func(signature_context,
+                                     pad_type,
+                                     hash_name,
+                                     salt_len)
+                if not ver_func(signature, signature_context,
+                                pad_type,
+                                hash_name,
+                                salt_len):
                     for result in self._sendError(
                             AlertDescription.internal_error,
                             "Certificate Verify signature failed"):
@@ -1885,6 +1904,20 @@ class TLSConnection(TLSRecordLayer):
                             "did not advertise support for: {0}"
                             .format(curve_name)):
                         yield result
+        elif cert_type in ("Ed25519", "Ed448"):
+            if self.version < (3, 3):
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Peer sent certificate incompatible with negotiated "
+                        "TLS version"):
+                    yield result
+            if cert_type not in settings.more_sig_schemes:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Peer sent certificate we did not advertise support "
+                        "for: {0}".format(cert_type)):
+                    yield result
+
         else:
             # for RSA and DSA keys
             if len(publicKey) < settings.minKeySize:
@@ -2759,23 +2792,34 @@ class TLSConnection(TLSRecordLayer):
                                             signature_scheme, None, None, None,
                                             prf_name, b'server')
 
-            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+            if signature_scheme in (SignatureScheme.ed25519,
+                    SignatureScheme.ed448):
+                hashName = "intrinsic"
+                padType = None
+                saltLen = None
+                sig_func = privateKey.hashAndSign
+                ver_func = privateKey.hashAndVerify
+            elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 hashName = HashAlgorithm.toRepr(signature_scheme[0])
                 padType = None
                 saltLen = None
+                sig_func = privateKey.sign
+                ver_func = privateKey.verify
             else:
                 padType = SignatureScheme.getPadding(scheme)
                 hashName = SignatureScheme.getHash(scheme)
                 saltLen = getattr(hashlib, hashName)().digest_size
+                sig_func = privateKey.sign
+                ver_func = privateKey.verify
 
-            signature = privateKey.sign(signature_context,
-                                        padType,
-                                        hashName,
-                                        saltLen)
-            if not privateKey.verify(signature, signature_context,
-                                     padType,
-                                     hashName,
-                                     saltLen):
+            signature = sig_func(signature_context,
+                                 padType,
+                                 hashName,
+                                 saltLen)
+            if not ver_func(signature, signature_context,
+                            padType,
+                            hashName,
+                            saltLen):
                 for result in self._sendError(
                         AlertDescription.internal_error,
                         "Certificate Verify signature failed"):
@@ -2861,21 +2905,29 @@ class TLSConnection(TLSRecordLayer):
 
             public_key = client_cert_chain.getEndEntityPublicKey()
 
-            if signature_scheme[1] == SignatureAlgorithm.ecdsa:
+            if signature_scheme in (SignatureScheme.ed25519,
+                    SignatureScheme.ed448):
+                hash_name = "intrinsic"
+                pad_type = None
+                salt_len = None
+                ver_func = public_key.hashAndVerify
+            elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 hash_name = HashAlgorithm.toRepr(signature_scheme[0])
                 pad_type = None
                 salt_len = None
+                ver_func = public_key.verify
             else:
                 scheme = SignatureScheme.toRepr(signature_scheme)
                 pad_type = SignatureScheme.getPadding(scheme)
                 hash_name = SignatureScheme.getHash(scheme)
                 salt_len = getattr(hashlib, hash_name)().digest_size
+                ver_func = public_key.verify
 
-            if not public_key.verify(certificate_verify.signature,
-                                     signature_context,
-                                     pad_type,
-                                     hash_name,
-                                     salt_len):
+            if not ver_func(certificate_verify.signature,
+                            signature_context,
+                            pad_type,
+                            hash_name,
+                            salt_len):
                 for result in self._sendError(
                         AlertDescription.decrypt_error,
                         "signature verification failed"):
@@ -4156,7 +4208,13 @@ class TLSConnection(TLSRecordLayer):
                 else: break
             public_key = result
 
-            if not signatureAlgorithm or \
+            if signatureAlgorithm and signatureAlgorithm in (
+                    SignatureScheme.ed25519, SignatureScheme.ed448):
+                hash_name = "intrinsic"
+                salt_len = None
+                padding = None
+                ver_func = public_key.hashAndVerify
+            elif not signatureAlgorithm or \
                     signatureAlgorithm[1] != SignatureAlgorithm.ecdsa:
                 scheme = SignatureScheme.toRepr(signatureAlgorithm)
                 # for pkcs1 signatures hash is used to add PKCS#1 prefix, but
@@ -4170,18 +4228,20 @@ class TLSConnection(TLSRecordLayer):
                     if padding == 'pss':
                         hash_name = SignatureScheme.getHash(scheme)
                         salt_len = getattr(hashlib, hash_name)().digest_size
+                ver_func = public_key.verify
             else:
                 hash_name = HashAlgorithm.toStr(signatureAlgorithm[0])
                 verify_bytes = verify_bytes[
                     :public_key.public_key.curve.baselen]
                 padding = None
                 salt_len = None
+                ver_func = public_key.verify
 
-            if not public_key.verify(certificateVerify.signature,
-                                     verify_bytes,
-                                     padding,
-                                     hash_name,
-                                     salt_len):
+            if not ver_func(certificateVerify.signature,
+                            verify_bytes,
+                            padding,
+                            hash_name,
+                            salt_len):
                 for result in self._sendError(
                         AlertDescription.decrypt_error,
                         "Signature failed to verify"):
@@ -4420,7 +4480,6 @@ class TLSConnection(TLSRecordLayer):
         else:
             alt_certs = ()
 
-
         for certs, key in chain([(certList, private_key)], alt_certs):
             supported = TLSConnection._sigHashesToList(settings,
                                                        certList=certs,
@@ -4451,6 +4510,15 @@ class TLSConnection(TLSRecordLayer):
             publicKey = certList.x509List[0].publicKey
 
         sigAlgs = []
+
+        if not certType or certType == "Ed25519" or certType == "Ed448":
+            for sig_scheme in settings.more_sig_schemes:
+                if version < (3, 3):
+                    # EdDSA is supported only in TLS 1.2 and 1.3
+                    continue
+                if certType and sig_scheme != certType:
+                    continue
+                sigAlgs.append(getattr(SignatureScheme, sig_scheme.lower()))
 
         if not certType or certType == "ecdsa":
             for hashName in settings.ecdsaSigHashes:

@@ -3,6 +3,7 @@
 from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
 from .python_dsakey import Python_DSAKey
+from .python_eddsakey import Python_EdDSAKey
 from .pem import dePem, pemSniff
 from .asn1parser import ASN1Parser
 from .cryptomath import bytesToNumber
@@ -110,6 +111,10 @@ class Python_Key(object):
             key_type = "dsa"
         elif list(oid.value) == [42, 134, 72, 206, 61, 2, 1]:
             key_type = "ecdsa"
+        elif list(oid.value) == [43, 101, 112]:
+            key_type = "Ed25519"
+        elif list(oid.value) == [43, 101, 113]:
+            key_type = "Ed448"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier: {0}"
                               .format(list(oid.value)))
@@ -151,6 +156,8 @@ class Python_Key(object):
         #Adjust for OCTET STRING encapsulation
         private_key_parser = ASN1Parser(private_key_parser.value)
 
+        if key_type in ("Ed25519", "Ed448"):
+            return Python_Key._parse_eddsa_private_key(bytes)
         if key_type == "ecdsa":
             return Python_Key._parse_ecdsa_private_key(private_key_parser,
                                                        curve)
@@ -226,6 +233,12 @@ class Python_Key(object):
                                           curve)
         mult = priv_key.privkey.secret_multiplier
         return Python_ECDSAKey(pub_x, pub_y, curve.name, mult)
+
+    @staticmethod
+    def _parse_eddsa_private_key(data):
+        """Parse a DER encoded EdDSA key."""
+        priv_key = SigningKey.from_der(data)
+        return Python_EdDSAKey(priv_key.verifying_key, private_key=priv_key)
 
     @staticmethod
     def _parse_asn1_private_key(private_key_parser, key_type):

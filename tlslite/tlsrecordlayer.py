@@ -701,23 +701,33 @@ class TLSRecordLayer(object):
                                             sig_scheme, None, None, None,
                                             prf_name, b'client')
 
-            if sig_scheme[1] == SignatureAlgorithm.ecdsa:
+            if sig_scheme in (SignatureScheme.ed25519, SignatureScheme.ed448):
+                pad_type = None
+                hash_name = "intrinsic"
+                salt_len = None
+                sig_func = p_key.hashAndSign
+                ver_func = p_key.hashAndVerify
+            elif sig_scheme[1] == SignatureAlgorithm.ecdsa:
                 pad_type = None
                 hash_name = HashAlgorithm.toRepr(sig_scheme[0])
                 salt_len = None
+                sig_func = p_key.sign
+                ver_func = p_key.verify
             else:
                 pad_type = SignatureScheme.getPadding(scheme)
                 hash_name = SignatureScheme.getHash(scheme)
                 salt_len = getattr(hashlib, hash_name)().digest_size
+                sig_func = p_key.sign
+                ver_func = p_key.verify
 
-            signature = p_key.sign(signature_context,
-                                   pad_type,
-                                   hash_name,
-                                   salt_len)
-            if not p_key.verify(signature, signature_context,
-                                pad_type,
-                                hash_name,
-                                salt_len):
+            signature = sig_func(signature_context,
+                                 pad_type,
+                                 hash_name,
+                                 salt_len)
+            if not ver_func(signature, signature_context,
+                            pad_type,
+                            hash_name,
+                            salt_len):
                 for result in self._sendError(
                         AlertDescription.internal_error,
                         "Certificate Verify signature failed"):
@@ -809,16 +819,23 @@ class TLSRecordLayer(object):
                                             sig_scheme, None, None, None,
                                             prf_name, b'client')
 
-            if sig_scheme[1] == SignatureAlgorithm.ecdsa:
+            if sig_scheme in (SignatureScheme.ed25519, SignatureScheme.ed448):
+                pad_type = None
+                hash_name = "intrinsic"
+                salt_len = None
+                ver_func = cert.cert_chain.getEndEntityPublicKey().hashAndVerify
+            elif sig_scheme[1] == SignatureAlgorithm.ecdsa:
                 pad_type = None
                 hash_name = HashAlgorithm.toRepr(sig_scheme[0])
                 salt_len = None
+                ver_func = cert.cert_chain.getEndEntityPublicKey().verify
             else:
                 pad_type = SignatureScheme.getPadding(scheme)
                 hash_name = SignatureScheme.getHash(scheme)
                 salt_len = getattr(hashlib, hash_name)().digest_size
+                ver_func = cert.cert_chain.getEndEntityPublicKey().verify
 
-            if not cert.cert_chain.getEndEntityPublicKey().verify(
+            if not ver_func(
                     cert_verify.signature, signature_context, pad_type,
                     hash_name, salt_len):
                 for result in self._sendError(

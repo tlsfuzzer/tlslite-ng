@@ -31,6 +31,7 @@ RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
+SIGNATURE_SCHEMES = ["Ed25519", "Ed448"]
 RSA_SCHEMES = ["pss", "pkcs1"]
 # while secp521r1 is the most secure, it's also much slower than the others
 # so place it as the last one
@@ -255,8 +256,15 @@ class HandshakeSettings(object):
         The allowed hashes are: "sha1", "sha224", "sha256",
         "sha384" and "sha512".
 
+    "vartype more_sig_schemes: list(str)
+    :ivar more_sig_schemes: List of additional signatures schemes (ones
+        that don't use RSA-PKCS#1 v1.5, RSA-PSS, DSA, or ECDSA) to advertise
+        as supported.
+        Currently supported are: "Ed25519", and "Ed448".
+
     :vartype eccCurves: list(str)
-    :ivar eccCurves: List of named curves that are to be supported
+    :ivar eccCurves: List of named curves that are to be advertised as
+        supported in supported_groups extension.
 
     :vartype useEncryptThenMAC: bool
     :ivar useEncryptThenMAC: whether to support the encrypt then MAC extension
@@ -367,6 +375,7 @@ class HandshakeSettings(object):
         self.sendFallbackSCSV = False
         self.useEncryptThenMAC = True
         self.ecdsaSigHashes = list(ECDSA_SIGNATURE_HASHES)
+        self.more_sig_schemes = list(SIGNATURE_SCHEMES)
         self.usePaddingExtension = True
         self.useExtendedMasterSecret = True
         self.requireExtendedMasterSecret = False
@@ -467,6 +476,12 @@ class HandshakeSettings(object):
             raise ValueError("Unknown ECDSA signature hash: '{0}'".\
                              format(unknownSigHash))
 
+        unknownSigHash = not_matching(other.more_sig_schemes,
+                                      SIGNATURE_SCHEMES)
+        if unknownSigHash:
+            raise ValueError("Unkonwn more_sig_schemes specified: '{0}'"
+                             .format(unknownSigHash))
+
         unknownDHGroup = not_matching(other.dhGroups, ALL_DH_GROUP_NAMES)
         if unknownDHGroup:
             raise ValueError("Unknown FFDHE group name: '{0}'"
@@ -529,7 +544,8 @@ class HandshakeSettings(object):
                              .format(unknownSigHash))
 
         if not other.rsaSigHashes and not other.ecdsaSigHashes and \
-                not other.dsaSigHashes and other.maxVersion >= (3, 3):
+                not other.dsaSigHashes and not other.more_sig_schemes and \
+                other.maxVersion >= (3, 3):
             raise ValueError("TLS 1.2 requires signature algorithms to be set")
 
     @staticmethod
@@ -688,6 +704,7 @@ class HandshakeSettings(object):
         other.rsaSchemes = self.rsaSchemes
         other.dsaSigHashes = self.dsaSigHashes
         other.ecdsaSigHashes = self.ecdsaSigHashes
+        other.more_sig_schemes = self.more_sig_schemes
         other.virtual_hosts = self.virtual_hosts
         # DH key params
         other.eccCurves = self.eccCurves

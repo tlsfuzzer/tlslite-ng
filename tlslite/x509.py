@@ -10,8 +10,8 @@ from ecdsa.keys import VerifyingKey
 
 from .utils.asn1parser import ASN1Parser
 from .utils.cryptomath import *
-from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key,    \
-_create_public_dsa_key
+from .utils.keyfactory import _createPublicRSAKey, _create_public_ecdsa_key, \
+    _create_public_dsa_key, _create_public_eddsa_key
 from .utils.pem import *
 from .utils.compat import compatHMAC, b2a_hex
 from .constants import AlgorithmOID, RSA_PSS_OID
@@ -140,6 +140,10 @@ class X509(object):
             self.certAlg = "dsa"
         elif list(alg_oid) == [42, 134, 72, 206, 61, 2, 1]:
             self.certAlg = "ecdsa"
+        elif list(alg_oid) == [43, 101, 112]:
+            self.certAlg = "Ed25519"
+        elif list(alg_oid) == [43, 101, 113]:
+            self.certAlg = "Ed448"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
@@ -158,10 +162,31 @@ class X509(object):
         elif self.certAlg == "dsa":
             self._dsa_pubkey_parsing(subject_public_key_info)
             return
+        elif self.certAlg == "Ed25519" or self.certAlg == "Ed448":
+            self._eddsa_pubkey_parsing(
+                tbs_certificate.getChildBytes(subject_public_key_info_index))
+            return
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
 
         self._rsa_pubkey_parsing(subject_public_key_info)
+
+    def _eddsa_pubkey_parsing(self, subject_public_key_info):
+        """
+        Convert the raw DER encoded EdDSA parameters into public key object.
+
+        :param subject_public_key_info: bytes like object with the DER encoded
+            public key in it
+        """
+        try:
+            # python ecdsa knows how to parse curve OIDs so re-use that
+            # code
+            public_key = VerifyingKey.from_der(compatHMAC(
+                subject_public_key_info))
+        except Exception:
+            raise SyntaxError("Malformed or unsupported public key in "
+                              "certificate")
+        self.publicKey = _create_public_eddsa_key(public_key)
 
     def _rsa_pubkey_parsing(self, subject_public_key_info):
         """
