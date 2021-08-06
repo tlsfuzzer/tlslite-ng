@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha41 (2021-05-26)
+tlslite-ng version 0.8.0-alpha42 (2021-08-06)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -61,13 +61,14 @@ Implemented TLS features include:
 * Extended master secret
 * padding extension
 * keying material exporter
-* RSA, RSA-PSS and ECDSA certificates
+* RSA, RSA-PSS, ECDSA, and EdDSA certificates
 * ticket based session resumption in TLSv1.3
 * 1-RTT handshake, Hello Retry Request, middlebox compatibility mode,
   cookie extension, post-handshake authentication and KeyUpdate
   (TLS 1.3)
 * FFDHE supported_groups extension
 * X25519 and X448 ECDHE key exchange
+* Ed25519 and Ed448 EdDSA signatures
 * (experimental) TACK extension
 * heartbeat extension and protocol
 * Record Size Limit extension
@@ -686,6 +687,9 @@ may not work with all asyncore.dispatcher subclasses.
   backends
 * strict handling of CCS in TLS 1.3 (don't allow it post handshake)
 * improved RSA key generation - don't generate biased primes
+* support for both encodings of RSA-PSS algorithm identifier in X.509
+* Support for EdDSA (Ed25519 and Ed448) in TLS 1.2 and TLS 1.3, both
+  for server and client certificates
 
 
 0.7.0 - 2017-07-31
