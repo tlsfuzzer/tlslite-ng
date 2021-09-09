@@ -17,7 +17,7 @@ jobs:
         include:
           # first test on vanilla environments
           - name: py2.7
-            os: ubuntu-16.04
+            os: ubuntu-18.04
             python-version: 2.7
           - name: py3.3
             os: ubuntu-18.04
@@ -50,7 +50,7 @@ jobs:
             python-version: 3.6
             opt-deps: ['tackpy']
           - name: py2.7 with m2crypto
-            os: ubuntu-16.04
+            os: ubuntu-18.04
             python-version: 2.7
             opt-deps: ['m2crypto']
           - name: py3.6 with m2crypto
