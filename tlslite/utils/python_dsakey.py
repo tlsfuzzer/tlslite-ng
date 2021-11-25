@@ -35,9 +35,6 @@ class Python_DSAKey(DSAKey):
         self.public_key = y
         self.key_type = "dsa"
 
-        if p and q and p < q:
-            raise ValueError("q is greater than p")
-
     def __len__(self):
         return numBits(self.p)
 
