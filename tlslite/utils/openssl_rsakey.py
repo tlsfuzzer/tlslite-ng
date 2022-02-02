@@ -30,6 +30,9 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 if m2cryptoLoaded:
     import M2Crypto
+    # the methods like rsa_get_e and rsa_get_n are native, so pylint can't find
+    # them, ignore those errors
+    #pylint: disable=no-member
 
     class OpenSSL_RSAKey(RSAKey):
         def __init__(self, n=0, e=0, key_type="rsa"):
@@ -42,6 +45,22 @@ if m2cryptoLoaded:
                 m2.rsa_set_n(self.rsa, numberToMPI(n))
                 m2.rsa_set_e(self.rsa, numberToMPI(e))
             self.key_type = key_type
+
+        def __getstate__(self):
+            if not self.rsa:
+                return (self.key_type, )
+            return (self.key_type,
+                    mpiToNumber(m2.rsa_get_e(self.rsa)),
+                    mpiToNumber(m2.rsa_get_n(self.rsa)))
+
+        def __setstate__(self, state):
+            self.rsa = None
+            self._hasPrivateKey = False
+            self.key_type = state[0]
+            if len(state) > 1:
+                self.rsa = m2.rsa_new()
+                m2.rsa_set_e(self.rsa, numberToMPI(state[1]))
+                m2.rsa_set_n(self.rsa, numberToMPI(state[2]))
 
         def __del__(self):
             if self.rsa:
