@@ -155,6 +155,7 @@ class ExtensionType(TLSEnum):
     """TLS Extension Type registry values"""
 
     server_name = 0  # RFC 6066 / 4366
+    max_fragment_length = 1  # RFC 6066 / 4366
     status_request = 5  # RFC 6066 / 4366
     cert_type = 9  # RFC 6091
     supported_groups = 10  # RFC 4492, RFC-ietf-tls-negotiated-ff-dhe-10
