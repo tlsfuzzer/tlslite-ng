@@ -342,6 +342,12 @@ class ClientHello(HelloMessage):
         self.cipher_suites = []         # a list of 16-bit values
         self.compression_methods = []   # a list of 8-bit values
 
+    def _ciphers_to_str(self):
+        ciphers = ", ".join(
+            CipherSuite.ietfNames.get(i, str(i))
+            for i in self.cipher_suites)
+        return "[{0}]".format(ciphers)
+
     def __str__(self):
         """
         Return human readable representation of Client Hello.
@@ -354,10 +360,10 @@ class ClientHello(HelloMessage):
         else:
             session = repr(self.session_id)
         ret = "client_hello,version({0[0]}.{0[1]}),random(...),"\
-              "session ID({1!s}),cipher suites({2!r}),"\
+              "session ID({1!s}),cipher suites({2}),"\
               "compression methods({3!r})".format(
                   self.client_version, session,
-                  self.cipher_suites, self.compression_methods)
+                  self._ciphers_to_str(), self.compression_methods)
 
         if self.extensions is not None:
             ret += ",extensions({0!r})".format(self.extensions)
@@ -371,10 +377,10 @@ class ClientHello(HelloMessage):
         :rtype: str
         """
         return "ClientHello(ssl2={0}, client_version=({1[0]}.{1[1]}), "\
-               "random={2!r}, session_id={3!r}, cipher_suites={4!r}, "\
+               "random={2!r}, session_id={3!r}, cipher_suites={4}, "\
                "compression_methods={5}, extensions={6})".format(
                    self.ssl2, self.client_version, self.random,
-                   self.session_id, self.cipher_suites,
+                   self.session_id, self._ciphers_to_str(),
                    self.compression_methods, self.extensions)
 
     @property

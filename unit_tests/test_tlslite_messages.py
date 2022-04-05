@@ -490,6 +490,34 @@ class TestClientHello(unittest.TestCase):
                 "session ID(bytearray(b'')),cipher suites([]),"\
                 "compression methods([0])", str(client_hello))
 
+    def test___str___with_one_cipher_suite(self):
+        client_hello = ClientHello().create((3,0), bytearray(4), bytearray(0),\
+                [CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA])
+
+        self.assertEqual("client_hello,version(3.0),random(...),"
+                "session ID(bytearray(b'')),cipher suites(["
+                "TLS_RSA_WITH_AES_128_CBC_SHA]),"
+                "compression methods([0])", str(client_hello))
+
+    def test___str___with_unassigned_cipher_suite(self):
+        client_hello = ClientHello().create((3,0), bytearray(4), bytearray(0),\
+                [93])
+
+        self.assertEqual("client_hello,version(3.0),random(...),"\
+                "session ID(bytearray(b'')),cipher suites([93]),"\
+                "compression methods([0])", str(client_hello))
+
+    def test___str___with_cipher_suites(self):
+        client_hello = ClientHello().create((3,0), bytearray(4), bytearray(0),\
+                [CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA,
+                 CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA])
+
+        self.assertEqual("client_hello,version(3.0),random(...),"
+                "session ID(bytearray(b'')),cipher suites(["
+                "TLS_RSA_WITH_AES_128_CBC_SHA, "
+                "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA]),"
+                "compression methods([0])", str(client_hello))
+
     def test___str___with_all_null_session_id(self):
         client_hello = ClientHello().create((3,0), bytearray(4), bytearray(10),\
                 [])
