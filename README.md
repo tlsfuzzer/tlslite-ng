@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha42 (2021-08-06)
+tlslite-ng version 0.8.0-alpha43 (2022-05-11)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -690,6 +690,7 @@ may not work with all asyncore.dispatcher subclasses.
 * support for both encodings of RSA-PSS algorithm identifier in X.509
 * Support for EdDSA (Ed25519 and Ed448) in TLS 1.2 and TLS 1.3, both
   for server and client certificates
+* Support for echo server in the example tls.py script
 
 
 0.7.0 - 2017-07-31
