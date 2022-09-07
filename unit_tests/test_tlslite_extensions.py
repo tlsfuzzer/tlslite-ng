@@ -26,7 +26,8 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
-        HeartbeatExtension, IntExtension, RecordSizeLimitExtension
+        HeartbeatExtension, IntExtension, RecordSizeLimitExtension, \
+        CompressCertificateExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -1956,6 +1957,83 @@ class TestAPLNExtension(unittest.TestCase):
         self.assertIsInstance(ext2, ALPNExtension)
         self.assertEqual(ext2.protocol_names, [bytearray(b'http/1.1'),
                                                bytearray(b'spdy/1')])
+
+
+class TestCompressCertificateExtension(unittest.TestCase):
+
+    def setUp(self):
+        self.ext = CompressCertificateExtension()
+
+    def test___init__(self):
+        self.assertIsNotNone(self.ext)
+        self.assertIsNone(self.ext.advertised_algorithms)
+
+    def test_create(self):
+        self.ext.create([1, 2, 3])
+        self.assertEqual(self.ext.advertised_algorithms, [1, 2, 3])
+
+    def test_extData_with_one_value(self):
+        self.ext.create([2])
+        self.assertEqual(self.ext.extData, bytearray(b'\x02'      # Algorithm length: 2
+                                                     b'\x00\x02'  # Algorithm: brotli(2)
+                                                     ))
+
+    def test_extData_with_multiple_value(self):
+        self.ext.create([1, 2, 3])
+        self.assertEqual(self.ext.extData, bytearray(b'\x06'      # Algorithm length: 6
+                                                     b'\x00\x01'  # Algorithm: zlib(1)
+                                                     b'\x00\x02'  # Algorithm: brotli(2)
+                                                     b'\x00\x03'  # Algorithm: zstd(3)
+                                                     ))
+
+    def test_parse_with_empty_data(self):
+        p = Parser(bytearray(b''))
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(p)
+
+    def test_parse_with_single_value(self):
+        p = Parser(bytearray(b'\x02'      # Algorithm length: 2
+                             b'\x00\x02'  # Algorithm: brotli(2)
+                             ))
+        self.assertEqual(self.ext.parse(p).advertised_algorithms, [2])
+
+    def test_parse_with_multiple_value(self):
+        p = Parser(bytearray(b'\x06'      # Algorithm length: 6
+                             b'\x00\x01'  # Algorithm: zlib(1)
+                             b'\x00\x02'  # Algorithm: brotli(2)
+                             b'\x00\x03'  # Algorithm: zstd(3)
+                             ))
+        self.assertEqual(self.ext.parse(p).advertised_algorithms, [1, 2, 3])
+
+    def test_parse_with_too_little_data(self):
+        p = Parser(bytearray(b'\x06'      # Algorithm length: 6
+                             b'\x00\x01'  # Algorithm: zlib(1)
+                             b'\x00\x02'  # Algorithm: brotli(2)
+                             ))
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(p)
+
+    def test_parse_with_too_much_data(self):
+        p = Parser(bytearray(b'\x02'      # Algorithm length: 2
+                             b'\x00\x01'  # Algorithm: zlib(1)
+                             b'\x00\x02'  # Algorithm: brotli(2)
+                             ))
+        with self.assertRaises(SyntaxError):
+            self.ext.parse(p)
+
+    def test_parse_from_TLSExtension(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(b'\x00\x1b'  # type certificate_compress (27)
+                                  b'\x00\x05'  # length (5)
+                                  b'\x04'      # Algorithm length: 4
+                                  b'\x00\x01'  # Algorithm: zlib(1)
+                                  b'\x00\x02'  # Algorithm: brotli(2)
+                                  ))
+
+        ext2 = ext.parse(parser)
+        self.assertIsInstance(ext2, CompressCertificateExtension)
+        self.assertEqual(ext2.advertised_algorithms, [1, 2])
 
 
 class TestStatusRequestExtension(unittest.TestCase):

@@ -7,8 +7,8 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType
-from .utils import cryptomath
+from .constants import CertificateType, CompressionAlgorithms
+from .utils import cryptomath, compression
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
 
@@ -348,6 +348,14 @@ class HandshakeSettings(object):
     :vartype keyExchangeNames: list
     :ivar keyExchangeNames: Enabled key exchange types for the connection,
         influences selected cipher suites.
+
+    :vartype use_certificate_compression: bool
+    :ivar use_certificate_compression: Whether to advertise support for
+        compress_certificate extension.
+
+    :vartype certificate_compression_algorithms: tuple(int)
+    :ivar certificate_compression_algorithms: A tuple of integers that signal
+        which algorithms to support for certificate compression
     """
 
     def _init_key_settings(self):
@@ -379,6 +387,9 @@ class HandshakeSettings(object):
         self.usePaddingExtension = True
         self.useExtendedMasterSecret = True
         self.requireExtendedMasterSecret = False
+        # certificate compression extensions
+        self.use_certificate_compression = False
+        self.certificate_compression_algorithms = CompressionAlgorithms.default
         # PSKs
         self.pskConfigs = []
         self.psk_modes = list(PSK_MODES)
@@ -575,6 +586,33 @@ class HandshakeSettings(object):
                              "useExtendedMasterSecret")
 
     @staticmethod
+    def _sanityCheckCertCompressExtension(other):
+        """
+        Check if compress_certificate extension settings are valid
+        """
+
+        if other.maxVersion < (3, 4) and other.use_certificate_compression:
+            # Problem: certificate compression can only be sent on TLS 1.3. However, submitting it as True on lower
+            # TLS settings doesn't really change much since the setting will just be ignored. So, should we raise an
+            # exception or just a present a simple warning? Do nothing for now (needs to be changed).
+            pass
+
+        if not other.certificate_compression_algorithms:
+            raise ValueError("no algorithm was supplied to be advertised for certificate compression")
+
+        for algo in other.certificate_compression_algorithms:
+            try:
+                is_supported = compression.is_installed(algo)
+            except KeyError:
+                raise ValueError("unknown algorithm ({}) provided for certificate compression".format(algo))
+            if not is_supported:
+                # is_supported can only be False if algorithm is brotli or zstd (zlib is part of standard module)
+                algo_library = "brotli" if algo == CompressionAlgorithms.brotli else "zstandard"
+                raise ValueError("Preference for {} compression was provided, but dependency was not found. You can "
+                                 "install it by doing:\n"
+                                 "    pip install {}".format(CompressionAlgorithms.toRepr(algo), algo_library))
+
+    @staticmethod
     def _sanityCheckExtensions(other):
         """Check if set extension settings are sane"""
         if other.useEncryptThenMAC not in (True, False):
@@ -586,6 +624,9 @@ class HandshakeSettings(object):
         if other.use_heartbeat_extension not in (True, False):
             raise ValueError("use_heartbeat_extension must be True or False")
 
+        if other.use_certificate_compression not in (True, False):
+            raise ValueError("use_certificate_compression must be True or False")
+
         if other.heartbeat_response_callback and not other.use_heartbeat_extension:
             raise ValueError("heartbeat_response_callback requires "
                              "use_heartbeat_extension")
@@ -595,6 +636,7 @@ class HandshakeSettings(object):
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
         HandshakeSettings._sanityCheckEMSExtension(other)
+        HandshakeSettings._sanityCheckCertCompressExtension(other)
 
     @staticmethod
     def _not_allowed_len(values, sieve):
@@ -662,6 +704,9 @@ class HandshakeSettings(object):
         other.sendFallbackSCSV = self.sendFallbackSCSV
         other.useEncryptThenMAC = self.useEncryptThenMAC
         other.usePaddingExtension = self.usePaddingExtension
+        # cert compress
+        other.use_certificate_compression = self.use_certificate_compression
+        other.certificate_compression_algorithms = self.certificate_compression_algorithms
         # session tickets
         other.padding_cb = self.padding_cb
         other.ticketKeys = self.ticketKeys

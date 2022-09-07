@@ -1,13 +1,12 @@
 # Author Hubert Kario, copyright 2019
 
-from functools import partial
 from .ecdsakey import ECDSAKey
 from ecdsa.curves import curves
 from ecdsa.util import sigencode_der, sigdecode_der
 from ecdsa.keys import VerifyingKey, SigningKey, BadSignatureError
 from ecdsa.ellipticcurve import Point
 from ecdsa.der import UnexpectedDER
-from .tlshashlib import new
+from . import tlshashlib
 from .cryptomath import numBits
 from .compat import compatHMAC
 
@@ -73,7 +72,7 @@ class Python_ECDSAKey(ECDSAKey):
         raise NotImplementedError()
 
     def _sign(self, data, hAlg):
-        func = partial(new, hAlg)
+        func = getattr(tlshashlib, hAlg)
 
         return self.private_key.\
             sign_digest_deterministic(compatHMAC(data),
@@ -82,7 +81,8 @@ class Python_ECDSAKey(ECDSAKey):
 
     def _hashAndSign(self, data, hAlg):
         return self.private_key.sign_deterministic(compatHMAC(data),
-                                                   hash=new(hAlg),
+                                                   hash=getattr(tlshashlib,
+                                                                hAlg),
                                                    sigencode=sigencode_der)
 
     def _verify(self, signature, hash_bytes):
