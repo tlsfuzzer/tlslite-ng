@@ -22,14 +22,14 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
         NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest, \
-        KeyUpdate
+        KeyUpdate, CompressedCertificate
 from tlslite.utils.codec import Parser
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
         SSL2HandshakeType, CertificateStatusType, HandshakeType, \
         SignatureScheme, TLS_1_3_HRR, HeartbeatMessageType, \
-        KeyUpdateMessageType
+        KeyUpdateMessageType, CertificateCompressionAlgorithm
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
     ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity, \
@@ -3219,6 +3219,191 @@ class TestCertificate(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             cert.write()
+
+
+class TestCompressedCertificate(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.x509_cert = X509().parse(srv_raw_certificate)
+        cls.der_cert = cls.x509_cert.writeBytes()
+
+        # prepare empty example. TODO: algorithms other than zlib?
+        uncompressed_certificate = (b'\x00'  # certificate request context
+                                    b'\x00\x00\x00')  # certificate_list
+        import zlib
+        compressed_certificate = zlib.compress(bytes(uncompressed_certificate))
+        assert(len(compressed_certificate) == 12)
+        cls.empty_compressed_cert = bytearray(
+                b'\x19' +          # 25, compressed_certificate
+                b'\x00\x00\x14' +  # 20, length of handshake message
+                b'\x00\x01' +      # 1, algorithm = zlib
+                b'\x00\x00\x04' +  # 4, uncompressed_length
+                b'\x00\x00\x0c' +  # 12, len(compressed_certificate)
+                compressed_certificate
+        )
+
+        # prepare non-empty example. TODO: algorithms other than zlib?
+        assert len(cls.der_cert) == 0x0001fa
+        uncompressed_certificate = (
+                b'\x00' +          # certificate request context
+                b'\x00\x02\x05' +  # certificate_list length
+                b'\x00\x01\xfa' +  # length of certificate
+                cls.der_cert +
+                b'\x00\x06' +      # length of extensions
+                b'\x00\xff' +      # type of first extension
+                b'\x00\x02' +      # length of first extension
+                b'\xde\xad'
+        )
+        import zlib
+        compressed_certificate = zlib.compress(bytes(uncompressed_certificate))
+        assert(len(uncompressed_certificate) == 0x000209)
+        assert(len(compressed_certificate) == 0x0001d2)
+        assert(len(compressed_certificate) + 2 + 3 + 3 == 0x0001da)
+        cls.nonempty_compressed_cert = bytearray(
+               b'\x19' +          # 25, compressed_certificate
+               b'\x00\x01\xda' +  # 525, length of handshake message
+               b'\x00\x01' +      # 1, algorithm = zlib
+               b'\x00\x02\x09' +  # 521, uncompressed_length
+               b'\x00\x01\xd2' +  # ??, len(compressed_certificate)
+               compressed_certificate
+        )
+
+    def test___init__(self):
+        cert = CompressedCertificate(CertificateType.x509)
+
+        self.assertIsNotNone(cert)
+        self.assertIsInstance(cert, CompressedCertificate)
+        self.assertNotIsInstance(cert, Certificate)
+
+    def test___repr__(self):
+        cert = CompressedCertificate(CertificateType.x509, (3, 4),
+                                     CertificateCompressionAlgorithm.zlib)
+        ext = ServerCertTypeExtension().create(CertificateType.x509)
+        entry = CertificateEntry(CertificateType.x509)
+        entry = entry.create(bytearray(b'this is certificate'), [ext])
+        cert = cert.create([entry], bytearray(b'context'))
+
+        self.maxDiff = None
+
+        self.assertEqual(repr(cert),
+                "CompressedCertificate(request_context=bytearray(b'context'), "
+                "certificate_list=[CertificateEntry(certificate="
+                "bytearray(b'this is certificate'), extensions=["
+                "ServerCertTypeExtension(cert_type=x509)"
+                "])], algorithm=zlib)")
+
+    def test_read_what_you_write(self):
+        ALGS = {
+            'zlib': CertificateCompressionAlgorithm.zlib,
+        }  # TODO: more compression algorithms
+        for algname, alg in ALGS.items():
+            cert = CompressedCertificate(CertificateType.x509, (3, 4), alg)
+            ext = TLSExtension(extType=255).create(bytearray(b'\xde\xad'))
+            entry = CertificateEntry(CertificateType.x509)
+            entry = entry.create(self.x509_cert, [ext])
+            cert = cert.create([entry], bytearray(b''))
+
+            written = cert.write()
+            parser = Parser(written)
+
+            # half-peeling back postWrite header is asymmetric
+            # as .parse and .write are not inverse of each other
+            handshakeType = parser.get(1)
+            assert handshakeType == HandshakeType.compressed_certificate
+
+            read_back = CompressedCertificate(CertificateType.x509)\
+                        .parse(parser)
+
+            self.maxDiff = None
+
+            self.assertEqual(read_back.certificateType, cert.certificateType)
+            self.assertEqual(read_back._certificate._cert_chain,
+                             cert._certificate._cert_chain)
+            self.assertEqual(read_back.version, cert.version)
+            self.assertEqual(len(read_back.certificate_list),
+                             len(cert.certificate_list))
+            for r, c in zip(read_back.certificate_list, cert.certificate_list):
+                self.assertEqual(c.extensions, r.extensions)
+                self.assertEqual(c.certificate, r.certificate)
+            self.assertEqual(read_back.certificate_request_context,
+                             cert.certificate_request_context)
+            self.assertEqual(read_back.algorithm, cert.algorithm)
+            self.assertEqual(read_back.uncompressed_length,
+                             cert.uncompressed_length)
+
+            self.assertEqual(cert.certificateType, CertificateType.x509)
+            self.assertEqual(cert._certificate._cert_chain, None)
+            self.assertEqual(cert.version, (3, 4))
+            self.assertEqual(len(cert.certificate_list), 1)
+            cert0 = cert.certificate_list[0]
+            self.assertEqual(cert0.extensions, [ext])
+            self.assertEqual(cert0.certificate, self.x509_cert)
+            self.assertEqual(cert.certificate_request_context, b'')
+            self.assertEqual(cert.algorithm, alg)
+            self.assertEqual(cert.uncompressed_length, 521)
+
+    def test_write_empty(self):
+        cert = CompressedCertificate(CertificateType.x509)
+        cert.create(X509CertChain())
+        self.assertEqual(cert.write(), self.empty_compressed_cert)
+
+    def test_write_none(self):
+        cert = CompressedCertificate(CertificateType.x509)
+        cert.create(None)
+        self.assertEqual(cert.write(), self.empty_compressed_cert)
+
+    def test_parse_empty(self):
+        cert = CompressedCertificate(CertificateType.x509)
+        parser = Parser(self.empty_compressed_cert)
+        # half-peeling back postWrite header is asymmetric
+        # as .parse and .write are not inverse of each other
+        handshakeType = parser.get(1)
+        assert handshakeType == HandshakeType.compressed_certificate
+        cert = cert.parse(parser)
+
+        self.assertIsNone(cert.cert_chain)
+
+    def test_parse_empty_with_leftover_byte(self):
+        cert = CompressedCertificate(CertificateType.x509)
+        parser = Parser(self.empty_compressed_cert + b'\x00')  # extra byte
+        with self.assertRaises(SyntaxError):
+            cert.parse(parser)
+
+    def test_write_with_cert(self):
+        cert = CompressedCertificate(CertificateType.x509, (3, 4))
+        ext = TLSExtension(extType=255).create(bytearray(b'\xde\xad'))
+        entry = CertificateEntry(CertificateType.x509)
+        entry = entry.create(self.x509_cert, [ext])
+        cert = cert.create([entry], bytearray(b''))
+
+        self.assertEqual(cert.write(), self.nonempty_compressed_cert)
+
+    def test_parse_with_cert(self):
+        cert = CompressedCertificate(CertificateType.x509, (3, 4))
+        parser = Parser(self.nonempty_compressed_cert)
+
+        # half-peeling back postWrite header is asymmetric
+        # as .parse and .write are not inverse of each other
+        handshakeType = parser.get(1)
+        assert handshakeType == HandshakeType.compressed_certificate
+
+        cert = cert.parse(parser)
+
+        self.assertIsNotNone(cert)
+        self.assertEqual(cert.certificate_request_context, bytearray(b''))
+        self.assertIsNotNone(cert.certificate_list)
+        self.assertEqual(len(cert.certificate_list), 1)
+        self.assertIsInstance(cert.certificate_list[0], CertificateEntry)
+        entry = cert.certificate_list[0]
+        self.assertEqual(entry.certificate.writeBytes(), self.der_cert)
+        self.assertEqual(len(entry.extensions), 1)
+        self.assertEqual(entry.extensions[0].extData, bytearray(b'\xde\xad'))
+        self.assertIsNotNone(cert.cert_chain)
+        self.assertIsInstance(cert.cert_chain, X509CertChain)
+        self.assertEqual(len(cert.cert_chain.x509List), 1)
+        self.assertEqual(cert.cert_chain.x509List[0].writeBytes(),
+                         self.der_cert)
 
 
 class TestChangeCipherSpec(unittest.TestCase):

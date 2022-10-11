@@ -1278,6 +1278,7 @@ class TLSConnection(TLSRecordLayer):
         if not sr_psk:
             for result in self._getMsg(ContentType.handshake,
                                        (HandshakeType.certificate_request,
+                                        HandshakeType.compressed_certificate,
                                         HandshakeType.certificate),
                                        CertificateType.x509):
                 if result in (0, 1):
@@ -1289,8 +1290,10 @@ class TLSConnection(TLSRecordLayer):
                 certificate_request = result
 
                 # we got CertificateRequest so now we'll get Certificate
+                handshake_types = (HandshakeType.certificate,
+                                   HandshakeType.compressed_certificate)
                 for result in self._getMsg(ContentType.handshake,
-                                           HandshakeType.certificate,
+                                           handshake_types,
                                            CertificateType.x509):
                     if result in (0, 1):
                         yield result
@@ -1643,7 +1646,8 @@ class TLSConnection(TLSRecordLayer):
                 cipherSuite in CipherSuite.ecdheEcdsaSuites or \
                 cipherSuite in CipherSuite.dheDsaSuites:
             for result in self._getMsg(ContentType.handshake,
-                                       HandshakeType.certificate,
+                                       (HandshakeType.certificate,
+                                        HandshakeType.compressed_certificate,),
                                        certificateType):
                 if result in (0, 1):
                     yield result
@@ -2866,7 +2870,8 @@ class TLSConnection(TLSRecordLayer):
         #Get [Certificate,] (if was requested)
         if reqCert and selected_psk is None:
             for result in self._getMsg(ContentType.handshake,
-                                       HandshakeType.certificate,
+                                       (HandshakeType.certificate,
+                                        HandshakeType.compressed_certificate,),
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
@@ -4132,8 +4137,8 @@ class TLSConnection(TLSRecordLayer):
                     raise AssertionError()
             elif self.version in ((3,1), (3,2), (3,3)):
                 for result in self._getMsg(ContentType.handshake,
-                                          HandshakeType.certificate,
-                                          CertificateType.x509):
+                                           HandshakeType.certificate,
+                                           CertificateType.x509):
                     if result in (0,1): yield result
                     else: break
                 clientCertificate = result

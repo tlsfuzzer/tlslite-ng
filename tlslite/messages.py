@@ -1240,6 +1240,98 @@ class Certificate(HandshakeMsg):
                        self.certificate_list)
 
 
+class CompressedCertificate(HandshakeMsg):
+    def __init__(self, certificateType, version=(3, 4),
+                 algorithm=CertificateCompressionAlgorithm.zlib):
+        super(CompressedCertificate, self)\
+                .__init__(HandshakeType.compressed_certificate)
+        self._certificate = Certificate(certificateType, version)
+        self.uncompressed_length = None
+        self.algorithm = algorithm
+
+    # pass-through to encapsulated ._certificate
+
+    @property
+    def version(self):
+        return self._certificate.version
+
+    @property
+    def certificate_list(self):
+        return self._certificate.certificate_list
+
+    @property
+    def certificateType(self):
+        return self._certificate.certificateType
+
+    @property
+    def certificate_request_context(self):
+        return self._certificate.certificate_request_context
+
+    @property
+    def cert_chain(self):
+        return self._certificate.cert_chain
+
+    @cert_chain.setter
+    def cert_chain(self, cert_chain):
+        self._certificate.cert_chain = cert_chain
+
+    # end of trivial pass-through to encapsulated ._certificate
+
+    def create(self, cert_chain, context=b'',
+               algorithm=CertificateCompressionAlgorithm.zlib):
+        self._certificate.cert_chain = cert_chain
+        self._certificate.certificate_request_context = context
+        self.algorithm = algorithm
+        return self
+
+    def parse(self, parser):
+        # 'peeling' compressed length
+        parser.startLengthCheck(3)
+        self.algorithm = parser.get(2)
+        self.uncompressed_length = parser.get(3)
+        compressed_certificate_msg = parser.getVarBytes(3)
+        parser.stopLengthCheck()
+
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            import zlib
+            uncompressed = zlib.decompress(bytes(compressed_certificate_msg))
+        else:
+            raise NotImplementedError("algorithm {0} is not supported"\
+                                      .format(self.algorithm))
+        assert(len(uncompressed) == self.uncompressed_length)
+
+        # 'unpeeling' uncompressed length
+        certificate_writer = Writer()
+        certificate_writer.add_var_bytes(uncompressed, 3)
+        self._certificate.parse(Parser(certificate_writer.bytes))
+        return self
+
+    def write(self):
+        uncompressed = self._certificate._write_tls13().bytes
+        self.uncompressed_length = len(uncompressed)
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            import zlib
+            compressed_certificate_msg = zlib.compress(bytes(uncompressed))
+        else:
+            raise NotImplementedError("algorithm {0} is not supported"\
+                                      .format(self.algorithm))
+
+        writer = Writer()
+        writer.add(self.algorithm, 2)
+        writer.add(self.uncompressed_length, 3)
+        writer.add_var_bytes(compressed_certificate_msg, 3)
+
+        return self.postWrite(writer)
+
+    def __repr__(self):
+        return "CompressedCertificate(request_context={0!r}, "\
+               "certificate_list={1!r}, "\
+               "algorithm={2!s})"\
+               .format(self._certificate.certificate_request_context,
+                       self._certificate.certificate_list,
+                       CertificateCompressionAlgorithm.toRepr(self.algorithm))
+
+
 class CertificateRequest(HelloMessage):
     def __init__(self, version):
         super(CertificateRequest, self).__init__(

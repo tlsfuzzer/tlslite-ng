@@ -11,8 +11,8 @@ from collections import namedtuple
 from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
-        HeartbeatMode
+        PskKeyExchangeMode, CertificateType, CertificateCompressionAlgorithm, \
+        GroupName, ECPointFormat, HeartbeatMode
 from .errors import TLSInternalError
 
 
@@ -1004,6 +1004,34 @@ class ServerCertTypeExtension(IntExtension):
         if not parser.getRemainingLength():
             raise DecodeError("Empty payload in extension")
         return super(ServerCertTypeExtension, self).parse(parser)
+
+
+class CompressCertificateExtension(VarListExtension):
+    """
+    Algorithms supported for certificate decompression.
+
+    See RFC8879.
+
+    :vartype algorithms: int
+    :ivar algorithms: list of compression algorithms that the peer supports
+    """
+
+    def __init__(self):
+        """Create instance of class"""
+        super(CompressCertificateExtension, self).__init__(
+            2, 1, 'algorithms',
+            ExtensionType.compress_certificate,
+            CertificateCompressionAlgorithm)
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format
+
+        :param Parser p: parser with data
+        """
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
+            raise DecodeError("Empty payload in extension")
+        return super(CompressCertificateExtension, self).parse(parser)
 
 
 class SRPExtension(TLSExtension):
@@ -2121,7 +2149,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
         ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension}
+        ExtensionType.record_size_limit: RecordSizeLimitExtension,
+        ExtensionType.compress_certificate: CompressCertificateExtension}
 
 TLSExtension._serverExtensions = \
     {
