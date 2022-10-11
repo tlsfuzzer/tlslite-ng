@@ -1240,6 +1240,73 @@ class Certificate(HandshakeMsg):
                        self.certificate_list)
 
 
+class CompressedCertificate(Certificate):
+    def __init__(self, certificateType, version=(3, 4),
+                 algorithm=CertificateCompressionAlgorithm.zlib):
+        assert version > (3, 3)  # RFC 8879 is TLS 1.3+ only
+        super(CompressedCertificate, self).__init__(certificateType, version)
+        HandshakeMsg.__init__(self, HandshakeType.compressed_certificate)
+        self.uncompressed_length = None
+        self.algorithm = algorithm
+
+    def parse(self, parser):
+        assert self.version > (3, 3)  # RFC 8879 is TLS 1.3+ only
+
+        # FIXME: why am I peeling length here? is this the right place?
+        inner_parser = Parser(parser.getVarBytes(3))
+
+        self.algorithm = inner_parser.get(2)
+        self.uncompressed_length = inner_parser.get(3)
+
+        # FIXME: some more idiomatic way to do this:
+        compressed_certificate_msg_p = Parser(inner_parser.getVarBytes(3))
+        compressed_certificate_msg = compressed_certificate_msg_p.getFixBytes(
+                compressed_certificate_msg_p.getRemainingLength()
+        )
+        assert compressed_certificate_msg_p.getRemainingLength() == 0
+
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            import zlib
+            uncompressed = zlib.decompress(compressed_certificate_msg)
+        else:
+            raise NotImplementedError("algorithm {0} is not supported"\
+                                      .format(self.algorithm))
+        assert(len(uncompressed) == self.uncompressed_length)
+
+        # FIXME: 'unpeeling' uncompressed length back. again, inelegant
+        certificate_writer = Writer()
+        certificate_writer.add_var_bytes(uncompressed, 3)
+        return self._parse_tls13(Parser(certificate_writer.bytes))
+
+    def write(self):
+        assert self.version > (3, 3)  # RFC 8879 is TLS 1.3+ only
+
+        uncompressed = self._write_tls13().bytes
+        self.uncompressed_length = len(uncompressed)
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            import zlib
+            compressed_certificate_msg = zlib.compress(uncompressed)
+        else:
+            raise NotImplementedError("algorithm {0} is not supported"\
+                                      .format(self.algorithm))
+
+        writer = Writer()
+        writer.add(self.algorithm, 2)
+        writer.add(self.uncompressed_length, 3)
+        writer.add_var_bytes(compressed_certificate_msg, 3)
+
+        return self.postWrite(writer)
+
+    def __repr__(self):
+        assert self.version > (3, 3)  # RFC 8879 is TLS 1.3+ only
+        return "CompressedCertificate(request_context={0!r}, "\
+               "certificate_list={1!r}, "\
+               "algorithm={2!s})"\
+               .format(self.certificate_request_context,
+                       self.certificate_list,
+                       CertificateCompressionAlgorithm.toRepr(self.algorithm))
+
+
 class CertificateRequest(HelloMessage):
     def __init__(self, version):
         super(CertificateRequest, self).__init__(
