@@ -283,3 +283,9 @@ class UnknownRSAType(EncryptionError):
     """Unknown RSA algorithm type passed"""
 
     pass
+
+
+class DependencyMissing(BaseTLSException):
+    """Optional TLSLite dependency is missing"""
+
+    pass

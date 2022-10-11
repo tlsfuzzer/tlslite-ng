@@ -44,7 +44,8 @@ except ImportError:
     from xmlrpc import client as xmlrpclib
 import ssl
 from tlslite import *
-from tlslite.constants import KeyUpdateMessageType
+from tlslite.constants import KeyUpdateMessageType, \
+        CertificateCompressionAlgorithm
 
 try:
     from tack.structures.Tack import Tack
@@ -916,6 +917,8 @@ def clientTestCmd(argv):
     connection.handshakeClientCert(x509EdChain, x509EdKey, settings=settings)
     testConnClient(connection)
     assert isinstance(connection.session.serverCertChain, X509CertChain)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
     assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
             == "Ed25519"
     connection.close()
@@ -1008,6 +1011,10 @@ def clientTestCmd(argv):
     connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
     testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert(connection.session.clientCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
+    assert(connection.session.serverCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
     connection.close()
 
     test_no += 1
@@ -1672,6 +1679,215 @@ def clientTestCmd(argv):
     connection.close()
 
     test_no += 1
+
+    if utils.compression.brotliLoaded:
+        print("Test {0} - smoke-test brotli cert compression, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['brotli']
+        connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+        testConnClient(connection)
+        assert(isinstance(connection.session.serverCertChain, X509CertChain))
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.zstdLoaded:
+        print("Test {0} - smoke-test zstd cert compression, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['zstd']
+        connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+        testConnClient(connection)
+        assert(isinstance(connection.session.serverCertChain, X509CertChain))
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.brotliLoaded and utils.compression.zstdLoaded:
+        print("Test {0} - smoke-test brotli/zstd cert compression, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['zstd', 'brotli', 'zlib']
+        connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+        testConnClient(connection)
+        assert(isinstance(connection.session.serverCertChain, X509CertChain))
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)  # server's preference
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)  # client's preference
+        connection.close()
+
+        test_no += 1
+
+    print("Test {0} - no cert compression overlap, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['zstd']
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force no client cert compression on client, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = []
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force no client cert compression on server, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force TLSv1.2 on client, expect no cert compression".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 3)
+    settings.certCompressionAlgorithms = ['zlib', 'brotli', 'zstd']
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force TLSv1.2 on server, expect no cert compression".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['zlib', 'brotli', 'zstd']
+    connection.handshakeClientCert(x509Chain, x509Key, settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - server certificate compression, TLSv1.3".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
+    connection.close()
+
+    test_no += 1
+
+    if utils.compression.brotliLoaded:
+        print("Test {0} - brotli server certificate compression, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['brotli', 'zstd']  # cause why not
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert(isinstance(connection.session.serverCertChain, X509CertChain))
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm is None)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.zstdLoaded:
+        print("Test {0} - zstd server certificate compression, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['zstd', 'zlib']  # cause why not
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert(isinstance(connection.session.serverCertChain, X509CertChain))
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm is None)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        connection.close()
+
+        test_no += 1
+
+    print("Test {0} - no server certificate compression, TLSv1.2 on server".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['zlib', 'brotli', 'zstd']
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - no server certificate compression, TLSv1.2 on client".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 3)
+    connection.handshakeClientCert(settings=settings)
+    testConnClient(connection)
+    assert(isinstance(connection.session.serverCertChain, X509CertChain))
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
 
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
@@ -2516,6 +2732,8 @@ def serverTestCmd(argv):
                                settings=settings)
     testConnServer(connection)
     assert(isinstance(connection.session.clientCertChain, X509CertChain))
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
     assert connection.session.clientCertChain.getEndEntityPublicKey().key_type\
             == "Ed25519"
     connection.close()
@@ -2597,6 +2815,10 @@ def serverTestCmd(argv):
     connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
     testConnServer(connection)
     assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert(connection.session.clientCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
+    assert(connection.session.serverCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
     connection.close()
 
     test_no += 1
@@ -3189,6 +3411,206 @@ def serverTestCmd(argv):
         assert i in (0, 1)
     testConnServer(connection)
     assert synchro.recv(1) == b'R'
+    connection.close()
+
+    test_no += 1
+
+    if utils.compression.brotliLoaded:
+        print("Test {0} - smoke-test brotli cert compression, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['brotli']
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+        testConnServer(connection)
+        assert isinstance(connection.session.clientCertChain, X509CertChain)
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.zstdLoaded:
+        print("Test {0} - smoke-test zstd cert compression, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['zstd']
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+        testConnServer(connection)
+        assert isinstance(connection.session.clientCertChain, X509CertChain)
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.brotliLoaded and utils.compression.zstdLoaded:
+        print("Test {0} - smoke brotli/zstd cert compression, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.certCompressionAlgorithms = ['brotli', 'zstd', 'zlib']
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+        testConnServer(connection)
+        assert isinstance(connection.session.clientCertChain, X509CertChain)
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)  # server's preference
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)   # client's preference
+        connection.close()
+
+        test_no += 1
+
+    print("Test {0} - no cert compression overlap, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['brotli']
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force no cert compression on client, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force no cert compression on server, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = []
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force TLSv1.2 on client, expect no cert compression".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['zlib', 'brotli', 'zstd']
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - force TLSv1.2 on server, expect no cert compression".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, reqCert=True, settings=settings)
+    testConnServer(connection)
+    assert isinstance(connection.session.clientCertChain, X509CertChain)
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - server certificate compression, TLSv1.3".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    testConnServer(connection)
+    assert connection.version == (3, 4)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm ==
+            CertificateCompressionAlgorithm.zlib)
+    connection.close()
+
+    test_no += 1
+
+    if utils.compression.brotliLoaded:
+        print("Test {0} - brotli server certificate compression, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+        testConnServer(connection)
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm is None)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.brotli)
+        connection.close()
+
+        test_no += 1
+
+    if utils.compression.zstdLoaded:
+        print("Test {0} - zstd server certificate compression, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+        testConnServer(connection)
+        assert connection.version == (3, 4)
+        assert(connection.session.clientCertCompressionAlgorithm is None)
+        assert(connection.session.serverCertCompressionAlgorithm ==
+                CertificateCompressionAlgorithm.zstd)
+        connection.close()
+
+        test_no += 1
+
+    print("Test {0} - no server certificate compression, TLSv1.2 on server".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 3)
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    testConnServer(connection)
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - no server certificate compression, TLSv1.2 on client".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.certCompressionAlgorithms = ['zlib', 'brotli', 'zstd']
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, settings=settings)
+    testConnServer(connection)
+    assert connection.version == (3, 3)
+    assert(connection.session.clientCertCompressionAlgorithm is None)
+    assert(connection.session.serverCertCompressionAlgorithm is None)
     connection.close()
 
     test_no += 1

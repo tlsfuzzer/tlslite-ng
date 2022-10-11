@@ -144,31 +144,31 @@ jobs:
             python-version: '3.10'
             opt-deps: ['gmpy2']
           # finally test with multiple dependencies installed at the same time
-          - name: py2.7 with m2crypto, pycrypto, gmpy, and gmpy2
+          - name: py2.7 with m2crypto, pycrypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: 2.7
-            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - name: py3.6 with m2crypto, pycrypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.6 with m2crypto, pycrypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: 3.6
-            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - name: py3.7 with m2crypto, pycrypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.7 with m2crypto, pycrypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: 3.7
-            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - name: py3.8 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.8 with m2crypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: 3.8
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.9 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.9 with m2crypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: 3.9
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.10 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.10 with m2crypto, gmpy, gmpy2, brotli and zstd
             os: ubuntu-latest
             python-version: '3.10'
             # coverage to codeclimate can be submitted just once
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'codeclimate']
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd', 'codeclimate']
     steps:
       - uses: actions/checkout@v2
         if: ${{ !matrix.container }}
@@ -267,6 +267,12 @@ jobs:
       - name: Install gmpy2
         if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
         run: pip install gmpy2
+      - name: Install brotli
+        if: ${{ contains(matrix.opt-deps, 'brotli') }}
+        run: pip install Brotli
+      - name: Install zstd
+        if: ${{ contains(matrix.opt-deps, 'zstd') }}
+        run: pip install zstd
       - name: Install build dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |

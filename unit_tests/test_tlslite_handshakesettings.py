@@ -13,6 +13,7 @@ except ImportError:
     import unittest.mock as mock
 
 from tlslite.handshakesettings import HandshakeSettings, Keypair, VirtualHost
+from tlslite.utils.compression import brotliLoaded, zstdLoaded
 
 class TestHandshakeSettings(unittest.TestCase):
     def test___init__(self):
@@ -84,6 +85,41 @@ class TestHandshakeSettings(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             hs.validate()
+
+    def test_certCompressionAlgorithms_with_known_name(self):
+        hs = HandshakeSettings()
+        hs.certCompressionAlgorithms = ["zlib"]
+
+        newHs = hs.validate()
+
+        self.assertEqual(["zlib"], newHs.certCompressionAlgorithms)
+
+    def test_certCompressionAlgorithms_with_unknown_name(self):
+        hs = HandshakeSettings()
+        hs.certCompressionAlgorithms = ["nonex", "zlib"]
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    def test_certCompressionAlgorithms_empty(self):
+        hs = HandshakeSettings()
+        hs.certCompressionAlgorithms = []
+
+        newHs = hs.validate()
+
+        self.assertEqual([], newHs.certCompressionAlgorithms)
+
+    def test_certCompressionAlgorithms_filtering_out(self):
+        hs = HandshakeSettings()
+        hs.certCompressionAlgorithms = ["zlib", "brotli", "zstd"]
+
+        newHs = hs.validate()
+
+        self.assertTrue("zlib" in newHs.certCompressionAlgorithms)
+        self.assertTrue(("brotli" in newHs.certCompressionAlgorithms) ==
+                        brotliLoaded)
+        self.assertTrue(("zstd" in newHs.certCompressionAlgorithms) ==
+                        zstdLoaded)
 
     def test_certificateTypes_empty(self):
         hs = HandshakeSettings()
