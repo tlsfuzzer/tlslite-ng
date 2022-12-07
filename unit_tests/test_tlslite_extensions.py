@@ -26,11 +26,13 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         SrvSupportedVersionsExtension, SignatureAlgorithmsCertExtension, \
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
-        HeartbeatExtension, IntExtension, RecordSizeLimitExtension
-from tlslite.utils.codec import Parser, Writer
+        HeartbeatExtension, IntExtension, RecordSizeLimitExtension, \
+        CompressCertificateExtension
+from tlslite.utils.codec import Parser, Writer, DecodeError
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
-        CertificateStatusType, SignatureScheme, HeartbeatMode, CertificateType
+        CertificateStatusType, SignatureScheme, HeartbeatMode, \
+        CertificateType, CertificateCompressionAlgorithm
 from tlslite.errors import TLSInternalError
 
 class TestTLSExtension(unittest.TestCase):
@@ -2810,6 +2812,111 @@ class TestCookieExtension(unittest.TestCase):
     def test___repr___with_none(self):
         ext = CookieExtension()
         self.assertEqual(repr(ext), "CookieExtension(cookie=None)")
+
+
+class TestCompressedCertificateExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = CompressCertificateExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.extType, 27)
+        self.assertEqual(ext.extData, bytearray())
+        self.assertIsNone(ext.algorithms)
+
+    def test_write(self):
+        ext = CompressCertificateExtension()
+        ext.create([CertificateCompressionAlgorithm.zlib,
+                    CertificateCompressionAlgorithm.zstd])
+
+        self.assertEqual(bytearray(
+            b'\x00\x1B' +           # type of extension - 27
+            b'\x00\x05' +           # overall length of extension
+            b'\x04' +               # length of extension list array
+            b'\x00\x01' +           # zlib
+            b'\x00\x03'             # zstd
+            ), ext.write())
+
+    def test_write_empty(self):
+        ext = CompressCertificateExtension()
+        self.assertEqual(bytearray(b'\x00\x1B\x00\x00'), ext.write())
+
+    def test_parse(self):
+        parser = Parser(bytearray(
+            b'\x04' +               # length of extension list array
+            b'\x00\x01' +           # zlib
+            b'\x00\x03'             # zstd
+            ))
+
+        ext = CompressCertificateExtension().parse(parser)
+
+        self.assertEqual(ext.extType, ExtensionType.compress_certificate)
+        self.assertEqual(ext.algorithms,
+                         [CertificateCompressionAlgorithm.zlib,
+                          CertificateCompressionAlgorithm.zstd])
+
+    def test_parse_with_short_data(self):
+        for i in range(5):
+            parser = Parser(bytearray(b'\x00' * i))
+            with self.assertRaises(DecodeError):
+                CompressCertificateExtension().parse(parser)
+        for i in range(4):
+            parser = Parser(bytearray(b'\x01' + b'\x00' * i))
+            with self.assertRaises(DecodeError):
+                CompressCertificateExtension().parse(parser)
+
+    def test_parse_with_long_data(self):
+        for i in (2**8 - 3, 2**8 - 1, 2**8, 2**8 + 1):
+            parser = Parser(bytearray([min(i, 255)]) + b'\x00' * i)
+            with self.assertRaises(DecodeError):
+                CompressCertificateExtension().parse(parser)
+        for i in (2**8 - 4, 2**8 - 2):
+            parser = Parser(bytearray([i]) + b'\x00' * i)
+            CompressCertificateExtension().parse(parser)
+
+    def test_parse_with_odd_data(self):
+        for i in range(7):
+            parser = Parser(
+                bytearray([i]) +        # length of extension list array
+                b'\x00\x01' +           # zlib
+                b'\x00\x03'             # zstd
+                b'\x00'                 # trailing byte
+                )
+            with self.assertRaises(DecodeError):
+                CompressCertificateExtension().parse(parser)
+
+    def test_parse_with_trailing_data(self):
+        parser = Parser(bytearray(
+            b'\x04' +               # length of extension list array
+            b'\x00\x01' +           # zlib
+            b'\x00\x03'             # zstd
+            b'\x00\x00'             # two trailing bytes
+            ))
+
+        with self.assertRaises(DecodeError):
+            CompressCertificateExtension().parse(parser)
+
+    def test_parse_with_empty_array(self):
+        parser = Parser(bytearray(2))
+
+        with self.assertRaises(DecodeError):
+            CompressCertificateExtension().parse(parser)
+
+    def test_parse_with_invalid_data(self):
+        parser = Parser(bytearray(b'\x00\x01\x00'))
+
+        ext = CompressCertificateExtension()
+
+        with self.assertRaises(SyntaxError):
+            ext.parse(parser)
+
+    def test___repr__(self):
+        ext = CompressCertificateExtension().create([
+            CertificateCompressionAlgorithm.zlib,
+             CertificateCompressionAlgorithm.zstd
+        ])
+        self.assertEqual(
+            "CompressCertificateExtension(algorithms=[zlib, zstd])",
+            repr(ext))
 
 
 if __name__ == '__main__':

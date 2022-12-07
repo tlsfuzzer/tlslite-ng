@@ -87,6 +87,12 @@ class ClientCertificateType(TLSEnum):
     ecdsa_fixed_ecdh = 66  # RFC 8422
 
 
+class CertificateCompressionAlgorithm(TLSEnum):  # RFC 8879
+    zlib = 1
+    brotli = 2
+    zstd = 3
+
+
 class SSL2HandshakeType(TLSEnum):
     """SSL2 Handshake Protocol message types."""
 
@@ -128,6 +134,7 @@ class HandshakeType(TLSEnum):
     finished = 20
     certificate_status = 22
     key_update = 24  # TLS 1.3
+    compressed_certificate = 25  # RFC 8879
     next_protocol = 67
     message_hash = 254  # TLS 1.3
 
@@ -167,6 +174,7 @@ class ExtensionType(TLSEnum):
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
+    compress_certificate = 27  # RFC 8879
     record_size_limit = 28  # RFC 8449
     extended_random = 40  # draft-rescorla-tls-extended-random-02
     pre_shared_key = 41  # TLS 1.3

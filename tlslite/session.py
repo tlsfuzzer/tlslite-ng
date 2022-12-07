@@ -66,6 +66,14 @@ class Session(object):
     :ivar resumptionMasterSecret: master secret used for session resumption in
         TLS 1.3
 
+    :vartype serverCertCompressionAlgorithm: string
+    :ivar serverCertCompressionAlgorithm: certificate compression algorithm
+        used for the server certificate, TLS 1.3
+
+    :vartype clientCertCompressionAlgorithm: string
+    :ivar clientCertCompressionAlgorithm: certificate compression algorithm
+        used for the server certificate, TLS 1.3
+
     :vartype tickets: list
     :ivar tickets: list of tickets received from the server
     """
@@ -88,6 +96,8 @@ class Session(object):
         self.sr_app_secret = bytearray(0)
         self.exporterMasterSecret = bytearray(0)
         self.resumptionMasterSecret = bytearray(0)
+        self.serverCertCompressionAlgorithm = None
+        self.clientCertCompressionAlgorithm = None
         self.tickets = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
@@ -96,7 +106,10 @@ class Session(object):
                encryptThenMAC=False, extendedMasterSecret=False,
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
-               resumptionMasterSecret=bytearray(0), tickets=None):
+               resumptionMasterSecret=bytearray(0),
+               serverCertCompressionAlgorithm=None,
+               clientCertCompressionAlgorithm=None,
+               tickets=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -114,6 +127,8 @@ class Session(object):
         self.sr_app_secret = sr_app_secret
         self.exporterMasterSecret = exporterMasterSecret
         self.resumptionMasterSecret = resumptionMasterSecret
+        self.serverCertCompressionAlgorithm = serverCertCompressionAlgorithm
+        self.clientCertCompressionAlgorithm = clientCertCompressionAlgorithm
         # NOTE we need a reference copy not a copy of object here!
         self.tickets = tickets
 

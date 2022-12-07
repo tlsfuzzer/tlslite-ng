@@ -8,6 +8,7 @@
 """Class for setting handshake parameters."""
 
 from .constants import CertificateType
+from .utils import compression
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
@@ -61,6 +62,8 @@ KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
+
+ALL_CERT_COMPRESSION = ['zlib', 'brotli', 'zstd']  # filtered out later
 
 
 class Keypair(object):
@@ -173,6 +176,19 @@ class HandshakeSettings(object):
 
         The default value is list that excludes 'rc4', 'null' and
         'chacha20-poly1305_draft00'.
+
+    :vartype certCompressionAlgorithms: list(str)
+    :ivar certCompressionAlgorithms: The allowed cert compression algorithms.
+
+        The allowed values in this list are 'zlib', 'brotli', 'zstd'.
+        'brotli' and 'zstd' are available only if corresponding Python
+        libraries are installed.
+
+        The default value of this list is autodetected based on library
+        availability.
+
+        Impacts both advertized and accepted certificate compression
+        algorithms. Affects only TLS 1.3 connections.
 
     :vartype macNames: list(str)
     :ivar macNames: The allowed MAC algorithms.
@@ -403,6 +419,7 @@ class HandshakeSettings(object):
         self.macNames = list(MAC_NAMES)
         self.keyExchangeNames = list(KEY_EXCHANGE_NAMES)
         self.cipherImplementations = list(CIPHER_IMPLEMENTATIONS)
+        self.certCompressionAlgorithms = list(ALL_CERT_COMPRESSION)
 
     @staticmethod
     def _sanityCheckKeySizes(other):
@@ -448,6 +465,18 @@ class HandshakeSettings(object):
         if unknownImpl:
             raise ValueError("Unknown cipher implementation: {0}"
                              .format(unknownImpl))
+
+    @staticmethod
+    def _sanityCheckCertCompression(other):
+        """
+        Check if specified client certificate compression algorithms are known.
+        """
+        not_matching = HandshakeSettings._not_matching
+        unknownCertComp = not_matching(other.certCompressionAlgorithms,
+                                       ALL_CERT_COMPRESSION)
+        if unknownCertComp:
+            raise ValueError("Unknown certificate compression algorithm: {0}"\
+                             .format(unknownCertComp))
 
     @staticmethod
     def _sanityCheckECDHSettings(other):
@@ -518,6 +547,7 @@ class HandshakeSettings(object):
         """Check if specified cryptographic primitive names are known"""
         HandshakeSettings._sanityCheckCipherSettings(other)
         HandshakeSettings._sanityCheckDHSettings(other)
+        HandshakeSettings._sanityCheckCertCompression(other)
 
         not_matching = HandshakeSettings._not_matching
 
@@ -685,6 +715,16 @@ class HandshakeSettings(object):
         if not other.cipherNames:
             raise ValueError("No supported ciphers")
 
+    def _sanity_check_cert_compression(self, other):
+        """
+        Remove unsupported certificate compression algorithms
+        in current configuration.
+        """
+        if not compression.brotliLoaded:
+            self._remove_all_matches(other.certCompressionAlgorithms, "brotli")
+        if not compression.zstdLoaded:
+            self._remove_all_matches(other.certCompressionAlgorithms, "zstd")
+
     def _sanity_check_implementations(self, other):
         """Remove all backends that are not loaded."""
         if not cryptomath.m2cryptoLoaded:
@@ -729,6 +769,7 @@ class HandshakeSettings(object):
         self._copy_cipher_settings(other)
         self._copy_extension_settings(other)
         self._copy_key_settings(other)
+        other.certCompressionAlgorithms = self.certCompressionAlgorithms[:]
 
         other.pskConfigs = self.pskConfigs
         other.psk_modes = self.psk_modes
@@ -755,6 +796,7 @@ class HandshakeSettings(object):
 
         self._sanity_check_implementations(other)
         self._sanity_check_ciphers(other)
+        self._sanity_check_cert_compression(other)
 
         return other
 

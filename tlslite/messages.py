@@ -11,6 +11,7 @@
 """Classes representing TLS messages."""
 
 from .utils.compat import *
+from .utils.compression import *
 from .utils.cryptomath import *
 from .errors import *
 from .utils.codec import *
@@ -1238,6 +1239,185 @@ class Certificate(HandshakeMsg):
                "certificate_list={1!r})"\
                .format(self.certificate_request_context,
                        self.certificate_list)
+
+
+class CompressedCertificate(HandshakeMsg):
+    def __init__(self, certificateType, version=(3, 4)):
+        super(CompressedCertificate, self)\
+                .__init__(HandshakeType.compressed_certificate)
+        self._certificate = Certificate(certificateType, version)
+        self.algorithm = None
+        self._compressed_certificate_message = None
+        self._uncompressed_length = None
+
+    # trivial pass-through to encapsulated ._certificate
+
+    @property
+    def version(self):
+        assert self._certificate is not None
+        return self._certificate.version
+
+    @property
+    def certificate_list(self):
+        assert self._certificate is not None
+        return self._certificate.certificate_list
+
+    @property
+    def certificateType(self):
+        assert self._certificate is not None
+        return self._certificate.certificateType
+
+    @property
+    def certificate_request_context(self):
+        assert self._certificate is not None
+        return self._certificate.certificate_request_context
+
+    @property
+    def cert_chain(self):
+        assert self._certificate is not None
+        return self._certificate.cert_chain
+
+    # end of trivial pass-through to encapsulated ._certificate
+
+    @cert_chain.setter
+    def cert_chain(self, cert_chain):
+        assert self._certificate is not None
+        self._certificate.cert_chain = cert_chain
+        self._compress()
+
+    @certificate_list.setter
+    def certificate_list(self, certificate_list):
+        assert self._certificate is not None
+        self._certificate.certificate_list = certificate_list
+        self._compress()
+
+    def create(self, cert_chain, context=b'',
+               algorithm=CertificateCompressionAlgorithm.zlib):
+        assert self._certificate is not None
+        self.algorithm = algorithm
+        self._certificate.cert_chain = cert_chain
+        self._certificate.certificate_request_context = context
+        self._compress()
+        return self
+
+    def parse(self, parser):
+        assert self._certificate is not None
+
+        # 'peeling' compressed length
+        parser.startLengthCheck(3)
+        self.algorithm = parser.get(2)
+        self._uncompressed_length = parser.get(3)
+        compressed_certificate_msg = parser.getVarBytes(3)
+        parser.stopLengthCheck()
+
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            decompress = zlib.decompress
+            decompress_error = zlib.error
+        elif self.algorithm == CertificateCompressionAlgorithm.brotli:
+            if not brotliLoaded:
+                raise BadCertificateError("Certificate compressed "
+                                          "with zstd, "
+                                          "zstd is not installed")
+            decompress = brotli.decompress
+            decompress_error = brotli.error
+        elif self.algorithm == CertificateCompressionAlgorithm.zstd:
+            if not zstdLoaded:
+                raise BadCertificateError("Certificate compressed "
+                                          "with brotli, "
+                                          "Brotli is not installed")
+            decompress = zstd.decompress
+            decompress_error = zstd.Error
+        else:
+            raise BadCertificateError("Certificate compressed with "
+                                      "unsupported algorithm {0}"
+                                      .format(self.algorithm))
+        try:
+            uncompressed = \
+                    decompress(bytes(compressed_certificate_msg))
+        except decompress_error:
+            raise BadCertificateError("Certificate could not be "
+                                      "decompressed")
+
+        assert(len(uncompressed) == self.uncompressed_length)
+
+        # 'unpeeling' uncompressed length
+        certificate_writer = Writer()
+        certificate_writer.add_var_bytes(uncompressed, 3)
+        self._certificate.parse(Parser(certificate_writer.bytes))
+        return self
+
+    def _compress(self):
+        # overrides compressed_certificate_message and uncompressed_length
+        assert self._certificate is not None
+        assert self.algorithm is not None
+        uncompressed = self._certificate._write_tls13().bytes
+        self._uncompressed_length = len(uncompressed)
+
+        if self.algorithm == CertificateCompressionAlgorithm.zlib:
+            compress = zlib.compress
+        elif self.algorithm == CertificateCompressionAlgorithm.brotli:
+            if not brotliLoaded:
+                raise DependencyMissing('brotli is not available')
+            compress = brotli.compress
+        elif self.algorithm == CertificateCompressionAlgorithm.zstd:
+            if not zstdLoaded:
+                raise DependencyMissing('zstd is not available')
+            compress = zstd.compress
+        else:
+            raise NotImplementedError("algorithm {0} is not supported"
+                                      .format(self.algorithm))
+        self._compressed_certificate_message = compress(bytes(uncompressed))
+
+
+    def write(self):
+        # works for both customized and non-customized
+        assert self.algorithm is not None
+        assert self._uncompressed_length is not None
+        assert self._compressed_certificate_message is not None
+        writer = Writer()
+        writer.add(self.algorithm, 2)
+        writer.add(self.uncompressed_length, 3)
+        writer.add_var_bytes(self._compressed_certificate_message, 3)
+        return self.postWrite(writer)
+
+    def __repr__(self):
+        alg = CertificateCompressionAlgorithm.toRepr(self.algorithm)
+        if self._certificate is not None:  # uncustomized
+            return "CompressedCertificate(request_context={0!r}, "\
+                   "certificate_list={1!r}, "\
+                   "algorithm={2!s})"\
+                   .format(self._certificate.certificate_request_context,
+                           self._certificate.certificate_list,
+                           alg)
+        else:  # customized
+            return "CompressedCertificate("\
+                   "compressed_certificate_message=<{0!r} bytes>, "\
+                   "uncompressed_length={1!r}, "\
+                   "algorithm={2!s})"\
+                   .format(len(self._compressed_certificate_message),
+                           self._uncompressed_length,
+                           alg)
+
+    @property
+    def compressed_certificate_message(self):
+        return self._compressed_certificate_message
+
+    @property
+    def uncompressed_length(self):
+        return self._uncompressed_length
+
+    # setters for low-level modification, which unset self._certificate
+    # and make most methods and getters above unusable
+
+    @compressed_certificate_message.setter
+    def compressed_certificate_message(self, compressed_certificate_message):
+        self._certificate = None
+        self._compressed_certificate_message = compressed_certificate_message
+
+    @uncompressed_length.setter
+    def uncompressed_length(self, uncompressed_length):
+        self._certificate = None
+        self._uncompressed_length = uncompressed_length
 
 
 class CertificateRequest(HelloMessage):

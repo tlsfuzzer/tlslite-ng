@@ -24,6 +24,7 @@ from .integration.xmlrpcserver import TLSXMLRPCRequestHandler, \
                                       TLSXMLRPCServer, \
                                       MultiPathTLSXMLRPCServer
 
+from .utils.compression import brotliLoaded, zstdLoaded
 from .utils.cryptomath import m2cryptoLoaded, gmpyLoaded, \
                              pycryptoLoaded, prngName, GMPY2_LOADED
 from .utils.keyfactory import generateRSAKey, parsePEMKey, \

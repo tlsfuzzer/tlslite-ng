@@ -31,8 +31,9 @@ if __name__ != "__main__":
 
 from tlslite.api import *
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
-        GroupName, SignatureScheme
-from tlslite.handshakesettings import Keypair, VirtualHost
+        GroupName, SignatureScheme, CertificateCompressionAlgorithm
+from tlslite.handshakesettings import Keypair, VirtualHost, \
+        ALL_CERT_COMPRESSION
 from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
@@ -75,6 +76,14 @@ def printUsage(s=None):
         print("  GMPY2       : Loaded")
     else:
         print("  GMPY2       : Not Loaded")
+    if brotliLoaded:
+        print("  Brotli      : Loaded")
+    else:
+        print("  Brotli      : Not Loaded")
+    if zstdLoaded:
+        print("  zstd        : Loaded")
+    else:
+        print("  zstd        : Not Loaded")
 
     print("")
     print("""Commands:
@@ -83,13 +92,13 @@ def printUsage(s=None):
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
-    [--request-pha] [--require-pha] [--echo]
+    [--request-pha] [--require-pha] [--cert-compression ALGORITHMS] [--echo]
     HOST:PORT
 
   client
     [-c CERT] [-k KEY] [-u USER] [-p PASS] [-l LABEL] [-L LENGTH] [-a ALPN]
     [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
-    [--max-ver VER] [--cipherlist]
+    [--max-ver VER] [--cipherlist] [--cert-compression ALGORITHMS]
     HOST:PORT
 
   LABEL - TLS exporter label
@@ -110,6 +119,12 @@ def printUsage(s=None):
   --request-pha - ask client for post-handshake authentication
   --require-pha - abort connection if client didn't provide certificate in
                   post-handshake authentication
+  --cert-compression - comma separated certificate compression algorithms
+                       to enable. Defaults to zlib,brotli,zstd.
+                       Specify empty string ('') to disable.
+                       Corresponding libraries must be available,
+                       otherwise the algorithms will be silently ignored.
+                       You can specify this option multiple times.
   --echo - function as an echo server
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
@@ -170,6 +185,7 @@ def handleArgs(argv, argString, flagsList=[]):
     ciphers = []
     request_pha = False
     require_pha = False
+    cert_compression_algorithms = None
     echo = False
 
     for opt, arg in opts:
@@ -248,6 +264,11 @@ def handleArgs(argv, argString, flagsList=[]):
             request_pha = True
         elif opt == "--require-pha":
             require_pha = True
+        elif opt == "--cert-compression":
+            if cert_compression_algorithms is None:
+                cert_compression_algorithms = []
+            if arg:
+                cert_compression_algorithms.extend(arg.split(','))
         elif opt == "--echo":
             echo = True
         else:
@@ -258,6 +279,8 @@ def handleArgs(argv, argString, flagsList=[]):
         alpn = None
     if (psk and not psk_ident) or (not psk and psk_ident):
         printError("PSK and IDENTITY must be set together")
+    if cert_compression_algorithms is None:
+        cert_compression_algorithms = ALL_CERT_COMPRESSION
     if not argv:
         printError("Missing address")
     if len(argv)>1:
@@ -316,6 +339,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(request_pha)
     if "require-pha" in flagsList:
         retList.append(require_pha)
+    if "cert-compression=" in flagsList:
+        retList.append(cert_compression_algorithms)
     if "echo" in flagsList:
         retList.append(echo)
     return retList
@@ -333,11 +358,19 @@ def printGoodConnection(connection, seconds):
     if connection.session.clientCertChain:
         print("  Client X.509 SHA1 fingerprint: %s" % 
             connection.session.clientCertChain.getFingerprint())
+        comp = connection.session.clientCertCompressionAlgorithm
+        print("  Client certificate compression algorithm: {0}".format(
+                CertificateCompressionAlgorithm.toStr(comp) if comp else 'none'
+        ))
     else:
         print("  No client certificate provided by peer")
     if connection.session.serverCertChain:
         print("  Server X.509 SHA1 fingerprint: %s" % 
             connection.session.serverCertChain.getFingerprint())
+        comp = connection.session.serverCertCompressionAlgorithm
+        print("  Server certificate compression algorithm: {0}".format(
+                CertificateCompressionAlgorithm.toStr(comp) if comp else 'none'
+        ))
     if connection.version >= (3, 3) and connection.serverSigAlg is not None:
         scheme = SignatureScheme.toRepr(connection.serverSigAlg)
         if scheme is None:
@@ -382,10 +415,10 @@ def clientCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, username, password,
             expLabel,
             expLength, alpn, psk, psk_ident, psk_hash, resumption, ssl3,
-            max_ver, cipherlist) = \
+            max_ver, cipherlist, cert_compression_algorithms) = \
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
                                      "resumption", "ssl3", "max-ver=",
-                                     "cipherlist="])
+                                     "cipherlist=", "cert-compression="])
         
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
@@ -414,6 +447,7 @@ def clientCmd(argv):
     if cipherlist:
         settings.cipherNames = [item for cipher in cipherlist
                                 for item in cipher.split(',')]
+    settings.certCompressionAlgorithms = cert_compression_algorithms
     try:
         start = time_stamp()
         if username and password:
@@ -518,12 +552,13 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets, cipherlist, request_pha, require_pha, echo) = \
+            max_ver, tickets, cipherlist, request_pha, require_pha,
+            cert_compression_algorithms, echo) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
                     "tickets=", "cipherlist=", "request-pha", "require-pha",
-                    "echo"])
+                    "cert-compression=", "echo"])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -570,6 +605,7 @@ def serverCmd(argv):
     if cipherlist:
         settings.cipherNames = [item for cipher in cipherlist
                                 for item in cipher.split(',')]
+    settings.certCompressionAlgorithms = cert_compression_algorithms
 
     class MySimpleEchoHandler(BaseRequestHandler):
         def handle(self):

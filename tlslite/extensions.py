@@ -11,8 +11,8 @@ from collections import namedtuple
 from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
-        PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
-        HeartbeatMode
+        PskKeyExchangeMode, CertificateType, CertificateCompressionAlgorithm, \
+        GroupName, ECPointFormat, HeartbeatMode
 from .errors import TLSInternalError
 
 
@@ -451,7 +451,7 @@ class VarListExtension(ListExtension):
     """
 
     def __init__(self, elemLength, lengthLength, fieldName, extType,
-                 item_enum=None):
+                 item_enum=None, floor=None, ceiling=None):
         """Create handler for extension that has a list of items as payload.
 
         :param int elemLength: number of bytes needed to encode single element
@@ -459,11 +459,14 @@ class VarListExtension(ListExtension):
         :param str fieldName: name of the field storing the list of elements
         :param int extType: numerical ID of the extension encoded
         :param class item_enum: TLSEnum class that defines entries in the list
+        :param int floor: minimum length of payload in bytes
+        :param int ceiling: minimum length of payload in bytes
         """
         super(VarListExtension, self).__init__(fieldName, extType=extType,
                                                item_enum=item_enum)
         self._elemLength = elemLength
         self._lengthLength = lengthLength
+        self._floor, self._ceiling = floor, ceiling
 
     @property
     def extData(self):
@@ -494,6 +497,14 @@ class VarListExtension(ListExtension):
 
         self._internal_value = parser.getVarList(self._elemLength,
                                                  self._lengthLength)
+
+        l = len(self._internal_value) * self._elemLength
+        if self._floor is not None and l < self._floor:
+            raise DecodeError("Extension payload too short "
+                              "(<{0})".format(self._floor))
+        if self._ceiling is not None and l > self._ceiling:
+            raise DecodeError("Extension payload too long "
+                              "(>{0})".format(self._ceiling))
 
         if parser.getRemainingLength():
             raise DecodeError("Extra data after extension payload")
@@ -1004,6 +1015,35 @@ class ServerCertTypeExtension(IntExtension):
         if not parser.getRemainingLength():
             raise DecodeError("Empty payload in extension")
         return super(ServerCertTypeExtension, self).parse(parser)
+
+
+class CompressCertificateExtension(VarListExtension):
+    """
+    Algorithms supported for certificate decompression.
+
+    See RFC8879.
+
+    :vartype algorithms: int
+    :ivar algorithms: list of compression algorithms that the peer supports
+    """
+
+    def __init__(self):
+        """Create instance of class"""
+        super(CompressCertificateExtension, self).__init__(
+            2, 1, 'algorithms',
+            ExtensionType.compress_certificate,
+            CertificateCompressionAlgorithm,
+            floor=2, ceiling=2**8-2)
+
+    def parse(self, parser):
+        """Parse the extension from on the wire format
+
+        :param Parser p: parser with data
+        """
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
+            raise DecodeError("Empty payload in extension")
+        return super(CompressCertificateExtension, self).parse(parser)
 
 
 class SRPExtension(TLSExtension):
@@ -2121,7 +2161,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
         ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension}
+        ExtensionType.record_size_limit: RecordSizeLimitExtension,
+        ExtensionType.compress_certificate: CompressCertificateExtension}
 
 TLSExtension._serverExtensions = \
     {
