@@ -321,7 +321,7 @@ def handleArgs(argv, argString, flagsList=[]):
     return retList
 
 
-def printGoodConnection(connection, seconds, resumed=False):
+def printGoodConnection(connection, seconds):
     print("  Handshake time: %.3f seconds" % seconds)
     print("  Version: %s" % connection.getVersionName())
     print("  Cipher: %s %s" % (connection.getCipherName(),
@@ -366,10 +366,7 @@ def printGoodConnection(connection, seconds, resumed=False):
     print("  Encrypt-then-MAC: {0}".format(connection.encryptThenMAC))
     print("  Extended Master Secret: {0}".format(
                                                connection.extendedMasterSecret))
-    if resumed:
-        print("  Session Resumed: True")
-    else:
-        print("  Session Resumed: False")
+    print("  Session Resumed: {0}".format(connection.resumed))
 
 def printExporter(connection, expLabel, expLength):
     if expLabel is None:
@@ -512,10 +509,7 @@ def clientCmd(argv):
         else:
             raise
         sys.exit(-1)
-    if connection.resumed:
-        printGoodConnection(connection, stop-start, connection.resumed)
-    else:
-        printGoodConnection(connection, stop-start)
+    printGoodConnection(connection, stop-start)
     printExporter(connection, expLabel, expLength)
     connection.close()
 
@@ -694,10 +688,7 @@ def serverCmd(argv):
                     raise
 
             connection.ignoreAbruptClose = True
-            if connection.resumed:
-                printGoodConnection(connection, stop-start, connection.resumed)
-            else:
-                printGoodConnection(connection, stop-start)
+            printGoodConnection(connection, stop-start)
             printExporter(connection, expLabel, expLength)
             return True
 
