@@ -67,7 +67,7 @@ class Session(object):
         TLS 1.3
 
     :vartype tickets: list
-    :ivar tickets: list of tickets received from the server
+    :ivar tickets: list of session tickets received from the server
     """
 
     def __init__(self):
@@ -185,10 +185,10 @@ class Session(object):
 class Ticket(object):
     """
     This class holds the ticket and ticket lifetime which are recieved from
-    the server, together with master secret and ciphersuite which are needed
-    to resume a session using SessionTickets in TLSv1.2.
+    the server, together with the session object, it's all the information
+    needed to resume a session using SessionTickets in TLSv1.2.
     Currently objects of this class are only used in client side session cache
-    where we can itterate over them and use them for resumption when possible.
+    where we can iterate over them and use them for resumption when possible.
 
     :vartype ticket: bytearray
     :ivar ticket: the actual ticket recieved from the server
@@ -203,7 +203,7 @@ class Ticket(object):
     :ivar cipher_suite: ciphersuite used to resume the session
 
     :vartype time_recieved: int
-    :ivar time_recieved: the actuall time when we recieve the ticket
+    :ivar time_recieved: the actual time when we recieved the ticket
     """
 
     def __init__(self, ticket, ticket_lifetime, master_secret, cipher_suite):
