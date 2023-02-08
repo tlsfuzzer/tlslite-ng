@@ -790,11 +790,17 @@ class TLSConnection(TLSRecordLayer):
         # it in attempt to resume the session, if SessionTicket support is enabled
         # but we don't have a valid ticket, we send an empty one.
         if session and session.tickets:
+            # first get rid of expired tickets
+            session.tickets[:] = [i for i in session.tickets if i.valid()]
+            # then send first ticket
             for cached_ticket in session.tickets:
-                if cached_ticket.valid:
-                    extensions.append(SessionTicketExtension().create(
-                        cached_ticket.ticket))
-                    break
+                extensions.append(SessionTicketExtension().create(
+                    cached_ticket.ticket))
+                break
+            else:
+                # or just advertise that we support session resumption
+                extensions.append(SessionTicketExtension().create(
+                    bytearray(0)))
         else:
             extensions.append(SessionTicketExtension().create(
                 bytearray(0)))
@@ -2422,7 +2428,7 @@ class TLSConnection(TLSRecordLayer):
             serverName = clientHello.server_name.decode("utf-8")
 
 
-        # We'll update the session master secret once it is calucalted
+        # We'll update the session master secret once it is calculated
         # in _serverFinished
         self.session.create(b"", serverHello.session_id, cipherSuite,
                             srpUsername, clientCertChain, serverCertChain,
@@ -2520,7 +2526,9 @@ class TLSConnection(TLSRecordLayer):
         else:
             secret = self.session.resumptionMasterSecret
 
-        for _ in range(settings.ticket_count):
+        # make sure we send at most one ticket in TLS 1.2 and earlier
+        for _ in range(settings.ticket_count if self.version > (3, 3) else
+                int(bool(settings.ticket_count))):
             # prepare the ticket
             ticket = SessionTicketPayload()
             ticket.create(secret,

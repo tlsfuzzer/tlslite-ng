@@ -214,6 +214,4 @@ class Ticket(object):
         self.time_received = time.time()
 
     def valid(self):
-        if time.time() > self.time_received:
-            return True
-        return False
+        return time.time() < self.time_received + self.ticket_lifetime:

@@ -321,6 +321,11 @@ class HandshakeSettings(object):
     :ivar ticketLifetime: maximum allowed lifetime of ticket encryption key,
         in seconds. 1 day by default
 
+    :vartype ticket_count: int
+    :ivar ticket_count: number of tickets the server will send to the client
+        after establishing the connection in TLS 1.3. If a positive integer,
+        it enabled support for ticket based resumption in TLS 1.2 and earlier.
+
     :vartype psk_modes: list(str)
     :ivar psk_modes: acceptable modes for the PSK key exchange in TLS 1.3
 
