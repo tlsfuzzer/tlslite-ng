@@ -2308,15 +2308,20 @@ class TLSConnection(TLSRecordLayer):
                            cipherSuite, CertificateType.x509, tackExt,
                            nextProtos, extensions=extensions)
 
+        result = None
         # If the client did send session ticket, try to resume with it.
-        if session_ticket and len(session_ticket.ticket) != 0:
+        if session_ticket and session_ticket.ticket:
             # If the client sent non-zero sessionID, we need
             # to echo back that exact sessionID
             if clientHello.session_id and len(clientHello.session_id) != 0:
                 serverHello.session_id = clientHello.session_id
-            for result in self._serverResume(serverHello, clientHello, settings, session_ticket.ticket):
-                if result in (0,1): yield result
-                else: break
+            _, ticket = self._tryDecrypt(settings,
+                                         ticket=session_ticket.ticket)
+            if ticket:
+                for result in self._serverResume(serverHello, clientHello,
+                                                 settings, ticket):
+                    if result in (0,1): yield result
+                    else: break
 
         if result == "resumed_and_finished":
             self._handshakeDone(resumed=True)
@@ -2616,7 +2621,7 @@ class TLSConnection(TLSRecordLayer):
                 continue
 
             if self.version < (3, 4):
-                return ticket
+                return None, ticket
 
             prf = 'sha384' if ticket.cipher_suite \
                 in CipherSuite.sha384PrfSuites else 'sha256'
@@ -2631,7 +2636,7 @@ class TLSConnection(TLSRecordLayer):
 
             return ((identity.identity, psk, prf), ticket)
 
-        # no keys
+        # no working keys
         return None, None
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
@@ -4376,7 +4381,6 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverResume(self, server_hello, client_hello, settings, ticket):
 
-        ticket = self._tryDecrypt(settings, ticket=ticket)
         master_secret = ticket.master_secret
         version = ticket.version
         cipher_suite = ticket.cipher_suite
@@ -4389,7 +4393,8 @@ class TLSConnection(TLSRecordLayer):
         for result in self._sendMsg(server_hello):
             yield result
 
-        for result in self._sendFinished(master_secret, cipher_suite, settings=settings):
+        for result in self._sendFinished(master_secret, cipher_suite,
+                                         settings=settings):
             yield result
 
         for result in self._getFinished(master_secret, cipher_suite):
