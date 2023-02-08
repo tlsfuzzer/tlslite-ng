@@ -2109,7 +2109,6 @@ class SessionTicketExtension(TLSExtension):
         super(SessionTicketExtension, self).__init__(extType=ExtensionType.
                                                      session_ticket)
         self.ticket = None
-        self.ticket_length = None
 
     def create(self, ticket):
 
