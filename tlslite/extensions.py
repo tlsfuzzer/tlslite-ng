@@ -2103,16 +2103,17 @@ class RecordSizeLimitExtension(IntExtension):
 class CompressCertificateExtension(TLSExtension):
 
     def __init__(self):
-        """
-        Create instance of ALPNExtension
-
-        See also: :py:meth:`create` and :py:meth:`parse`
-        """
         super(CompressCertificateExtension, self).__init__(extType=ExtensionType.compress_certificate)
 
         self.advertised_algorithms = None
 
     def create(self, advertised_algorithms):
+        """
+        Create instance of compress_certificate extension for writing
+        Args:
+            advertised_algorithms: an iterable of integers denoting which algorithms the peer
+                                   supports for compression
+        """
         self.advertised_algorithms = advertised_algorithms
 
         # Consider deleting these checks since we already validate settings in HandshakeSettings at the start. Also,
@@ -2127,7 +2128,9 @@ class CompressCertificateExtension(TLSExtension):
 
     @property
     def extData(self):
-
+        """
+        Return serialized data of the extension
+        """
         w2 = Writer()
         w2.addFixSeq(self.advertised_algorithms, 2)
 
@@ -2138,11 +2141,21 @@ class CompressCertificateExtension(TLSExtension):
         return w.bytes
 
     def parse(self, p):
+        """
+        Parse the extension from on the wire format
+        """
         algorithm_length = p.get(1)
         self.advertised_algorithms = p.getVarList(2, algorithm_length)
         if p.getRemainingLength():
             raise DecodeError("Extra data after extension payload")
         return self
+
+    def __repr__(self):
+        """Return human-readable representation of the extension."""
+        if self.advertised_algorithms is not None:
+            return "{0}(advertised_algorithms={1})".format(self.__class__.__name__,
+                                                           self.advertised_algorithms)
+        return "{0}(advertised_algorithms=None)".format(self.__class__.__name__)
 
 
 TLSExtension._universalExtensions = \
@@ -2166,7 +2179,9 @@ TLSExtension._universalExtensions = \
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
         ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension}
+        ExtensionType.record_size_limit: RecordSizeLimitExtension,
+        ExtensionType.compress_certificate: CompressCertificateExtension
+    }
 
 TLSExtension._serverExtensions = \
     {

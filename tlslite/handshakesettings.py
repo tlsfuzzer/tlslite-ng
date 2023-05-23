@@ -348,6 +348,14 @@ class HandshakeSettings(object):
     :vartype keyExchangeNames: list
     :ivar keyExchangeNames: Enabled key exchange types for the connection,
         influences selected cipher suites.
+
+    :vartype use_certificate_compression: bool
+    :ivar use_certificate_compression: Whether to advertise support for
+        compress_certificate extension.
+
+    :vartype certificate_compression_algorithms: tuple(int)
+    :ivar certificate_compression_algorithms: A tuple of integers that signal
+        which algorithms to support for certificate compression
     """
 
     def _init_key_settings(self):
@@ -579,6 +587,10 @@ class HandshakeSettings(object):
 
     @staticmethod
     def _sanityCheckCertCompressExtension(other):
+        """
+        Check if compress_certificate extension settings are valid
+        """
+
         if other.maxVersion < (3, 4) and other.use_certificate_compression:
             # Problem: certificate compression can only be sent on TLS 1.3. However, submitting it as True on lower
             # TLS settings doesn't really change much since the setting will just be ignored. So, should we raise an

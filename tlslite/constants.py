@@ -185,11 +185,14 @@ class ExtensionType(TLSEnum):
 
 
 class CompressionAlgorithms(TLSEnum):
+    """
+    Compression algorithms used in CompressCertificate msg and extension (TLSv1.3+)
+    """
     zlib = 1
     brotli = 2
     zstd = 3
     all = (1, 2, 3)
-    default = (1,)
+    default = (1,)  # Default algorithms to use if no user preference given (zlib is part of standard module)
 
 
 class HashAlgorithm(TLSEnum):

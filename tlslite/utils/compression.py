@@ -26,10 +26,26 @@ else:
 
 
 def is_installed(algorithm):
+    """
+    Check if given algorithm's library is installed or not.
+    Args:
+        algorithm: int denoting the algorithm to check for
+    Raises:
+        KeyError: if provided algorithm integer is unknown
+    """
     return _is_installed[algorithm]
 
 
 def decompress(chosen_algorithm, data):
+    """
+    Decompress given certificate data with a particular algorithm
+    Args:
+        chosen_algorithm: int denoting the algorithm to use
+        data: compressed data to decompress
+    Raises:
+        BadCertificateError: if decompression failed
+        ValueError: if chosen_algorithm is unknown
+    """
     if chosen_algorithm == CompressionAlgorithms.zlib:
         try:
             return zlib.decompress(data)
@@ -50,6 +66,15 @@ def decompress(chosen_algorithm, data):
 
 
 def compress(chosen_algorithm, data):
+    """
+    Compress given certificate data with a particular algorithm
+    Args:
+        chosen_algorithm: int denoting the algorithm to use
+        data: data to compress
+    Raises:
+        BadCertificateError: if compression failed
+        ValueError: if chosen_algorithm is unknown
+    """
     if chosen_algorithm == CompressionAlgorithms.zlib:
         try:
             return zlib.compress(data)

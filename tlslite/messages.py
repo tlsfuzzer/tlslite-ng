@@ -1367,6 +1367,13 @@ class CompressedCertificate(HandshakeMsg):
         self.compressed_certificate_message = None
 
     def create(self, chosen_algorithm, certificate_message):
+        """
+        Create a CompressedCertificate msg.
+
+        Args:
+            chosen_algorithm - An int denoting an algorithm to be used to create the compressed msg
+            certificate_message - Object of class messages.Certificate whose data will be encoded
+        """
         # This assertion isn't really needed since we already validate the passed algorithms during HandshakeSettings
         # validation call, but it's still there as a fail-safe
         assert chosen_algorithm in CompressionAlgorithms.all, 'unknown algorithm "{}"'.format(chosen_algorithm)
@@ -1407,7 +1414,6 @@ class CompressedCertificate(HandshakeMsg):
 
     @staticmethod
     def _compress(chosen_algorithm, data):
-
         return compression.compress(chosen_algorithm, data)
 
     @staticmethod
@@ -1415,7 +1421,9 @@ class CompressedCertificate(HandshakeMsg):
         return compression.decompress(chosen_algorithm, data)
 
     def decompress(self):
-
+        """
+        Decompress stored certificate message. Should only be called after parsing.
+        """
         # Note: We allow len(certificate_message) to be 0 because such errors will naturally be handled by the
         # certificate class when this value is passed to its constructor.
         if self.certificate_message is not None:
