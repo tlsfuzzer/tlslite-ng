@@ -7,7 +7,6 @@ _is_installed = {CompressionAlgorithms.zlib: True,
                  CompressionAlgorithms.brotli: False,
                  CompressionAlgorithms.zstd: False}
 
-
 try:
     import brotli
 except ModuleNotFoundError:

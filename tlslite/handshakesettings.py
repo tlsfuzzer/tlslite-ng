@@ -625,7 +625,7 @@ class HandshakeSettings(object):
             raise ValueError("use_heartbeat_extension must be True or False")
 
         if other.use_certificate_compression not in (True, False):
-            raise ValueError("use_heartbeat_extension must be True or False")
+            raise ValueError("use_certificate_compression must be True or False")
 
         if other.heartbeat_response_callback and not other.use_heartbeat_extension:
             raise ValueError("heartbeat_response_callback requires "
