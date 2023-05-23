@@ -128,6 +128,7 @@ class HandshakeType(TLSEnum):
     finished = 20
     certificate_status = 22
     key_update = 24  # TLS 1.3
+    compressed_certificate = 25  # TLS 1.3, RFC 8879
     next_protocol = 67
     message_hash = 254  # TLS 1.3
 
@@ -167,6 +168,7 @@ class ExtensionType(TLSEnum):
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
+    compress_certificate = 27  # RFC 8879
     record_size_limit = 28  # RFC 8449
     extended_random = 40  # draft-rescorla-tls-extended-random-02
     pre_shared_key = 41  # TLS 1.3
@@ -180,6 +182,14 @@ class ExtensionType(TLSEnum):
     supports_npn = 13172
     tack = 0xF300
     renegotiation_info = 0xff01  # RFC 5746
+
+
+class CompressionAlgorithms(TLSEnum):
+    zlib = 1
+    brotli = 2
+    zstd = 3
+    all = (1, 2, 3)
+    default = (1,)
 
 
 class HashAlgorithm(TLSEnum):
