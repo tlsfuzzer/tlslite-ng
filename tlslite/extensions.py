@@ -12,7 +12,7 @@ from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
-        HeartbeatMode
+        HeartbeatMode, CompressionAlgorithms
 from .errors import TLSInternalError
 
 
@@ -2098,6 +2098,51 @@ class RecordSizeLimitExtension(IntExtension):
         """Create instance."""
         super(RecordSizeLimitExtension, self).__init__(
             2, 'record_size_limit', ExtensionType.record_size_limit)
+
+
+class CompressCertificateExtension(TLSExtension):
+
+    def __init__(self):
+        """
+        Create instance of ALPNExtension
+
+        See also: :py:meth:`create` and :py:meth:`parse`
+        """
+        super(CompressCertificateExtension, self).__init__(extType=ExtensionType.compress_certificate)
+
+        self.advertised_algorithms = None
+
+    def create(self, advertised_algorithms):
+        self.advertised_algorithms = advertised_algorithms
+
+        # Consider deleting these checks since we already validate settings in HandshakeSettings at the start. Also,
+        # maybe a more suitable error can be raised here instead of TLSInternalError?
+        if not self.advertised_algorithms:
+            raise TLSInternalError("no algorithm was supplied to be advertised for certificate compression")
+
+        if not all([algo in CompressionAlgorithms.all for algo in self.advertised_algorithms]):
+            raise TLSInternalError("Unknown algorithm provided for certificate compression")
+
+        return self
+
+    @property
+    def extData(self):
+
+        w2 = Writer()
+        w2.addFixSeq(self.advertised_algorithms, 2)
+
+        w = Writer()
+        w.add(len(w2.bytes), 1)
+        w.bytes += w2.bytes
+
+        return w.bytes
+
+    def parse(self, p):
+        algorithm_length = p.get(1)
+        self.advertised_algorithms = p.getVarList(2, algorithm_length)
+        if p.getRemainingLength():
+            raise DecodeError("Extra data after extension payload")
+        return self
 
 
 TLSExtension._universalExtensions = \
