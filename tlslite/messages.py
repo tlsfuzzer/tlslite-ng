@@ -21,7 +21,7 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_attrs, deprecated_params
 from .extensions import *
 from .utils.format_output import none_as_unknown
-from utils import compression
+from .utils import compression
 
 
 class RecordHeader(object):
