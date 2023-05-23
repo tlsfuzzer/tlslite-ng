@@ -412,7 +412,6 @@ class TLSConnection(TLSRecordLayer):
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
 
-
     def _handshakeClientAsyncHelper(self, srpParams, certParams, anonParams,
                                session, settings, serverName, nextProtos,
                                reqTack, alpn):
@@ -785,6 +784,10 @@ class TLSConnection(TLSRecordLayer):
         if settings.record_size_limit:
             extensions.append(RecordSizeLimitExtension().create(
                 settings.record_size_limit))
+
+        if settings.use_certificate_compression:
+            extensions.append(CompressCertificateExtension().create(
+                settings.certificate_compression_algorithms))
 
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
@@ -1275,10 +1278,18 @@ class TLSConnection(TLSRecordLayer):
         # if we negotiated PSK then Certificate is not sent
         certificate_request = None
         certificate = None
+        compress_cert_ext = clientHello.getExtension(ExtensionType.compress_certificate)
+
         if not sr_psk:
+            expected_types = (HandshakeType.certificate_request,
+                              HandshakeType.certificate)
+
+            # Add compressed_certificate message to expected types if its extension was advertised
+            if compress_cert_ext:
+                expected_types += (HandshakeType.compressed_certificate, )
+
             for result in self._getMsg(ContentType.handshake,
-                                       (HandshakeType.certificate_request,
-                                        HandshakeType.certificate),
+                                       expected_types,
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
@@ -1286,18 +1297,57 @@ class TLSConnection(TLSRecordLayer):
                     break
 
             if isinstance(result, CertificateRequest):
+                # we got CertificateRequest, so now we'll get Certificate (or CompressedCertificate)
                 certificate_request = result
+                expected_types = (HandshakeType.certificate, )
 
-                # we got CertificateRequest so now we'll get Certificate
+                # Add compressed_certificate message to expected types if its extension was advertised
+                if compress_cert_ext:
+                    expected_types += (HandshakeType.compressed_certificate,)
+
                 for result in self._getMsg(ContentType.handshake,
-                                           HandshakeType.certificate,
+                                           expected_types,
                                            CertificateType.x509):
                     if result in (0, 1):
                         yield result
                     else:
                         break
 
-            certificate = result
+            # If we got a CompressedCertificate msg, perform quick validation checks and get decompressed msg
+            if isinstance(result, CompressedCertificate):
+                compress_cert_msg = result
+
+                if compress_cert_msg.chosen_algorithm not in compress_cert_ext.advertised_algorithms:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            "Server compressed certificate with an algorithm we did not advertise"):
+                        yield result
+
+                uncompressed_cert = compress_cert_msg.decompress()
+                if compress_cert_msg.uncompressed_length != len(uncompressed_cert):
+                    for result in self._sendError(
+                            AlertDescription.bad_certificate,
+                            "Server sent an uncompressed certificate length that does not match with the actual "
+                            "uncompressed certificate length"):
+                        yield result
+
+                version = serverHello.getExtension(ExtensionType.supported_versions).version
+                p = Parser(uncompressed_cert)
+
+                # Attempt to parse the certificate with proper error handling as it would have been in _getMsg
+                try:
+                    certificate = Certificate(CertificateType.x509, version).parse(p)
+                except BadCertificateError as e:
+                    for result in self._sendError(AlertDescription.bad_certificate,
+                                                  formatExceptionTrace(e)):
+                        yield result
+                except SyntaxError as e:
+                    for result in self._sendError(AlertDescription.decode_error,
+                                                  formatExceptionTrace(e)):
+                        yield result
+            else:
+                certificate = result
+
             assert isinstance(certificate, Certificate)
 
             srv_cert_verify_hh = self._handshake_hash.copy()
@@ -1408,8 +1458,23 @@ class TLSConnection(TLSRecordLayer):
                             "Client certificate is of wrong type"):
                         yield result
 
-            client_certificate.create(clientCertChain)
             # we need to send the message even if we don't have a certificate
+            client_certificate.create(clientCertChain)
+
+            # if server supports compressed certificates, we check if we can send a compressed certificate instead
+            verify_compress_cert_ext = certificate_request.getExtension(ExtensionType.compress_certificate)
+            hello_compress_cert_ext = clientHello.getExtension(ExtensionType.compress_certificate)
+
+            # Problem: it's unclear whether the rfc wants to us to send an alert incase certificate_verify message
+            # contains a compress_certificate extension if we did not advertise one. For now, do nothing.
+            if verify_compress_cert_ext and hello_compress_cert_ext:
+                # If we can send a compressed certificate then we loop over server supported algorithms to find a
+                # common one. We use the first match to compress certificate if there is one, otherwise we send a normal
+                # Certificate message instead
+                for requested_algo in verify_compress_cert_ext.advertised_algorithms:
+                    if requested_algo in hello_compress_cert_ext.advertised_algorithms:
+                        client_certificate = CompressedCertificate().create(requested_algo, client_certificate)
+
             for result in self._sendMsg(client_certificate):
                 yield result
 
