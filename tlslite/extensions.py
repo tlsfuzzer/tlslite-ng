@@ -2100,12 +2100,25 @@ class RecordSizeLimitExtension(IntExtension):
             2, 'record_size_limit', ExtensionType.record_size_limit)
 
 
-class CompressCertificateExtension(TLSExtension):
+class CompressCertificateExtension(VarListExtension):
 
     def __init__(self):
-        super(CompressCertificateExtension, self).__init__(extType=ExtensionType.compress_certificate)
+        """Create instance of class"""
+        super(CompressCertificateExtension, self).__init__(
+            2, 1, 'advertised_algorithms',
+            ExtensionType.compress_certificate,
+            CompressionAlgorithms)
 
-        self.advertised_algorithms = None
+    def parse(self, parser):
+        """
+        Parse the extension from on the wire format
+        Args:
+            parser: codec.Parser object with raw encoded data
+        """
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
+            raise DecodeError("Empty payload in extension")
+        return super(CompressCertificateExtension, self).parse(parser)
 
     def create(self, advertised_algorithms):
         """
@@ -2114,48 +2127,7 @@ class CompressCertificateExtension(TLSExtension):
             advertised_algorithms: an iterable of integers denoting which algorithms the peer
                                    supports for compression
         """
-        self.advertised_algorithms = advertised_algorithms
-
-        # Consider deleting these checks since we already validate settings in HandshakeSettings at the start. Also,
-        # maybe a more suitable error can be raised here instead of TLSInternalError?
-        if not self.advertised_algorithms:
-            raise TLSInternalError("no algorithm was supplied to be advertised for certificate compression")
-
-        if not all([algo in CompressionAlgorithms.all for algo in self.advertised_algorithms]):
-            raise TLSInternalError("Unknown algorithm provided for certificate compression")
-
-        return self
-
-    @property
-    def extData(self):
-        """
-        Return serialized data of the extension
-        """
-        w2 = Writer()
-        w2.addFixSeq(self.advertised_algorithms, 2)
-
-        w = Writer()
-        w.add(len(w2.bytes), 1)
-        w.bytes += w2.bytes
-
-        return w.bytes
-
-    def parse(self, p):
-        """
-        Parse the extension from on the wire format
-        """
-        algorithm_length = p.get(1)
-        self.advertised_algorithms = p.getVarList(2, algorithm_length)
-        if p.getRemainingLength():
-            raise DecodeError("Extra data after extension payload")
-        return self
-
-    def __repr__(self):
-        """Return human-readable representation of the extension."""
-        if self.advertised_algorithms is not None:
-            return "{0}(advertised_algorithms={1})".format(self.__class__.__name__,
-                                                           self.advertised_algorithms)
-        return "{0}(advertised_algorithms=None)".format(self.__class__.__name__)
+        return super(CompressCertificateExtension, self).create(advertised_algorithms)
 
 
 TLSExtension._universalExtensions = \
