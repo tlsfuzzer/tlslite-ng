@@ -12,7 +12,7 @@ from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
-        HeartbeatMode
+        HeartbeatMode, CompressionAlgorithms
 from .errors import TLSInternalError
 
 
@@ -2100,6 +2100,41 @@ class RecordSizeLimitExtension(IntExtension):
             2, 'record_size_limit', ExtensionType.record_size_limit)
 
 
+class CompressCertificateExtension(VarListExtension):
+
+    def __init__(self):
+        """
+        Create instance of class
+        """
+
+        super(CompressCertificateExtension, self).__init__(
+            2, 1, 'advertised_algorithms',
+            ExtensionType.compress_certificate,
+            CompressionAlgorithms)
+
+    def parse(self, parser):
+        """
+        Parse the extension from on the wire format
+
+        :type parser: Parser
+        :param parser: Parser object with raw encoded data
+        """
+        # generic code allows empty, this ext does not
+        if not parser.getRemainingLength():
+            raise DecodeError("Empty payload in extension")
+        return super(CompressCertificateExtension, self).parse(parser)
+
+    def create(self, advertised_algorithms):
+        """
+        Create instance of compress_certificate extension for writing
+
+        :type advertised_algorithms: iterable(int)
+        :param advertised_algorithms: an iterable of integers denoting which algorithms the peer
+                                      supports for compression
+        """
+        return super(CompressCertificateExtension, self).create(advertised_algorithms)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -2121,7 +2156,9 @@ TLSExtension._universalExtensions = \
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
         ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension}
+        ExtensionType.record_size_limit: RecordSizeLimitExtension,
+        ExtensionType.compress_certificate: CompressCertificateExtension
+    }
 
 TLSExtension._serverExtensions = \
     {

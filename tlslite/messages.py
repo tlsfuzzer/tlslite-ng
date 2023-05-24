@@ -21,6 +21,7 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_attrs, deprecated_params
 from .extensions import *
 from .utils.format_output import none_as_unknown
+from .utils import compression
 
 
 class RecordHeader(object):
@@ -1355,6 +1356,89 @@ class CertificateRequest(HelloMessage):
         else:
             writer = self._write_tls13()
         return self.postWrite(writer)
+
+
+class CompressedCertificate(HandshakeMsg):
+    def __init__(self):
+        super(CompressedCertificate, self).__init__(HandshakeType.compressed_certificate)
+        self.chosen_algorithm = None
+        self.uncompressed_length = None
+        self.certificate_message = None
+        self.compressed_certificate_message = None
+
+    def create(self, chosen_algorithm, certificate_message):
+        """
+        Create a CompressedCertificate msg.
+
+        :type chosen_algorithm: int
+        :param chosen_algorithm: An int denoting the compression algorithm to be used to create the
+                                 compressed msg
+
+        :type certificate_message: Certificate
+        :param certificate_message: object containing the details of the certificate to be
+                                    compressed and encoded
+        """
+        self.chosen_algorithm = chosen_algorithm
+
+        # Confusion: What bytes exactly does this certificate message (inside CompressedCertificate) contain? Is it
+        # message headers (type + length) + the encoded message, or just the encoded message? Essentially,
+        # should this line be .write() or ._write_tls13()? (since .write() also calls .postWrite() )
+        self.certificate_message = certificate_message._write_tls13().bytes
+        self.uncompressed_length = len(self.certificate_message)
+
+        # Be explicit and maintain consistency instead of making ._compress() an instance method that changes
+        # attributes from within
+        self.compressed_certificate_message = self._compress(self.chosen_algorithm, self.certificate_message)
+
+    def write(self):
+
+        w = Writer()
+        w.add(self.chosen_algorithm, 2)
+        w.add(self.uncompressed_length, 3)
+        w.add(len(self.compressed_certificate_message), 3)
+        w.bytes += self.compressed_certificate_message
+
+        return self.postWrite(w)
+
+    def parse(self, p):
+        p.startLengthCheck(3)
+        self.chosen_algorithm = p.get(2)
+        self.uncompressed_length = p.get(3)
+
+        # We don't decompress when parsing, instead we store the compressed cert and wait for caller to perform
+        # validation checks
+        compressed_length = p.get(3)
+        self.compressed_certificate_message = p.getFixBytes(compressed_length)
+        p.stopLengthCheck()
+
+        return self
+
+    @staticmethod
+    def _compress(chosen_algorithm, data):
+        return compression.compress(chosen_algorithm, data)
+
+    @staticmethod
+    def _decompress(chosen_algorithm, data):
+        return compression.decompress(chosen_algorithm, data)
+
+    def decompress(self):
+        """
+        Decompress stored certificate message. Should only be called after parsing.
+        """
+        # Note: We allow len(certificate_message) to be 0
+        if self.certificate_message is not None:
+            return self.certificate_message
+
+        assert self.chosen_algorithm and self.compressed_certificate_message is not None, "decompress called without " \
+                                                                                          "parsing first"
+        self.certificate_message = self._decompress(self.chosen_algorithm, self.compressed_certificate_message)
+
+        # Problem: See my comment in .create(). A parser over this return value is fed directly to class
+        # Certificate's constructor. However, I am 90% sure that we need to format the bytes in this value a little
+        # before returning. For instance, if the encoded certificate message contains the type header, then we must
+        # return self.certificate_message[1:] instead with proper error handling incase the certificate message is
+        # empty.
+        return self.certificate_message
 
 
 class ServerKeyExchange(HandshakeMsg):
