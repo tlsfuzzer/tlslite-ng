@@ -115,7 +115,9 @@ if m2cryptoLoaded:
         def generate(bits, key_type="rsa"):
             key = OpenSSL_RSAKey()
             def f():pass
-            key.rsa = m2.rsa_generate_key(bits, 3, f)
+            # pylint: disable=no-member
+            key.rsa = m2.rsa_generate_key(bits, 65537, f)
+            # pylint: enable=no-member
             key._hasPrivateKey = True
             key.key_type = key_type
             b64_key = compat_b2a(key.write())
