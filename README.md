@@ -95,7 +95,7 @@ Currently it is distributed under Gnu LGPLv2 license.
 Requirements:
 
 * Python 2.6 or higher is required.
-* Python 3.3 or higher is supported.
+* Python 3.5 or higher is supported.
 * python ecdsa >= 0.13.3 library
   ([GitHub](https://github.com/warner/python-ecdsa),
   [PyPI](https://pypi.python.org/pypi/ecdsa))
