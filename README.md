@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha43 (2022-05-11)
+tlslite-ng version 0.8.0-alpha44 (2022-06-09)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -585,7 +585,7 @@ may not work with all asyncore.dispatcher subclasses.
   follow this new style and new deprecations will be introduced as time goes
   on. Please run your test suite with `-Wd` to see where the depracated calls
   are being made, the python standard DeprecationWarning will be emited there)
-* Python 3.2 is not supported any more (dropped by python-ecdsa)
+* Python 3.2, 3.3, and 3.4 is not supported any more (dropped by python-ecdsa)
 * fix compatibility issue with 8192 bit SRP group from RFC 5054
 * fix CVE-2018-1000159 - incorrect verification of MAC in MAC then Encrypt
   mode
@@ -691,6 +691,9 @@ may not work with all asyncore.dispatcher subclasses.
 * Support for EdDSA (Ed25519 and Ed448) in TLS 1.2 and TLS 1.3, both
   for server and client certificates
 * Support for echo server in the example tls.py script
+* Better handling of HMACs in FIPS mode
+* Generate RSA keys with 65537 as public exponent with m2crypto (as with
+  other backends)
 
 
 0.7.0 - 2017-07-31
