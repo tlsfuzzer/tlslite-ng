@@ -28,7 +28,7 @@ tlslite-ng is an open source python library that implements SSL and
 cryptographic protocols. It can be used either as a standalone wrapper around
 python socket interface or as a backend for multiple other libraries.
 tlslite-ng is pure python, however it can use other libraries for faster crypto
-operations. tlslite-ng integrates with several stdlib neworking libraries.
+operations. tlslite-ng integrates with several stdlib networking libraries.
 
 API documentation is available in the `docs/_build/html` directory of the PyPI
 package
