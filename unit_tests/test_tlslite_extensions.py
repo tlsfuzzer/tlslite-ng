@@ -2197,6 +2197,13 @@ class TestKeyShareEntry(unittest.TestCase):
                                             b'\x00\x02'  # share length
                                             b'\x01\x01'))  # key share
 
+    def test_repr(self):
+        self.kse.create(18, bytearray(b'\x01\x01'))
+
+        self.assertEqual(
+            "KeyShareEntry(group=secp192k1,key_exchange="
+            "bytearray(b'\\x01\\x01'))", repr(self.kse))
+
 
 class TestKeyShareExtension(unittest.TestCase):
     def setUp(self):

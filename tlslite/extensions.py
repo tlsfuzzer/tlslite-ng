@@ -1791,6 +1791,12 @@ class KeyShareEntry(object):
         writer.addTwo(len(self.key_exchange))
         writer.bytes += self.key_exchange
 
+    def __repr__(self):
+        """Returns human readable representation of the extension."""
+        return "KeyShareEntry(group={0},key_exchange={1})".format(
+            GroupName.toStr(self.group),
+            repr(self.key_exchange))
+
 
 class HeartbeatExtension(IntExtension):
     """
@@ -1873,6 +1879,11 @@ class ClientKeyShareExtension(TLSExtension):
             raise DecodeError("Trailing data in client Key Share extension")
 
         return self
+
+    def __repr__(self):
+        """Output human readable representation of the object."""
+        return "ClientKeyShareExtension(client_shares=[{0}])".format(
+            ",".join(repr(i) for i in self.client_shares))
 
 
 class ServerKeyShareExtension(TLSExtension):
