@@ -3278,6 +3278,14 @@ class TestChangeCipherSpec(unittest.TestCase):
         self.assertIsInstance(ccs, ChangeCipherSpec)
         self.assertEqual(ccs.type, 1)
 
+    def test_parse_wrong_size(self):
+        parser = Parser(bytearray(b'\x01\x01'))
+
+        ccs = ChangeCipherSpec()
+
+        with self.assertRaises(SyntaxError):
+            ccs.parse(parser)
+
 
 class TestNextProtocol(unittest.TestCase):
     def test___init__(self):
