@@ -1898,6 +1898,8 @@ class ChangeCipherSpec(object):
         p.setLengthCheck(1)
         self.type = p.get(1)
         p.stopLengthCheck()
+        if p.getRemainingLength():
+            raise DecodeError("Multi-byte CCS message")
         return self
 
     def write(self):
