@@ -117,8 +117,9 @@ class HandshakeType(TLSEnum):
     client_hello = 1
     server_hello = 2
     new_session_ticket = 4
-    hello_retry_request = 6  # draft version of TLS 1.3
-    encrypted_extensions = 8
+    end_of_early_data = 5  # TLS 1.3
+    hello_retry_request = 6  # TLS 1.3
+    encrypted_extensions = 8  # TLS 1.3
     certificate = 11
     server_key_exchange = 12
     certificate_request = 13
