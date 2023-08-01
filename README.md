@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha44 (2023-06-09)
+tlslite-ng version 0.8.0-alpha45 (2023-08-01)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
