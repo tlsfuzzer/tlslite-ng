@@ -23,7 +23,7 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
         NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest, \
         KeyUpdate
-from tlslite.utils.codec import Parser
+from tlslite.utils.codec import Parser, DecodeError
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
@@ -206,6 +206,26 @@ class TestClientHello(unittest.TestCase):
         self.assertEqual([], client_hello.cipher_suites)
         self.assertEqual([], client_hello.compression_methods)
         self.assertEqual([], client_hello.extensions)
+
+    def test_parse_with_too_long_session_id(self):
+        p = Parser(bytearray(
+            # we don't include the type of message as it is handled by the
+            # hello protocol parser
+            #b'x01' +             # type of message - client_hello
+            b'\x00'*2 + b'\x48' + # length - 38 bytes
+            b'\x01\x01' +         # protocol version - arbitrary (invalid)
+            b'\x00'*32 +          # client random
+            b'\x21' +             # session ID length
+            b'\x00' * 33 +        # session ID
+            b'\x00'*2 +           # cipher suites length
+            b'\x00' +             # compression methods length
+            b'\x00\x00'           # extensions length
+            ))
+        client_hello = ClientHello()
+        with self.assertRaises(DecodeError) as e:
+            client_hello = client_hello.parse(p)
+
+        self.assertIn("session_id", str(e.exception))
 
     def test_parse_with_SNI_extension(self):
         p = Parser(bytearray(
