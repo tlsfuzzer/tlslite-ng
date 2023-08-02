@@ -126,3 +126,7 @@ class Defragmenter(object):
         """Remove all data from buffers"""
         for key in self.buffers.keys():
             self.buffers[key] = bytearray(0)
+
+    def is_empty(self):
+        """Return True if all buffers are empty."""
+        return all(not i for i in self.buffers.values())

@@ -1039,6 +1039,17 @@ class TLSRecordLayer(object):
                     # ignore the message
                     continue
 
+                # TLS 1.3 Handshake messages MUST NOT be interleaved with
+                # other messages, Section 5.1 RFC 8446
+                if self.version > (3, 3) and \
+                        recordHeader.type != ContentType.handshake and \
+                        self._defragmenter.buffers[ContentType.handshake]:
+                    for result in self._sendError(
+                            AlertDescription.unexpected_message,
+                            "Interleaved Handshake and "
+                            "non-handshake messages"):
+                        yield result
+
                 #If we received an unexpected record type...
                 if recordHeader.type not in expectedType:
 
@@ -1187,6 +1198,20 @@ class TLSRecordLayer(object):
                                                       "Expecting {0}, got {1}"
                                                       .format(exp, rec)):
                             yield result
+
+                # in TLS 1.3 some Handshake messages MUST NOT span key changes
+                if self.version > (3, 3) and \
+                        subType in (HandshakeType.client_hello,
+                                    HandshakeType.end_of_early_data,
+                                    HandshakeType.server_hello,
+                                    HandshakeType.finished,
+                                    HandshakeType.key_update) and \
+                        not self._defragmenter.is_empty():
+                    for result in self._sendError(
+                            AlertDescription.unexpected_message,
+                            "CH, EOED, SH, Finished, or KU not aligned with "
+                            "record boundary"):
+                        yield result
 
                 #Update handshake hashes
                 self._handshake_hash.update(p.bytes)
