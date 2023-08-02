@@ -622,6 +622,8 @@ class ClientHello(HelloMessage):
             self.client_version = (p.get(1), p.get(1))
             self.random = p.getFixBytes(32)
             self.session_id = p.getVarBytes(1)
+            if len(self.session_id) > 32:
+                raise DecodeError("session_id too long")
             self.cipher_suites = p.getVarList(2, 2)
             self.compression_methods = p.getVarList(1, 1)
             if not p.atLengthCheck():
