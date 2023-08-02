@@ -298,7 +298,7 @@ class HandshakeSettings(object):
         (bytearray, can be empty for TLS 1.2 and earlier), second element is
         the binary secret (bytearray), third is an optional parameter
         specifying the PRF hash to be used in TLS 1.3 (``sha256`` or
-        ``sha384``)
+        ``sha384``, with ``sha256`` being the default)
 
     :vartype ticketKeys: list(bytearray)
     :ivar ticketKeys: keys to be used for encrypting and decrypting session

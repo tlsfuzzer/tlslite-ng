@@ -1205,7 +1205,7 @@ class CipherSuite:
     aeadSuites.extend(chacha20Suites)
     aeadSuites.extend(chacha20draft00Suites)
 
-    #: TLS1.2 with SHA384 PRF
+    #: any with SHA384 PRF
     sha384PrfSuites = []
     sha384PrfSuites.extend(sha384Suites)
     sha384PrfSuites.extend(aes256GcmSuites)
@@ -1226,6 +1226,12 @@ class CipherSuite:
     tls12Suites.extend(sha256Suites)
     tls12Suites.extend(sha384Suites)
     tls12Suites.extend(aeadSuites)
+
+    #: any that will end up using SHA256 PRF in TLS 1.2 or later
+    sha256PrfSuites = []
+    sha256PrfSuites.extend(tls12Suites)
+    for i in sha384PrfSuites:
+        sha256PrfSuites.remove(i)
 
     #: TLS1.3 specific ciphersuites
     tls13Suites = []
@@ -1278,6 +1284,23 @@ class CipherSuite:
             includeSuites.update(CipherSuite.srpSuites)
             includeSuites.update(CipherSuite.anonSuites)
             includeSuites.update(CipherSuite.ecdhAnonSuites)
+        return [s for s in suites if s in includeSuites]
+
+    @staticmethod
+    def filter_for_prfs(suites, prfs):
+        """Return a copy of suites without ciphers incompatible with the
+        specified prfs (sha256 or sha384)"""
+        includeSuites = set()
+        prfs = set(prfs)
+        if None in prfs:
+            prfs.update(["sha256"])
+            prfs.remove(None)
+        assert len(prfs) <= 2, prfs
+
+        if "sha256" in prfs:
+            includeSuites.update(CipherSuite.sha256PrfSuites)
+        if "sha384" in prfs:
+            includeSuites.update(CipherSuite.sha384PrfSuites)
         return [s for s in suites if s in includeSuites]
 
     @staticmethod
