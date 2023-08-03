@@ -2111,6 +2111,53 @@ class RecordSizeLimitExtension(IntExtension):
             2, 'record_size_limit', ExtensionType.record_size_limit)
 
 
+class SessionTicketExtension(TLSExtension):
+    """
+    Client and server session ticket extension from RFC 5077
+    """
+    def __init__(self):
+        """Create instance of the object."""
+        super(SessionTicketExtension, self).__init__(extType=ExtensionType.
+                                                     session_ticket)
+        self.ticket = None
+
+    def create(self, ticket):
+
+        self.ticket = ticket
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the payload of the extension."""
+        if not self.ticket:
+            return bytearray(0)
+
+        w = Writer()
+        w.bytes += self.ticket
+        return w.bytes
+
+    def parse(self, parser):
+        """
+        Parse the extension from on the wire format.
+
+        :param Parser parser: data to be parsed
+
+        :rtype: SessionTicketExtension
+        """
+        if not parser.getRemainingLength():
+            self.ticket = bytearray(0)
+            return self
+        self.ticket = parser.getFixBytes(parser.getRemainingLength())
+
+        return self
+
+    def __repr__(self):
+        """Return human readable representation of the extension."""
+        return "{0}({1}={2!r})".format(self.__class__.__name__,
+                                     "ticket",
+                                     self.ticket)
+
+
 TLSExtension._universalExtensions = \
     {
         ExtensionType.server_name: SNIExtension,
@@ -2132,7 +2179,8 @@ TLSExtension._universalExtensions = \
         ExtensionType.pre_shared_key: PreSharedKeyExtension,
         ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
         ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension}
+        ExtensionType.record_size_limit: RecordSizeLimitExtension,
+        ExtensionType.session_ticket: SessionTicketExtension}
 
 TLSExtension._serverExtensions = \
     {

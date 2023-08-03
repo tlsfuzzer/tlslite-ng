@@ -67,7 +67,11 @@ class Session(object):
         TLS 1.3
 
     :vartype tickets: list
-    :ivar tickets: list of tickets received from the server
+    :ivar tickets: list of TLS 1.3 session tickets received from the server
+
+    :vartype tls_1_0_tickets: list
+    :ivar tls_1_0_tickets: list of TLS 1.2 and earlier session tickets received
+        from the server
     """
 
     def __init__(self):
@@ -89,6 +93,7 @@ class Session(object):
         self.exporterMasterSecret = bytearray(0)
         self.resumptionMasterSecret = bytearray(0)
         self.tickets = None
+        self.tls_1_0_tickets = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
@@ -96,7 +101,8 @@ class Session(object):
                encryptThenMAC=False, extendedMasterSecret=False,
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
-               resumptionMasterSecret=bytearray(0), tickets=None):
+               resumptionMasterSecret=bytearray(0), tickets=None,
+               tls_1_0_tickets=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -116,6 +122,7 @@ class Session(object):
         self.resumptionMasterSecret = resumptionMasterSecret
         # NOTE we need a reference copy not a copy of object here!
         self.tickets = tickets
+        self.tls_1_0_tickets = tls_1_0_tickets
 
     def _clone(self):
         other = Session()
@@ -137,6 +144,7 @@ class Session(object):
         other.exporterMasterSecret = self.exporterMasterSecret
         other.resumptionMasterSecret = self.resumptionMasterSecret
         other.tickets = self.tickets
+        other.tls_1_0_tickets = self.tls_1_0_tickets
         return other
 
     def valid(self):
@@ -146,7 +154,8 @@ class Session(object):
         :returns: If this session can be used for session resumption.
         """
         # TODO add checks for tickets received from server (freshness etc.)
-        return self.resumable and (self.sessionID or self.tickets)
+        return self.resumable and (self.sessionID or self.tickets or
+                                   self.tls_1_0_tickets)
 
     def _setResumable(self, boolean):
         #Only let it be set to True if the sessionID is non-null
@@ -180,3 +189,38 @@ class Session(object):
         :returns: The name of the HMAC hash algo used with this connection.
         """
         return CipherSuite.canonicalMacName(self.cipherSuite)
+
+
+class Ticket(object):
+    """
+    This class holds the ticket and ticket lifetime which are recieved from
+    the server, together with the session object, it's all the information
+    needed to resume a session using SessionTickets in TLSv1.2.
+    Currently objects of this class are only used in client side session cache
+    where we can iterate over them and use them for resumption when possible.
+
+    :vartype ticket: bytearray
+    :ivar ticket: the actual ticket recieved from the server
+
+    :vartype ticket_lifetime: int
+    :ivar ticket_lifetime: lifetime of the ticket defined by the server
+
+    :vartype master_secret: bytearray
+    :ivar master_secret: master secret used to resume the session
+
+    :vartype cipher_suite: int
+    :ivar cipher_suite: ciphersuite used to resume the session
+
+    :vartype time_recieved: int
+    :ivar time_recieved: the actual time when we recieved the ticket
+    """
+
+    def __init__(self, ticket, ticket_lifetime, master_secret, cipher_suite):
+        self.ticket = ticket
+        self.ticket_lifetime = ticket_lifetime
+        self.master_secret = master_secret
+        self.cipher_suite = cipher_suite
+        self.time_received = time.time()
+
+    def valid(self):
+        return time.time() < self.time_received + self.ticket_lifetime

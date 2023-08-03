@@ -2070,11 +2070,51 @@ class NewSessionTicket(HelloMessage):
         return self
 
 
+class NewSessionTicket1_0(HelloMessage):
+    """Handling of the TLS1.0-TLS1.2 NewSessionTicket message."""
+
+    def __init__(self):
+        """Create New Session Ticket object."""
+        super(NewSessionTicket1_0, self).__init__(HandshakeType
+                                                  .new_session_ticket)
+        self.ticket_lifetime = 0
+        self.ticket = bytearray(0)
+
+    def create(self, ticket_lifetime, ticket):
+        """Initialise a New Session Ticket."""
+        self.ticket_lifetime = ticket_lifetime
+        self.ticket = ticket
+        return self
+
+    def write(self):
+        """
+        Serialise the message to on the wire data.
+
+        :rtype: bytearray
+        """
+        w = Writer()
+        w.add(self.ticket_lifetime, 4)
+        w.addVarSeq(self.ticket, 1, 2)
+        w2 = Writer()
+        w.bytes += w2.bytes
+
+        return self.postWrite(w)
+
+    def parse(self, parser):
+        """Parse the object from on the wire data."""
+        parser.startLengthCheck(3)
+        self.ticket_lifetime = parser.get(4)
+        self.ticket = parser.getVarBytes(2)
+        parser.stopLengthCheck()
+
+        return self
+
+
 class SessionTicketPayload(object):
     """Serialisation and deserialisation of server state for resumption.
 
     This is the internal (meant to be encrypted) representation of server
-    state that is set to client in the NewSessionTicket message.
+    state that is sent to the client in the NewSessionTicket message.
 
     :ivar int ~.version: implementation detail for forward compatibility
     :ivar bytearray master_secret: master secret for TLS 1.2-, resumption
@@ -2090,6 +2130,10 @@ class SessionTicketPayload(object):
 
     :ivar int creation_time: Unix time in seconds when was the ticket created
     :ivar X509CertChain client_cert_chain: Client X509 Certificate Chain
+    :ivar bool encrypt_then_mac: The session used the encrypt_then_mac
+        extension
+    :ivar bool extended_master_secret: The session used the
+        extended_master_secret extension
     """
 
     def __init__(self):
@@ -2101,6 +2145,9 @@ class SessionTicketPayload(object):
         self.creation_time = 0
         self.nonce = bytearray()
         self._cert_chain = None
+        self.encrypt_then_mac = False
+        self.extended_master_secret = False
+        self.server_name = bytearray()
 
     @property
     def client_cert_chain(self):
@@ -2117,7 +2164,9 @@ class SessionTicketPayload(object):
                             .create(i, []) for i in client_cert_chain.x509List]
 
     def create(self, master_secret, protocol_version, cipher_suite,
-               creation_time, nonce=bytearray(), client_cert_chain=None):
+               creation_time, nonce=bytearray(), client_cert_chain=None,
+               encrypt_then_mac=False, extended_master_secret=False,
+               server_name=bytearray()):
         """Initialise the object with cryptographic data."""
         self.master_secret = master_secret
         self.protocol_version = protocol_version
@@ -2127,6 +2176,16 @@ class SessionTicketPayload(object):
         if client_cert_chain:
             self.version = 1
             self.client_cert_chain = client_cert_chain
+        if encrypt_then_mac or extended_master_secret or server_name:
+            if self.client_cert_chain is None:
+                self._cert_chain = []
+            self.version = 2
+            self.encrypt_then_mac = encrypt_then_mac
+            self.extended_master_secret = extended_master_secret
+            if server_name is None:
+                self.server_name = bytearray()
+            else:
+                self.server_name = server_name
         return self
 
     def _parse_cert_chain(self, parser):
@@ -2137,15 +2196,19 @@ class SessionTicketPayload(object):
 
     def parse(self, parser):
         self.version = parser.get(2)
-        if self.version > 1:
+        if self.version > 2:
             raise ValueError("Unrecognised version number")
         self.master_secret = parser.getVarBytes(2)
         self.protocol_version = (parser.get(1), parser.get(1))
         self.cipher_suite = parser.get(2)
         self.nonce = parser.getVarBytes(1)
         self.creation_time = parser.get(8)
-        if self.version == 1:
+        if self.version >= 1:
             self._parse_cert_chain(Parser(parser.getVarBytes(3)))
+        if self.version >= 2:
+            self.encrypt_then_mac = bool(parser.get(1))
+            self.extended_master_secret = bool(parser.get(1))
+            self.server_name = parser.getVarBytes(2)
         if parser.getRemainingLength():
             raise ValueError("Malformed ticket")
         return self
@@ -2161,11 +2224,16 @@ class SessionTicketPayload(object):
         writer.addOne(len(self.nonce))
         writer.bytes += self.nonce
         writer.add(self.creation_time, 8)
-        if self.version == 1:
+        if self.version >= 1:
             wcert = Writer()
             for entry in self._cert_chain:
                 wcert.bytes += entry.write()
             writer.addVarSeq(wcert.bytes, 1, 3)
+        if self.version >= 2:
+            writer.addOne(int(self.encrypt_then_mac))
+            writer.addOne(int(self.extended_master_secret))
+            writer.addTwo(len(self.server_name))
+            writer.bytes += self.server_name
         return writer.bytes
 
 
