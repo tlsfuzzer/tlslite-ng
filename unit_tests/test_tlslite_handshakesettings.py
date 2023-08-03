@@ -13,6 +13,7 @@ except ImportError:
     import unittest.mock as mock
 
 from tlslite.handshakesettings import HandshakeSettings, Keypair, VirtualHost
+from tlslite.utils import compression
 
 class TestHandshakeSettings(unittest.TestCase):
     def test___init__(self):
@@ -212,6 +213,47 @@ class TestHandshakeSettings(unittest.TestCase):
         hs = HandshakeSettings()
         hs.useExtendedMasterSecret = False
         hs.requireExtendedMasterSecret = True
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    def test_use_compress_cert_with_wrong_value(self):
+        hs = HandshakeSettings()
+        hs.use_certificate_compression = 3
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    def test_cert_compress_algorithms_with_empty_value(self):
+        hs = HandshakeSettings()
+        hs.use_certificate_compression = True
+        hs.certificate_compression_algorithms = ()
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    def test_cert_compress_algorithms_with_invalid_value(self):
+        hs = HandshakeSettings()
+        hs.use_certificate_compression = True
+        hs.certificate_compression_algorithms = (0, 1, 2)
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    @unittest.skipIf(compression.is_installed(2), "Skipping because brotli is already installed")
+    def test_cert_compress_algorithms_without_brotli(self):
+        hs = HandshakeSettings()
+        hs.use_certificate_compression = True
+        hs.certificate_compression_algorithms = (2, )
+
+        with self.assertRaises(ValueError):
+            hs.validate()
+
+    @unittest.skipIf(compression.is_installed(3), "Skipping because zstandard is already installed")
+    def test_cert_compress_algorithms_without_zstd(self):
+        hs = HandshakeSettings()
+        hs.use_certificate_compression = True
+        hs.certificate_compression_algorithms = (3, )
 
         with self.assertRaises(ValueError):
             hs.validate()
