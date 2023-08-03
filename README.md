@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha45 (2023-08-01)
+tlslite-ng version 0.8.0-alpha46 (2023-08-03)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -62,7 +62,7 @@ Implemented TLS features include:
 * padding extension
 * keying material exporter
 * RSA, RSA-PSS, ECDSA, and EdDSA certificates
-* ticket based session resumption in TLSv1.3
+* ticket based session resumption
 * 1-RTT handshake, Hello Retry Request, middlebox compatibility mode,
   cookie extension, post-handshake authentication and KeyUpdate
   (TLS 1.3)
@@ -686,6 +686,7 @@ may not work with all asyncore.dispatcher subclasses.
 * handle too short RSA ciphertexts for the key size consistently between
   backends
 * strict handling of CCS in TLS 1.3 (don't allow it post handshake)
+* detect and reject multi-byte CCS messages
 * improved RSA key generation - don't generate biased primes
 * support for both encodings of RSA-PSS algorithm identifier in X.509
 * Support for EdDSA (Ed25519 and Ed448) in TLS 1.2 and TLS 1.3, both
@@ -694,7 +695,8 @@ may not work with all asyncore.dispatcher subclasses.
 * Better handling of HMACs in FIPS mode
 * Generate RSA keys with 65537 as public exponent with m2crypto (as with
   other backends)
-
+* Ticket based session resumption in TLS 1.2 and earlier
+* strict size checking of `session_id` field in ClientHello
 
 0.7.0 - 2017-07-31
 
