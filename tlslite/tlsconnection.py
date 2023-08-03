@@ -3960,6 +3960,8 @@ class TLSConnection(TLSRecordLayer):
             else:
                 client_sigalgs = []
 
+        client_psks = client_hello.getExtension(ExtensionType.pre_shared_key)
+
         # Get all the certificates we can offer
         alt_certs = ((X509CertChain(i.certificates), i.key) for vh in
                      settings.virtual_hosts for i in vh.keys)
@@ -3967,7 +3969,6 @@ class TLSConnection(TLSRecordLayer):
                  for cert, key in chain([(cert_chain, private_key)], alt_certs)]
 
         for cert, key in certs:
-
             # Check if this is the last (cert, key) pair we have to check
             if (cert, key) == certs[-1]:
                 last_cert = True
@@ -3977,10 +3978,23 @@ class TLSConnection(TLSRecordLayer):
             try:
                 # Find a suitable ciphersuite based on the certificate
                 ciphers = CipherSuite.filter_for_certificate(cipher_suites, cert)
+                # but if we have matching PSKs, prefer those
+                if settings.pskConfigs and client_psks:
+                    client_identities = [
+                        i.identity for i in client_psks.identities]
+                    psks_prfs = [i[2] if len(i) == 3 else None for i in
+                                 settings.pskConfigs if
+                                 i[0] in client_identities]
+                    if psks_prfs:
+                        ciphers = CipherSuite.filter_for_prfs(ciphers,
+                                                              psks_prfs)
                 for cipher in ciphers:
+                    # select first mutually supported
                     if cipher in client_hello.cipher_suites:
                         break
                 else:
+                    # abort with context-specific alert if client indicated
+                    # support for FFDHE groups
                     if client_groups and \
                         any(i in range(256, 512) for i in client_groups) and \
                         any(i in CipherSuite.dhAllSuites

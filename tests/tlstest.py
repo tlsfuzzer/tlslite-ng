@@ -728,6 +728,38 @@ def clientTestCmd(argv):
     connection.handshakeClientCert(settings=settings)
     assert connection.session.serverCertChain is None
     assert connection.ecdhCurve is not None
+    assert connection.session.cipherSuite in \
+            constants.CipherSuite.sha384PrfSuites
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK SHA-256 PRF".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha256')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain is None
+    assert connection.ecdhCurve is not None
+    assert connection.session.cipherSuite in \
+            constants.CipherSuite.sha256PrfSuites
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK default PRF".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha256')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain is None
+    assert connection.ecdhCurve is not None
+    assert connection.session.cipherSuite in \
+            constants.CipherSuite.sha256PrfSuites
     testConnClient(connection)
     connection.close()
 
@@ -756,6 +788,21 @@ def clientTestCmd(argv):
     connection.handshakeClientCert(settings=settings)
     assert connection.session.serverCertChain is None
     assert connection.ecdhCurve is None
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - bad PSK X.509 fallback".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'bad identity', b'\x00secret', 'sha256')]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.serverCertChain
+    assert connection.ecdhCurve is not None
+    assert connection.session.cipherSuite in \
+            constants.CipherSuite.sha384PrfSuites
     testConnClient(connection)
     connection.close()
 
@@ -2353,6 +2400,30 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - good PSK SHA-256 PRF".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha256')]
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good PSK default PRF".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret')]
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
     print("Test {0} - good PSK, no DH".format(test_no))
     synchro.send(b'R')
     settings = HandshakeSettings()
@@ -2373,6 +2444,18 @@ def serverTestCmd(argv):
     settings.pskConfigs = [(b'test', b'\x00secret', 'sha384')]
     connection = connect()
     connection.handshakeServer(settings=settings)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - bad PSK X.509 fallback".format(test_no))
+    synchro.send(b'R')
+    settings = HandshakeSettings()
+    settings.pskConfigs = [(b'test', b'\x00secret', 'sha256')]
+    connection = connect()
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
+                               settings=settings)
     testConnServer(connection)
     connection.close()
 
