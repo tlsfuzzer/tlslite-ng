@@ -40,6 +40,9 @@ jobs:
           - name: py3.11
             os: ubuntu-latest
             python-version: '3.11'
+          - name: py3.12
+            os: ubuntu-latest
+            python-version: '3.12.0-beta.4'
           - name: py2.6
             os: ubuntu-latest
             container: centos:6
