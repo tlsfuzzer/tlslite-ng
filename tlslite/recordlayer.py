@@ -360,6 +360,13 @@ class RecordLayer(object):
         self._pendingWriteState.encryptThenMAC = value
         self._pendingReadState.encryptThenMAC = value
 
+    def _get_pending_state_etm(self):
+        """
+        Return the state of encrypt then MAC for the connection after
+        CCS will be exchanged
+        """
+        return self._pendingWriteState.encryptThenMAC
+
     @property
     def blockSize(self):
         """Return the size of block used by current symmetric cipher (R/O)"""
