@@ -1,7 +1,7 @@
 # Author: Trevor Perrin
 # See the LICENSE file for legal information regarding use of this file.
 
-__version__ = "0.8.0-alpha46"
+__version__ = "0.8.0-alpha47"
 # the whole module is about importing most commonly used methods, for use
 # by other applications
 # pylint: disable=unused-import
