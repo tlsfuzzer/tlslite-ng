@@ -373,6 +373,9 @@ class KeyExchange(object):
                     SignatureScheme.ed448):
                 hashName = "intrinsic"
                 padding = None
+            elif signatureAlg[1] == SignatureAlgorithm.dsa:
+                hashName = HashAlgorithm.toRepr(signatureAlg[0])
+                padding = None
             elif signatureAlg[1] != SignatureAlgorithm.ecdsa:
                 scheme = SignatureScheme.toRepr(signatureAlg)
                 if scheme is None:
@@ -453,6 +456,13 @@ class KeyExchange(object):
             hashName = HashAlgorithm.toRepr(signatureAlgorithm[0])
             saltLen = None
             verifyBytes = verifyBytes[:privateKey.private_key.curve.baselen]
+            sig_func = privateKey.sign
+            ver_func = privateKey.verify
+        elif signatureAlgorithm and \
+                signatureAlgorithm[1] == SignatureAlgorithm.dsa:
+            padding = None
+            hashName = HashAlgorithm.toRepr(signatureAlgorithm[0])
+            saltLen = None
             sig_func = privateKey.sign
             ver_func = privateKey.verify
         else:

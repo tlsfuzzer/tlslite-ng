@@ -1515,13 +1515,13 @@ class CipherSuite:
 
     #: DHE key exchange, DSA authentication
     dheDsaSuites = []
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA)
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA)
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256)
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256)
-    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_GCM_SHA256)
     dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_GCM_SHA384)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_GCM_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA)
+    dheDsaSuites.append(TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA)
 
     @classmethod
     def getDheDsaSuites(cls, settings, version=None):

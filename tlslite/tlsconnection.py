@@ -1700,7 +1700,7 @@ class TLSConnection(TLSRecordLayer):
             #abort if Certificate Request with inappropriate ciphersuite
             if cipherSuite not in CipherSuite.certAllSuites \
                 and cipherSuite not in CipherSuite.ecdheEcdsaSuites \
-                and CipherSuite not in CipherSuite.dheDsaSuites\
+                and cipherSuite not in CipherSuite.dheDsaSuites\
                 or cipherSuite in CipherSuite.srpAllSuites:
                 for result in self._sendError(\
                         AlertDescription.unexpected_message,
@@ -1767,7 +1767,6 @@ class TLSConnection(TLSRecordLayer):
 
         #Send Certificate if we were asked for it
         if certificateRequest:
-
             # if a peer doesn't advertise support for any algorithm in TLSv1.2,
             # support for SHA1+RSA can be assumed
             if self.version == (3, 3)\
@@ -2826,7 +2825,7 @@ class TLSConnection(TLSRecordLayer):
                 ctx = b''
 
                 # Get list of valid Signing Algorithms
-                # we don't support DSA for client certificates yet
+                # DSA is not supported for TLS 1.3
                 cr_settings = settings.validate()
                 cr_settings.dsaSigHashes = []
                 valid_sig_algs = self._sigHashesToList(cr_settings)
@@ -4206,11 +4205,17 @@ class TLSConnection(TLSRecordLayer):
             if not reqCAs:
                 reqCAs = []
             cr_settings = settings.validate()
-            # we don't support DSA in client certificates yet
-            cr_settings.dsaSigHashes = []
             valid_sig_algs = self._sigHashesToList(cr_settings)
-            certificateRequest.create([ClientCertificateType.rsa_sign,
-                                       ClientCertificateType.ecdsa_sign],
+
+            cert_types = []
+            if cr_settings.rsaSigHashes:
+                cert_types.append(ClientCertificateType.rsa_sign)
+            if cr_settings.ecdsaSigHashes or cr_settings.more_sig_schemes:
+                cert_types.append(ClientCertificateType.ecdsa_sign)
+            if cr_settings.dsaSigHashes:
+                cert_types.append(ClientCertificateType.dss_sign)
+
+            certificateRequest.create(cert_types,
                                       reqCAs,
                                       valid_sig_algs)
             msgs.append(certificateRequest)
@@ -4327,6 +4332,12 @@ class TLSConnection(TLSRecordLayer):
                 salt_len = None
                 padding = None
                 ver_func = public_key.hashAndVerify
+            elif signatureAlgorithm and \
+                    signatureAlgorithm[1] == SignatureAlgorithm.dsa:
+                padding = None
+                hash_name = HashAlgorithm.toRepr(signatureAlgorithm[0])
+                salt_len = None
+                ver_func = public_key.verify
             elif not signatureAlgorithm or \
                     signatureAlgorithm[1] != SignatureAlgorithm.ecdsa:
                 scheme = SignatureScheme.toRepr(signatureAlgorithm)

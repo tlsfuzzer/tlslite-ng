@@ -33,10 +33,9 @@ class Python_DSAKey(DSAKey):
         self.g = g
         self.private_key = x
         self.public_key = y
+        if self.private_key and not self.public_key:
+            self.public_key = powMod(g, self.private_key, p)
         self.key_type = "dsa"
-
-        if p and q and p < q:
-            raise ValueError("q is greater than p")
 
     def __len__(self):
         return numBits(self.p)
@@ -82,7 +81,21 @@ class Python_DSAKey(DSAKey):
         hashData = (secureHash(bytearray(data), hAlg))
         return self.sign(hashData)
 
-    def sign(self, data):
+    def sign(self, data, padding=None, hashAlg=None, saltLen=None):
+        """
+        :type data: bytearray
+        :param data: The value which will be signed (generally a binary
+            encoding of hash output.
+
+        :type padding: str
+        :param padding: Ignored, present for API compatibility with RSA
+
+        :type hashAlg: str
+        :param hashAlg: name of hash that was used for calculating the bytes
+
+        :type saltLen: int
+        :param saltLen: Ignored, present for API compatibility with RSA
+        """
         N = numBits(self.q)
         digest_len = len(data) * 8
         digest = bytesToNumber(data)
@@ -90,12 +103,38 @@ class Python_DSAKey(DSAKey):
             digest >>= digest_len - N
 
         k = getRandomNumber(1, (self.q-1))
+        if gmpyLoaded or GMPY2_LOADED:
+            k = mpz(k)
+            digest = mpz(digest)
         r = powMod(self.g, k, self.p) % self.q
         s = invMod(k, self.q) * (digest + self.private_key * r) % self.q
 
         return encode_sequence(encode_integer(r), encode_integer(s))
 
-    def verify(self, signature, hashData):
+    def verify(self, signature, hashData, padding=None, hashAlg=None,
+               saltLen=None):
+        """Verify the passed-in bytes with the signature.
+
+        This verifies a DSA signature on the passed-in data.
+
+        :type signature: bytearray
+        :param signature: The signature.
+
+        :type hashData: bytearray
+        :param hashData: The value which will be verified.
+
+        :type padding: str
+        :param padding: Ignored, present for API compatibility with RSA
+
+        :type hashAlg: str
+        :param hashAlg: Ignored, present for API compatibility with RSA
+
+        :type saltLen: str
+        :param saltLen: Ignored, present for API compatibility with RSA
+
+        :rtype: bool
+        :returns: Whether the signature matches the passed-in data.
+        """
         N = numBits(self.q)
         digest_len = len(hashData) * 8
         digest = bytesToNumber(hashData)
@@ -125,8 +164,8 @@ class Python_DSAKey(DSAKey):
             w = invMod(s, self.q)
             u1 = (digest * w) % self.q
             u2 = (r * w) % self.q
-            v = ((powMod(self.g, u1, self.p) *  \
-                    powMod(self.public_key, u2, self.p)) % self.p) % self.q
+            v = ((powMod(self.g, u1, self.p) * \
+                  powMod(self.public_key, u2, self.p)) % self.p) % self.q
             return r == v
         return False
 
