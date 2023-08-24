@@ -7,13 +7,13 @@ operations but is not dependant upon them.
 Functionality implemented include:
  - all above mentioned protocols, including support for client certificates
    (RFC 6101, RFC 2246, RFC 4346, RFC 5246, RFC 8446 - not complete)
- - RSA, RSA-PSS and ECDSA certificates
+ - RSA, RSA-PSS, DSA, and ECDSA certificates
  - RC4, 3DES-CBC, AES-CBC, AES-GCM, AES-CCM, AES-CCM_8 and ChaCha20 ciphers
    (RFC 5246, RFC 6347, RFC 4492, RFC 5288, RFC 5289, RFC 7539, RFC 7905,
    RFC 6655, RFC 7251)
  - MD5, SHA1, SHA256 and SHA384 HMACs as well as AEAD mode of operation with
    GCM or Poly1305 authenticator
- - RSA, DHE_RSA, ECDHE_RSA, ECDHE_ECDSA key exchange
+ - RSA, DHE_RSA, DHE_DSS, ECDHE_RSA, ECDHE_ECDSA key exchange
  - full set of signature hashes (md5, sha1, sha224, sha256, sha384, sha512,
    rsa_pss_rsae_sha256, rsa_pss_rsae_sha384 and rsa_pss_rsae_sha512) for
    ServerKeyExchange and CertfificateVerify

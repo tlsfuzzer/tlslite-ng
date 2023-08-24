@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-alpha47 (2023-08-21)
+tlslite-ng version 0.8.0-beta1 (2023-08-24)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -61,7 +61,7 @@ Implemented TLS features include:
 * Extended master secret
 * padding extension
 * keying material exporter
-* RSA, RSA-PSS, ECDSA, and EdDSA certificates
+* RSA, RSA-PSS, DSA, ECDSA, and EdDSA certificates
 * ticket based session resumption
 * 1-RTT handshake, Hello Retry Request, middlebox compatibility mode,
   cookie extension, post-handshake authentication and KeyUpdate
@@ -676,6 +676,7 @@ may not work with all asyncore.dispatcher subclasses.
   curves and signature algorithms advertised by client (Ivan Nikolchev)
 * basic support for DSA certificates; verification of DSA signatures
   in ServerKeyExchange (Frantisek Krenzelok)
+* support for DSA client certificates
 * small optimisations to PRF methods, speeds to handshake
 * support for MD5 signatures in X.509 certificates (Jean-Romain Garnier)
 * add support for Brainpool curves in TLS 1.2 and earlier (pytz)
