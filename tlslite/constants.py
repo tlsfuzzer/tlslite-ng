@@ -569,7 +569,7 @@ class AlertDescription(TLSEnum):
     unrecognized_name = 112  # RFC 6066
     bad_certificate_status_response = 113  # RFC 6066
     bad_certificate_hash_value = 114  # RFC 6066
-    unknown_psk_identity = 115
+    unknown_psk_identity = 115  # RFC 4279
     certificate_required = 116  # RFC 8446
     no_application_protocol = 120  # RFC 7301
 
@@ -698,6 +698,12 @@ class CipherSuite:
     ietfNames[0x0018] = 'TLS_DH_ANON_WITH_RC4_128_MD5'
     TLS_DH_ANON_WITH_3DES_EDE_CBC_SHA = 0x001B
     ietfNames[0x001B] = 'TLS_DH_ANON_WITH_3DES_EDE_CBC_SHA'
+    TLS_PSK_WITH_NULL_SHA = 0x002C
+    ietfNames[0x002C] = 'TLS_PSK_WITH_NULL_SHA'
+    TLS_DHE_PSK_WITH_NULL_SHA = 0x002D
+    ietfNames[0x002D] = 'TLS_DHE_PSK_WITH_NULL_SHA'
+    TLS_RSA_PSK_WITH_NULL_SHA = 0x002E
+    ietfNames[0x002E] = 'TLS_RSA_PSK_WITH_NULL_SHA'
     TLS_RSA_WITH_AES_128_CBC_SHA = 0x002F
     ietfNames[0x002F] = 'TLS_RSA_WITH_AES_128_CBC_SHA'
     TLS_DH_DSS_WITH_AES_128_CBC_SHA = 0x0030
@@ -740,6 +746,20 @@ class CipherSuite:
     ietfNames[0x006C] = 'TLS_DH_ANON_WITH_AES_128_CBC_SHA256'
     TLS_DH_ANON_WITH_AES_256_CBC_SHA256 = 0x006D
     ietfNames[0x006D] = 'TLS_DH_ANON_WITH_AES_256_CBC_SHA256'
+
+    # RFC4279 - Pre-Shared Key Ciphersuites for Transport Layer Security
+    TLS_PSK_WITH_AES_128_CBC_SHA = 0x008C
+    ietfNames[0x008C] = 'TLS_PSK_WITH_AES_128_CBC_SHA'
+    TLS_PSK_WITH_AES_256_CBC_SHA = 0x008D
+    ietfNames[0x008D] = 'TLS_PSK_WITH_AES_256_CBC_SHA'
+    TLS_DHE_PSK_WITH_AES_128_CBC_SHA = 0x0090
+    ietfNames[0x0090] = 'TLS_DHE_PSK_WITH_AES_128_CBC_SHA'
+    TLS_DHE_PSK_WITH_AES_256_CBC_SHA = 0x0091
+    ietfNames[0x0091] = 'TLS_DHE_PSK_WITH_AES_256_CBC_SHA'
+    TLS_RSA_PSK_WITH_AES_128_CBC_SHA = 0x0094
+    ietfNames[0x0094] = 'TLS_RSA_PSK_WITH_AES_128_CBC_SHA'
+    TLS_RSA_PSK_WITH_AES_256_CBC_SHA = 0x0095
+    ietfNames[0x0095] = 'TLS_RSA_PSK_WITH_AES_256_CBC_SHA'
 
     # RFC 5288 - AES-GCM ciphers for TLSv1.2
     TLS_RSA_WITH_AES_128_GCM_SHA256 = 0x009C
@@ -999,6 +1019,9 @@ class CipherSuite:
     aes128Suites.append(TLS_DH_DSS_WITH_AES_128_CBC_SHA256) # unsupported
     aes128Suites.append(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256)    # unsupported
     aes128Suites.append(TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA)   # unsupported
+    aes128Suites.append(TLS_PSK_WITH_AES_128_CBC_SHA)
+    aes128Suites.append(TLS_DHE_PSK_WITH_AES_128_CBC_SHA)
+    aes128Suites.append(TLS_RSA_PSK_WITH_AES_128_CBC_SHA)
 
     #: AES-256 CBC ciphers
     aes256Suites = []
@@ -1024,6 +1047,9 @@ class CipherSuite:
     aes256Suites.append(TLS_DH_DSS_WITH_AES_256_CBC_SHA256) # unsupported
     aes256Suites.append(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256)    # unsupported
     aes256Suites.append(TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA)   # unsupported
+    aes256Suites.append(TLS_PSK_WITH_AES_256_CBC_SHA)
+    aes256Suites.append(TLS_DHE_PSK_WITH_AES_256_CBC_SHA)
+    aes256Suites.append(TLS_RSA_PSK_WITH_AES_256_CBC_SHA)
 
     #: AES-128 GCM ciphers
     aes128GcmSuites = []
@@ -1107,6 +1133,9 @@ class CipherSuite:
     nullSuites.append(TLS_RSA_WITH_NULL_MD5)
     nullSuites.append(TLS_RSA_WITH_NULL_SHA)
     nullSuites.append(TLS_RSA_WITH_NULL_SHA256)
+    nullSuites.append(TLS_PSK_WITH_NULL_SHA)
+    nullSuites.append(TLS_DHE_PSK_WITH_NULL_SHA)
+    nullSuites.append(TLS_RSA_PSK_WITH_NULL_SHA)
     nullSuites.append(TLS_ECDHE_ECDSA_WITH_NULL_SHA)
     nullSuites.append(TLS_ECDH_ECDSA_WITH_NULL_SHA)  # unsupported
     nullSuites.append(TLS_ECDH_RSA_WITH_NULL_SHA)  # unsupported
@@ -1141,6 +1170,15 @@ class CipherSuite:
     shaSuites.append(TLS_DH_DSS_WITH_AES_128_CBC_SHA)   # unsupported
     shaSuites.append(TLS_DH_DSS_WITH_AES_256_CBC_SHA)   # unsupported
     shaSuites.append(TLS_RSA_WITH_NULL_SHA)
+    shaSuites.append(TLS_PSK_WITH_NULL_SHA)
+    shaSuites.append(TLS_DHE_PSK_WITH_NULL_SHA)
+    shaSuites.append(TLS_RSA_PSK_WITH_NULL_SHA)
+    shaSuites.append(TLS_PSK_WITH_AES_128_CBC_SHA)
+    shaSuites.append(TLS_PSK_WITH_AES_256_CBC_SHA)
+    shaSuites.append(TLS_DHE_PSK_WITH_AES_128_CBC_SHA)
+    shaSuites.append(TLS_DHE_PSK_WITH_AES_256_CBC_SHA)
+    shaSuites.append(TLS_RSA_PSK_WITH_AES_128_CBC_SHA)
+    shaSuites.append(TLS_RSA_PSK_WITH_AES_256_CBC_SHA)
     shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
     shaSuites.append(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA)
     shaSuites.append(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA)
@@ -1372,6 +1410,12 @@ class CipherSuite:
             keyExchangeSuites += CipherSuite.anonSuites
         if "ecdh_anon" in keyExchangeNames:
             keyExchangeSuites += CipherSuite.ecdhAnonSuites
+        if "psk" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.pskSuites
+        if "dhe_psk" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.dhePskSuites
+        if "rsa_psk" in keyExchangeNames:
+            keyExchangeSuites += CipherSuite.pskCertSuites
 
         return [s for s in suites if s in macSuites and
                 s in cipherSuites and s in keyExchangeSuites]
@@ -1487,7 +1531,8 @@ class CipherSuite:
         return cls._filterSuites(CipherSuite.ecdheCertSuites, settings, version)
 
     #: RSA authentication
-    certAllSuites = srpCertSuites + certSuites + dheCertSuites + ecdheCertSuites
+    certAllSuites = srpCertSuites + certSuites + dheCertSuites + \
+        ecdheCertSuites + pskCertSuites
 
     #: ECDHE key exchange, ECDSA authentication
     ecdheEcdsaSuites = []
@@ -1545,7 +1590,7 @@ class CipherSuite:
         """Provide anonymous DH ciphersuites matching settings"""
         return cls._filterSuites(CipherSuite.anonSuites, settings, version)
 
-    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites
+    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites + dhePskSuites
 
     #: anon ECDHE key exchange
     ecdhAnonSuites = []
@@ -1562,6 +1607,57 @@ class CipherSuite:
 
     #: all ciphersuites which use ephemeral ECDH key exchange
     ecdhAllSuites = ecdheEcdsaSuites + ecdheCertSuites + ecdhAnonSuites
+
+    #: pure PSK key exchange
+    pskSuites = []
+    pskSuites.append(TLS_PSK_WITH_NULL_SHA)
+    pskSuites.append(TLS_PSK_WITH_AES_128_CBC_SHA)
+    pskSuites.append(TLS_PSK_WITH_AES_256_CBC_SHA)
+
+    @classmethod
+    def getPskSuites(cls, settings, version=None):
+        """
+        Provide ciphersuites that use pure PSK key exchange matching settings
+        """
+        return cls._filterSuites(CipherSuite.pskSuites, settings, version)
+
+    #: DHE key exchange with PSK authentication
+    dhePskSuites = []
+    dhePskSuites.append(TLS_DHE_PSK_WITH_NULL_SHA)
+    dhePskSuites.append(TLS_DHE_PSK_WITH_AES_128_CBC_SHA)
+    dhePskSuites.append(TLS_DHE_PSK_WITH_AES_256_CBC_SHA)
+
+    @classmethod
+    def getDhePskSites(cls, settings, version=None):
+        """
+        Provide ciphersuites that use DHE with PSK key exchange matching
+        settings
+        """
+        return cls._filterSuites(CipherSuite.dhePskSuites, settings, version)
+
+    #: RSA key exchange with PSK authentication
+    pskCertSuites = []
+    pskCertSuites.append(TLS_RSA_PSK_WITH_NULL_SHA)
+    pskCertSuites.append(TLS_RSA_PSK_WITH_AES_128_CBC_SHA)
+    pskCertSuites.append(TLS_RSA_PSK_WITH_AES_256_CBC_SHA)
+
+    @classmethod
+    def getPskCertSuites(cls, settings, version=None):
+        """
+        Provide ciphersuites that use RSA with PSK key exchange matching
+        settings
+        """
+        return cls._filterSuites(CipherSuite.pskCertSuites, settings, version)
+
+    #: all suites that use PSK authentication and PSK inside premaster secret
+    pskAllSuites = pskSuites + dhePskSuites + pskCertSuites
+
+    @classmethod
+    def getPskAllSuites(cls, settings, version=None):
+        """
+        Return all ciphersuites that use any form of PSK that match settings
+        """
+        return cls._filterSuites(CipherSuite.pskAllSuites, settings, version)
 
     @staticmethod
     def canonicalCipherName(ciphersuite):
