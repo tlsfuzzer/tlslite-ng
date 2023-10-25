@@ -23,8 +23,10 @@ ALL_CIPHER_NAMES = CIPHER_NAMES + ["chacha20-poly1305_draft00",
 # Don't allow "md5" by default
 MAC_NAMES = ["sha", "sha256", "sha384", "aead"]
 ALL_MAC_NAMES = MAC_NAMES + ["md5"]
-KEY_EXCHANGE_NAMES = ["ecdhe_ecdsa", "rsa", "dhe_rsa", "ecdhe_rsa", "srp_sha",
-                      "srp_sha_rsa", "ecdh_anon", "dh_anon", "dhe_dsa"]
+KEY_EXCHANGE_NAMES = ["ecdhe_ecdsa", "rsa", "dhe_rsa", "ecdhe_rsa",
+                      "psk", "dhe_psk", "rsa_psk",
+                      "srp_sha", "srp_sha_rsa",
+                      "ecdh_anon", "dh_anon", "dhe_dsa"]
 CIPHER_IMPLEMENTATIONS = ["openssl", "pycrypto", "python"]
 CERTIFICATE_TYPES = ["x509"]
 RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
