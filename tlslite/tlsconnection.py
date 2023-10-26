@@ -35,7 +35,8 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, \
-        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
+        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange, PSKKeyExchange, \
+        RSA_PSKKeyExchange
 from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
@@ -611,6 +612,14 @@ class TLSConnection(TLSRecordLayer):
             keyExchange = ECDHE_RSAKeyExchange(cipherSuite, clientHello,
                                                serverHello, None,
                                                acceptedCurves)
+        elif cipherSuite in CipherSuite.pskSuites:
+            keyExchange = PSKKeyExchange(cipherSuite, clientHello, serverHello,
+                                         settings.pskConfigs)
+
+        elif cipherSuite in CipherSuite.pskCertSuites:
+            keyExchange = RSA_PSKKeyExchange(cipherSuite, clientHello,
+                                             serverHello, settings.pskConfigs)
+
 
         #If the server selected a certificate-based RSA ciphersuite,
         #the client finishes reading the post-ServerHello messages. If
@@ -686,6 +695,8 @@ class TLSConnection(TLSRecordLayer):
             cipherSuites += CipherSuite.getEcdheCertSuites(settings)
             cipherSuites += CipherSuite.getDheCertSuites(settings)
             cipherSuites += CipherSuite.getCertSuites(settings)
+            if settings.pskConfigs:
+                cipherSuites += CipherSuite.getPskAllSuites(settings)
             cipherSuites += CipherSuite.getDheDsaSuites(settings)
         elif anonParams:
             cipherSuites += CipherSuite.getEcdhAnonSuites(settings)
@@ -1737,7 +1748,7 @@ class TLSConnection(TLSRecordLayer):
                     self._sigHashesToList(settings,
                                           certList=serverCertChain)
                 try:
-                    KeyExchange.verifyServerKeyExchange(serverKeyExchange,
+                    keyExchange.verifyServerKeyExchange(serverKeyExchange,
                                                         publicKey,
                                                         clientRandom,
                                                         serverRandom,
