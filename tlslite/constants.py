@@ -1530,10 +1530,6 @@ class CipherSuite:
         """Provide authenticated ECDHE ciphersuites matching settings"""
         return cls._filterSuites(CipherSuite.ecdheCertSuites, settings, version)
 
-    #: RSA authentication
-    certAllSuites = srpCertSuites + certSuites + dheCertSuites + \
-        ecdheCertSuites + pskCertSuites
-
     #: ECDHE key exchange, ECDSA authentication
     ecdheEcdsaSuites = []
     ecdheEcdsaSuites.append(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256)
@@ -1590,8 +1586,6 @@ class CipherSuite:
         """Provide anonymous DH ciphersuites matching settings"""
         return cls._filterSuites(CipherSuite.anonSuites, settings, version)
 
-    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites + dhePskSuites
-
     #: anon ECDHE key exchange
     ecdhAnonSuites = []
     ecdhAnonSuites.append(TLS_ECDH_ANON_WITH_AES_256_CBC_SHA)
@@ -1640,6 +1634,13 @@ class CipherSuite:
     pskCertSuites.append(TLS_RSA_PSK_WITH_NULL_SHA)
     pskCertSuites.append(TLS_RSA_PSK_WITH_AES_128_CBC_SHA)
     pskCertSuites.append(TLS_RSA_PSK_WITH_AES_256_CBC_SHA)
+
+    #: RSA authentication
+    certAllSuites = srpCertSuites + certSuites + dheCertSuites + \
+        ecdheCertSuites + pskCertSuites
+
+    #: all ciphersuites that use ephemeral FFDH key exchange
+    dhAllSuites = dheCertSuites + anonSuites + dheDsaSuites + dhePskSuites
 
     @classmethod
     def getPskCertSuites(cls, settings, version=None):
