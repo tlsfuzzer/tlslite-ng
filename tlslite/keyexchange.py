@@ -23,7 +23,7 @@ from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
 from .utils.compat import int_types
-from .utils.codec import DecodeError
+from .utils.codec import DecodeError, Writer
 
 
 class KeyExchange(object):
@@ -1037,3 +1037,77 @@ class ECDHKeyExchange(RawDHKeyExchange):
             S = ecdhYc * private
 
             return numberToByteArray(S.x(), getPointByteSize(ecdhYc))
+
+class PSKKeyExchange(KeyExchange):
+    """Handling of pure PSK key exchange"""
+
+    def __init__(self, cipherSuite, clientHello, serverHello, psk_configs):
+        super(PSKKeyExchange, self).__init__(cipherSuite, clientHello,
+                                             serverHello)
+        self.psk_configs = psk_configs
+        self.psk_identity_hint = None
+        self.selected_identity = None
+
+    def makeServerKeyExchange(self, sigHash=None):
+        """
+        Don't create a server key exchange message.
+        """
+        # TODO: send psk hint
+        return None
+
+    def _getPSK(self, serverKeyExchange):
+        if self.psk_identity_hint:
+            raise ValueError("not finished code")
+            # iterate over PSKs in self.psk
+        else:
+            self.selected_identity = self.psk_configs[0][0]
+            return self.psk_configs[0][1]
+
+    def processServerKeyExchange(self, srvPublicKey, serverKeyExchange):
+        #self.psk_identity_hint = serverKeyExchange.psk_identity_hint
+
+        psk = self._getPSK(serverKeyExchange)
+
+        writer = Writer()
+        other_secret = bytearray(len(psk))
+        writer.add_var_bytes(other_secret, 2)
+        writer.add_var_bytes(psk, 2)
+        return writer.bytes
+
+    def makeClientKeyExchange(self):
+        clientKeyExchange = super(PSKKeyExchange, self).makeClientKeyExchange()
+        clientKeyExchange.createPSK(self.selected_identity)
+        return clientKeyExchange
+
+    @staticmethod
+    def verifyServerKeyExchange(serverKeyExchange, publicKey, clientRandom,
+                                serverRandom, validSigAlgs):
+        # there are no SKE signatures in PSK
+        pass
+
+
+class RSA_PSKKeyExchange(PSKKeyExchange):
+    def __init__(self, cipherSuite, clientHello, serverHello, psk_configs):
+        super(RSA_PSKKeyExchange, self).__init__(cipherSuite, clientHello,
+                                                 serverHello, psk_configs)
+        self.encPremasterSecret = None
+
+    def processServerKeyExchange(self, srvPublicKey, serverKeyExchange):
+        psk = self._getPSK(serverKeyExchange)
+
+        rsa_premaster_secret = getRandomBytes(48)
+        rsa_premaster_secret[0] = self.clientHello.client_version[0]
+        rsa_premaster_secret[1] = self.clientHello.client_version[1]
+
+        self.encPremasterSecret = srvPublicKey.encrypt(rsa_premaster_secret)
+
+        writer = Writer()
+        writer.add_var_bytes(rsa_premaster_secret, 2)
+        writer.add_var_bytes(psk, 2)
+        return writer.bytes
+
+    def makeClientKeyExchange(self):
+        clientKeyExchange = super(RSA_PSKKeyExchange, self)\
+                .makeClientKeyExchange()
+        clientKeyExchange.createRSA(self.encPremasterSecret)
+        return clientKeyExchange
