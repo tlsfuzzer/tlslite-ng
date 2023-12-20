@@ -30,6 +30,7 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 if m2cryptoLoaded:
     import M2Crypto
+    from M2Crypto import RSA
 
     class OpenSSL_RSAKey(RSAKey):
         def __init__(self, n=0, e=0, key_type="rsa"):
