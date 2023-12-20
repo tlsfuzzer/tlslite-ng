@@ -16,6 +16,7 @@ from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
     import M2Crypto
+    from M2Crypto import EVP
 
 class TestParsePEMKey(unittest.TestCase):
 
