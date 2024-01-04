@@ -674,6 +674,8 @@ class SNIExtension(TLSExtension):
     """
 
     ServerName = namedtuple('ServerName', 'name_type name')
+    # make the namedtuple pickleable
+    globals()[ServerName.__name__] = ServerName
 
     def __init__(self):
         """
