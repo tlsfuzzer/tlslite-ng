@@ -294,8 +294,12 @@ jobs:
         if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
         run: sudo apt-get install -y libmpfr-dev libmpc-dev
       - name: Install gmpy2
-        if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') && matrix.python-version != '3.12' }}
         run: pip install gmpy2
+      - name: Install gmpy2 on py3.12
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') && matrix.python-version == '3.12' }}
+        # for py3.12 we need pre-release version: https://github.com/aleaxit/gmpy/issues/446
+        run: pip install --pre gmpy2
       - name: Install build dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |
