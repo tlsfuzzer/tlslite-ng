@@ -29,7 +29,8 @@ def password_callback(v, prompt1='Enter private key passphrase:',
 
 
 if m2cryptoLoaded:
-    import M2Crypto
+    # pylint: disable=import-error
+    from M2Crypto.RSA import RSAError
 
     class OpenSSL_RSAKey(RSAKey):
         def __init__(self, n=0, e=0, key_type="rsa"):
@@ -84,7 +85,7 @@ if m2cryptoLoaded:
         def _call_m2crypto(self, method, param, err_msg):
             try:
                 return bytearray(method(self.rsa, bytes(param), m2.no_padding))
-            except M2Crypto.RSA.RSAError:
+            except RSAError:
                 raise ValueError(err_msg)
 
         def _raw_public_key_op_bytes(self, ciphertext):
