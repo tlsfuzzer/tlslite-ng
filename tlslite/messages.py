@@ -1371,6 +1371,8 @@ class ServerKeyExchange(HandshakeMsg):
 
     :vartype cipherSuite: int
     :cvar cipherSuite: id of ciphersuite selected in Server Hello message
+    :vartype psk_identity_hint: bytearray
+    :cvar psk_identity_hint: PSK identity hint
     :vartype srp_N: int
     :cvar srp_N: SRP protocol prime
     :vartype srp_N_len: int
@@ -1444,6 +1446,8 @@ class ServerKeyExchange(HandshakeMsg):
         # signature hash algorithm and signing algorithm for TLSv1.2
         self.hashAlg = 0
         self.signAlg = 0
+        # identity hint used in PSK ciphersuites
+        self.psk_identity_hint = None
 
     def __repr__(self):
         ret = "ServerKeyExchange(cipherSuite=CipherSuite.{0}, version={1}"\
@@ -1458,6 +1462,8 @@ class ServerKeyExchange(HandshakeMsg):
         if self.signAlg != 0:
             ret += ", hashAlg={0}, signAlg={1}".format(
                 self.hashAlg, self.signAlg)
+        if self.psk_identity_hint is not None:
+            ret += ", psk_identity_hint={0!r}".format(self.psk_identity_hint)
         if self.signature != bytearray(0):
             ret += ", signature={0!r}".format(self.signature)
         ret += ")"
@@ -1500,6 +1506,11 @@ class ServerKeyExchange(HandshakeMsg):
         :param parser: parser to read data from
         """
         parser.startLengthCheck(3)
+        if self.cipherSuite in CipherSuite.pskAllSuites:
+            # all PSK SKE's start with hint, and then optionally have
+            # DHE or ECDHE params
+            self.psk_identity_hint = parser.getVarBytes(2)
+
         if self.cipherSuite in CipherSuite.srpAllSuites:
             self.srp_N_len = parser.get(2)
             self.srp_N = bytesToNumber(parser.getFixBytes(self.srp_N_len))
@@ -1521,12 +1532,18 @@ class ServerKeyExchange(HandshakeMsg):
             assert self.curve_type == 3
             self.named_curve = parser.get(2)
             self.ecdh_Ys = parser.getVarBytes(1)
+        elif self.cipherSuite in CipherSuite.pskSuites or \
+                self.cipherSuite in CipherSuite.pskCertSuites:
+            # no additional parameters
+            pass
         else:
             raise AssertionError()
 
-        if self.cipherSuite in CipherSuite.certAllSuites or\
+        # PSK ciphersuites don't sign SKE, not even the RSA_PSK ones
+        if self.cipherSuite not in CipherSuite.pskAllSuites and (\
+                self.cipherSuite in CipherSuite.certAllSuites or\
                 self.cipherSuite in CipherSuite.ecdheEcdsaSuites or\
-                self.cipherSuite in CipherSuite.dheDsaSuites:
+                self.cipherSuite in CipherSuite.dheDsaSuites):
             if self.version == (3, 3):
                 self.hashAlg = parser.get(1)
                 self.signAlg = parser.get(1)
@@ -1667,6 +1684,20 @@ class ClientKeyExchange(HandshakeMsg):
         self.dh_Yc = 0
         self.ecdh_Yc = bytearray(0)
         self.encryptedPreMasterSecret = bytearray(0)
+        self.psk_identity = bytearray(0)
+
+    def createPSK(self, psk_identity):
+        """
+        Set the PSK identity used.
+
+        returns self
+
+        :type psk_identity: bytearray
+        :param psk_identity: Used PSK identity
+        :rtype ClientKeyExchange
+        """
+        self.psk_identity = psk_identity
+        return self
 
     def createSRP(self, srp_A):
         """
@@ -1753,9 +1784,13 @@ class ClientKeyExchange(HandshakeMsg):
         :rtype: bytearray
         """
         w = Writer()
+        if self.cipherSuite in CipherSuite.pskAllSuites:
+            w.add_var_bytes(self.psk_identity, 2)
+
         if self.cipherSuite in CipherSuite.srpAllSuites:
             w.addVarSeq(numberToByteArray(self.srp_A), 1, 2)
-        elif self.cipherSuite in CipherSuite.certSuites:
+        elif self.cipherSuite in CipherSuite.certSuites or \
+                self.cipherSuite in CipherSuite.pskCertSuites:
             if self.version in ((3, 1), (3, 2), (3, 3)):
                 w.addVarSeq(self.encryptedPreMasterSecret, 1, 2)
             elif self.version == (3, 0):
@@ -1766,6 +1801,8 @@ class ClientKeyExchange(HandshakeMsg):
             w.addVarSeq(numberToByteArray(self.dh_Yc), 1, 2)
         elif self.cipherSuite in CipherSuite.ecdhAllSuites:
             w.addVarSeq(self.ecdh_Yc, 1, 1)
+        elif self.cipherSuite in CipherSuite.pskSuites:
+            pass
         else:
             raise AssertionError()
         return self.postWrite(w)
