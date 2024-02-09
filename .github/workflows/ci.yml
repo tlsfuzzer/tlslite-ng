@@ -42,7 +42,7 @@ jobs:
             python-version: '3.11'
           - name: py3.12
             os: ubuntu-latest
-            python-version: '3.12.0-beta.4'
+            python-version: '3.12'
           - name: py2.6
             os: ubuntu-latest
             container: centos:6
@@ -148,6 +148,10 @@ jobs:
             os: ubuntu-latest
             python-version: '3.11'
             opt-deps: ['gmpy2']
+          - name: py3.12 with gmpy2
+            os: ubuntu-latest
+            python-version: '3.12'
+            opt-deps: ['gmpy2']
           # finally test with multiple dependencies installed at the same time
           - name: py2.7 with m2crypto, pycrypto, gmpy, and gmpy2
             os: ubuntu-20.04
@@ -177,6 +181,11 @@ jobs:
             os: ubuntu-latest
             python-version: '3.11'
             # gmpy doesn't build with 3.11
+            opt-deps: ['m2crypto', 'gmpy2']
+          - name: py3.12 with m2crypto, gmpy, and gmpy2
+            os: ubuntu-latest
+            python-version: '3.12'
+            # gmpy doesn't build with 3.12
             # coverage to codeclimate can be submitted just once
             opt-deps: ['m2crypto', 'gmpy2', 'codeclimate']
     steps:
@@ -285,8 +294,12 @@ jobs:
         if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
         run: sudo apt-get install -y libmpfr-dev libmpc-dev
       - name: Install gmpy2
-        if: ${{ contains(matrix.opt-deps, 'gmpy2') }}
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') && matrix.python-version != '3.12' }}
         run: pip install gmpy2
+      - name: Install gmpy2 on py3.12
+        if: ${{ contains(matrix.opt-deps, 'gmpy2') && matrix.python-version == '3.12' }}
+        # for py3.12 we need pre-release version: https://github.com/aleaxit/gmpy/issues/446
+        run: pip install --pre gmpy2
       - name: Install build dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |

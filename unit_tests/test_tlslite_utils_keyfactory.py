@@ -16,6 +16,7 @@ from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
     import M2Crypto
+    from M2Crypto.EVP import EVPError
 
 class TestParsePEMKey(unittest.TestCase):
 
@@ -173,8 +174,10 @@ class TestParsePEMKey(unittest.TestCase):
 
         # XXX doesn't handle files without newlines
         # old version of M2Crypto return a Null, in Python3 it raises exception
-        if M2Crypto.version_info >= (0, 28, 0):
-            exp = M2Crypto.EVP.EVPError
+        # M2Crypto 0.40.0 dropped `version_info` attribute
+        if not hasattr(M2Crypto, 'version_info') or \
+                M2Crypto.version_info >= (0, 28, 0):
+            exp = EVPError
         else:
             exp = SyntaxError
         with self.assertRaises(exp):

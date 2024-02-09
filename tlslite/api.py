@@ -21,7 +21,7 @@ from .integration.tlssocketservermixin import TLSSocketServerMixIn
 try:
     from .integration.tlsasyncdispatchermixin import TLSAsyncDispatcherMixIn
 except ModuleNotFoundError:
-    # asyncore was removed in 3.12, I don't use use it, so don't know how
+    # asyncore was removed in 3.12, I don't use it, so don't know how
     # to fix it
     pass
 from .integration.pop3_tls import POP3_TLS
