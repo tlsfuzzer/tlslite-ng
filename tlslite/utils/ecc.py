@@ -11,25 +11,23 @@ import ecdsa
 
 def decodeX962Point(data, curve=ecdsa.NIST256p):
     """Decode a point from a X9.62 encoding"""
-    parser = Parser(data)
-    encFormat = parser.get(1)
-    if encFormat != 4:
-        raise DecodeError("Not an uncompressed point encoding")
-    bytelength = getPointByteSize(curve)
-    xCoord = bytesToNumber(parser.getFixBytes(bytelength))
-    yCoord = bytesToNumber(parser.getFixBytes(bytelength))
-    if parser.getRemainingLength():
+    try:
+        abstractPoint = ecdsa.ellipticcurve.AbstractPoint().from_bytes(curve.curve, data)
+        point = ecdsa.ellipticcurve.Point(curve.curve, 
+                                          abstractPoint[0], 
+                                          abstractPoint[1]).from_bytes(curve.curve, data)
+    except:
         raise DecodeError("Invalid length of point encoding for curve")
-    return ecdsa.ellipticcurve.Point(curve.curve, xCoord, yCoord)
+
+    return point
 
 
 def encodeX962Point(point):
     """Encode a point in X9.62 format"""
-    bytelength = numBytes(point.curve().p())
+
     writer = Writer()
     writer.add(4, 1)
-    writer.bytes += numberToByteArray(point.x(), bytelength)
-    writer.bytes += numberToByteArray(point.y(), bytelength)
+    writer.bytes += point.to_bytes()
     return writer.bytes
 
 def getCurveByName(curveName):
@@ -52,20 +50,22 @@ def getCurveByName(curveName):
 
 def getPointByteSize(point):
     """Convert the point or curve bit size to bytes"""
-    curveMap = {ecdsa.NIST256p.curve: 256//8,
-                ecdsa.NIST384p.curve: 384//8,
-                ecdsa.NIST521p.curve: (521+7)//8,
-                ecdsa.SECP256k1.curve: 256//8,
-                ecdsa.BRAINPOOLP256r1.curve: 256//8,
-                ecdsa.BRAINPOOLP384r1.curve: 384//8,
-                ecdsa.BRAINPOOLP512r1.curve: 512//8}
-    if ecdsaAllCurves:
-        curveMap[ecdsa.NIST224p.curve] = 224//8
-        curveMap[ecdsa.NIST192p.curve] = 192//8
+    print(len(point.to_bytes()))
+    return ecdsa.ellipticcurve.bytes_to_int(point.to_bytes())
+    # curveMap = {ecdsa.NIST256p.curve: 256//8,
+    #             ecdsa.NIST384p.curve: 384//8,
+    #             ecdsa.NIST521p.curve: (521+7)//8,
+    #             ecdsa.SECP256k1.curve: 256//8,
+    #             ecdsa.BRAINPOOLP256r1.curve: 256//8,
+    #             ecdsa.BRAINPOOLP384r1.curve: 384//8,
+    #             ecdsa.BRAINPOOLP512r1.curve: 512//8}
+    # if ecdsaAllCurves:
+    #     curveMap[ecdsa.NIST224p.curve] = 224//8
+    #     curveMap[ecdsa.NIST192p.curve] = 192//8
 
-    if hasattr(point, 'curve'):
-        if callable(point.curve):
-            return curveMap[point.curve()]
-        else:
-            return curveMap[point.curve]
-    raise ValueError("Parameter must be a curve or point on curve")
+    # if hasattr(point, 'curve'):
+    #     if callable(point.curve):
+    #         return curveMap[point.curve()]
+    #     else:
+    #         return curveMap[point.curve]
+    # raise ValueError("Parameter must be a curve or point on curve")
