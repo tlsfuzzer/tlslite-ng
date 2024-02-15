@@ -13,8 +13,7 @@ from .errors import TLSInsufficientSecurity, TLSUnknownPSKIdentity, \
 from .messages import ServerKeyExchange, ClientKeyExchange, CertificateVerify
 from .constants import SignatureAlgorithm, HashAlgorithm, CipherSuite, \
         ExtensionType, GroupName, ECCurveType, SignatureScheme
-from .utils.ecc import decodeX962Point, encodeX962Point, getCurveByName, \
-        getPointByteSize
+from .utils.ecc import getCurveByName, getPointByteSize
 from .utils.rsakey import RSAKey
 from .utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
         numBits, numberToByteArray, divceil, numBytes, secureHash
@@ -23,7 +22,7 @@ from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
 from .utils.compat import int_types
-from .utils.codec import DecodeError
+from .utils.codec import DecodeError, Writer
 
 
 class KeyExchange(object):
@@ -706,7 +705,15 @@ class AECDHKeyExchange(KeyExchange):
 
         kex = ECDHKeyExchange(self.group_id, self.serverHello.server_version)
         self.ecdhXs = kex.get_random_private_key()
-        ecdhYs = kex.calc_public_value(self.ecdhXs)
+
+        if isinstance(self.ecdhXs, ecdsa.keys.SigningKey):
+            ecdhYs = bytearray(
+                self.ecdhXs.get_verifying_key().to_string(
+                    encoding = 'uncompressed'
+                    )
+                )
+        else:
+            ecdhYs = kex.calc_public_value(self.ecdhXs)
 
         version = self.serverHello.server_version
         serverKeyExchange = ServerKeyExchange(self.cipherSuite, version)
@@ -742,7 +749,14 @@ class AECDHKeyExchange(KeyExchange):
         kex = ECDHKeyExchange(serverKeyExchange.named_curve,
                               self.serverHello.server_version)
         ecdhXc = kex.get_random_private_key()
-        self.ecdhYc = kex.calc_public_value(ecdhXc)
+        if isinstance(ecdhXc, ecdsa.keys.SigningKey):
+            self.ecdhYc = bytearray(
+                ecdhXc.get_verifying_key().to_string(
+                    encoding = 'uncompressed'
+                    )
+                )
+        else:
+            self.ecdhYc = kex.calc_public_value(ecdhXc)
         return kex.calc_shared_key(ecdhXc, ecdh_Ys)
 
     def makeClientKeyExchange(self):
@@ -999,7 +1013,7 @@ class ECDHKeyExchange(RawDHKeyExchange):
                 return getRandomBytes(X448_ORDER_SIZE)
         else:
             curve = getCurveByName(GroupName.toStr(self.group))
-            return ecdsa.util.randrange(curve.generator.order())
+            return ecdsa.keys.SigningKey.generate(curve)
 
     def _get_fun_gen_size(self):
         """Return the function and generator for X25519/X448 KEX."""
@@ -1015,10 +1029,14 @@ class ECDHKeyExchange(RawDHKeyExchange):
             return fun(private, generator)
         else:
             curve = getCurveByName(GroupName.toStr(self.group))
-            return encodeX962Point(curve.generator * private)
+            point = curve.generator * private
+            return bytearray(point.to_bytes('uncompressed'))
 
     def calc_shared_key(self, private, peer_share):
         """Calculate the shared key,"""
+        if isinstance(private, ecdsa.keys.SigningKey):
+            private = bytesToNumber(private.to_string())
+
         if self.group in self._x_groups:
             fun, _, size = self._get_fun_gen_size()
             if len(peer_share) != size:
@@ -1026,14 +1044,16 @@ class ECDHKeyExchange(RawDHKeyExchange):
             S = fun(private, peer_share)
             self._non_zero_check(S)
             return S
-        else:
-            curve = getCurveByName(GroupName.toRepr(self.group))
-            try:
-                ecdhYc = decodeX962Point(peer_share,
-                                         curve)
-            except (AssertionError, DecodeError):
-                raise TLSIllegalParameterException("Invalid ECC point")
 
-            S = ecdhYc * private
+        curve = getCurveByName(GroupName.toRepr(self.group))
+        try:
+            abstractPoint = ecdsa.ellipticcurve.AbstractPoint()
+            point = abstractPoint.from_bytes(curve.curve, peer_share)
+            ecdhYc = ecdsa.ellipticcurve.Point(
+                curve.curve, point[0], point[1])
+        except (AssertionError, DecodeError):
+            raise TLSIllegalParameterException("Invalid ECC point")
 
-            return numberToByteArray(S.x(), getPointByteSize(ecdhYc))
+        S = ecdhYc * private
+
+        return numberToByteArray(S.x(), getPointByteSize(ecdhYc))

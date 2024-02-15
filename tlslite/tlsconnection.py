@@ -1179,7 +1179,11 @@ class TLSConnection(TLSRecordLayer):
         """Generate KeyShareEntry object from randomly selected private value.
         """
         kex = cls._getKEX(group, version)
-        private = kex.get_random_private_key()
+        key = kex.get_random_private_key()
+        if isinstance(key, ecdsa.keys.SigningKey):
+            private = bytesToNumber(key.to_string())
+        else:
+            private = key
         share = kex.calc_public_value(private)
         return KeyShareEntry().create(group, share, private)
 

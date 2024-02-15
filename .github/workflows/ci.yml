@@ -3,8 +3,6 @@ name: GitHub CI
 on:
   push:
     branches:
-      - master
-      - tlslite-ng-0.7
   pull_request:
 
 jobs:
@@ -275,9 +273,12 @@ jobs:
           wget https://files.pythonhosted.org/packages/3b/7e/293d19ccd106119e35db4bf3e111b1895098f618b455b758aa636496cf03/setuptools-28.8.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/83/53/e120833aa2350db333df89a40dea3b310dd9dabf6f29eaa18934a597dc79/wheel-0.30.0a0-py2.py3-none-any.whl
           pip install setuptools-28.8.0-py2.py3-none-any.whl wheel-0.30.0a0-py2.py3-none-any.whl
-      - name: Install M2Crypto
-        if: ${{ contains(matrix.opt-deps, 'm2crypto') }}
-        run: pip install --pre m2crypto
+      - name: Install M2Crypto for python 2.7
+        if: ${{ contains(matrix.opt-deps, 'm2crypto') && matrix.python-version == '2.7' }}
+        run: pip install M2Crypto==0.37.1
+      - name: Install M2Crypto for python
+        if: ${{ contains(matrix.opt-deps, 'm2crypto') && matrix.python-version != '2.7'  }}
+        run: pip install --pre M2Crypto
       - name: Install tackpy
         if: ${{ contains(matrix.opt-deps, 'tackpy') }}
         run: pip install tackpy
