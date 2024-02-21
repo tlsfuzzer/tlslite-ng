@@ -3,10 +3,9 @@
 # See the LICENSE file for legal information regarding use of this file.
 """Methods for dealing with ECC points"""
 
-from .codec import Parser, Writer, DecodeError
-from .cryptomath import bytesToNumber, numberToByteArray, numBytes
-from .compat import ecdsaAllCurves, bytes_to_int
 import ecdsa
+from .compat import ecdsaAllCurves
+
 
 def getCurveByName(curveName):
     """Return curve identified by curveName"""
