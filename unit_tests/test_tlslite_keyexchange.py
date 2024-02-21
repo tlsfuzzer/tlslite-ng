@@ -27,7 +27,7 @@ from tlslite.errors import TLSLocalAlert, TLSIllegalParameterException, \
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
 from tlslite.utils.keyfactory import parsePEMKey
-from tlslite.utils.codec import Parser
+from tlslite.utils.codec import Parser, Writer
 from tlslite.utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
         numberToByteArray, isPrime, numBits
 from tlslite.mathtls import makeX, makeU, makeK, goodGroupParameters
@@ -1952,8 +1952,15 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
         curve = getCurveByName(curveName)
         generator = curve.generator
         cln_Xc = ecdsa.util.randrange(generator.order())
-        cln_Ys = decodeX962Point(srv_key_ex.ecdh_Ys, curve)
-        cln_Yc = encodeX962Point(generator * cln_Xc)
+        abstractPoint = ecdsa.ellipticcurve.AbstractPoint().from_bytes(curve.curve, srv_key_ex.ecdh_Ys)
+        cln_Ys = ecdsa.ellipticcurve.Point(curve.curve,
+                                        abstractPoint[0],
+                                        abstractPoint[1]).from_bytes(curve.curve, srv_key_ex.ecdh_Ys)
+        point = generator * cln_Xc
+        writer = Writer()
+        writer.add(4, 1)
+        writer.bytes += point.to_bytes()
+        cln_Yc = writer.bytes
 
         cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
         cln_key_ex.createECDH(cln_Yc)
@@ -1980,9 +1987,12 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
         curve = getCurveByName(curveName)
         generator = curve.generator
         cln_Xc = ecdsa.util.randrange(generator.order())
-        cln_Ys = decodeX962Point(srv_key_ex.ecdh_Ys, curve)
-        cln_Yc = encodeX962Point(generator * cln_Xc)
-
+        point = generator * cln_Xc
+        writer = Writer()
+        writer.add(4, 1)
+        writer.bytes += point.to_bytes()
+        cln_Yc = writer.bytes
+        
         cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
         cln_key_ex.createECDH(cln_Yc)
 

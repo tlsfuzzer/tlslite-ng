@@ -998,7 +998,7 @@ class ECDHKeyExchange(RawDHKeyExchange):
                 return getRandomBytes(X448_ORDER_SIZE)
         else:
             curve = getCurveByName(GroupName.toStr(self.group))
-            return ecdsa.keys.SigningKey.generate(curve)
+            return ecdsa.util.randrange(curve.generator.order())
 
     def _get_fun_gen_size(self):
         """Return the function and generator for X25519/X448 KEX."""
