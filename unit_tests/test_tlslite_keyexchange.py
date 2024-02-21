@@ -34,8 +34,7 @@ from tlslite.mathtls import makeX, makeU, makeK, goodGroupParameters
 from tlslite.handshakehashes import HandshakeHashes
 from tlslite import VerifierDB
 from tlslite.extensions import SupportedGroupsExtension, SNIExtension
-from tlslite.utils.ecc import getCurveByName, decodeX962Point, encodeX962Point,\
-        getPointByteSize
+from tlslite.utils.ecc import getCurveByName, getPointByteSize
 from tlslite.utils.compat import a2b_hex
 import ecdsa
 from operator import mul
