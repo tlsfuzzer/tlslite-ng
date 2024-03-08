@@ -22,8 +22,7 @@ from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
 from .utils.compat import int_types
-from .utils.codec import DecodeError, Writer
-
+from .utils.codec import DecodeError
 
 class KeyExchange(object):
     """
@@ -1024,6 +1023,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
 
     def calc_public_value(self, private):
         """Calculate public value for given private key."""
+        if isinstance(private, ecdsa.keys.SigningKey):
+            private = bytesToNumber(private.to_string())
         if self.group in self._x_groups:
             fun, generator, _ = self._get_fun_gen_size()
             return fun(private, generator)
@@ -1034,13 +1035,13 @@ class ECDHKeyExchange(RawDHKeyExchange):
 
     def calc_shared_key(self, private, peer_share):
         """Calculate the shared key,"""
-        if isinstance(private, ecdsa.keys.SigningKey):
-            private = bytesToNumber(private.to_string())
 
         if self.group in self._x_groups:
             fun, _, size = self._get_fun_gen_size()
             if len(peer_share) != size:
                 raise TLSIllegalParameterException("Invalid key share")
+            if isinstance(private, ecdsa.keys.SigningKey):
+                private = bytesToNumber(private.to_string())
             S = fun(private, peer_share)
             self._non_zero_check(S)
             return S
@@ -1051,9 +1052,15 @@ class ECDHKeyExchange(RawDHKeyExchange):
             point = abstractPoint.from_bytes(curve.curve, peer_share)
             ecdhYc = ecdsa.ellipticcurve.Point(
                 curve.curve, point[0], point[1])
+            
         except (AssertionError, DecodeError):
             raise TLSIllegalParameterException("Invalid ECC point")
-
+        if isinstance(private, ecdsa.keys.SigningKey):
+            ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
+            ecdh.load_received_public_key_bytes(peer_share)
+            return bytearray(ecdh.generate_sharedsecret_bytes())
+        if isinstance(private, ecdsa.keys.SigningKey):
+            private = bytesToNumber(private.to_string())
         S = ecdhYc * private
 
         return numberToByteArray(S.x(), getPointByteSize(ecdhYc))
