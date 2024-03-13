@@ -27,15 +27,14 @@ from tlslite.errors import TLSLocalAlert, TLSIllegalParameterException, \
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
 from tlslite.utils.keyfactory import parsePEMKey
-from tlslite.utils.codec import Parser
+from tlslite.utils.codec import Parser, Writer
 from tlslite.utils.cryptomath import bytesToNumber, getRandomBytes, powMod, \
-        numberToByteArray, isPrime, numBits
+        numberToByteArray, isPrime, numBytes
 from tlslite.mathtls import makeX, makeU, makeK, goodGroupParameters
 from tlslite.handshakehashes import HandshakeHashes
 from tlslite import VerifierDB
 from tlslite.extensions import SupportedGroupsExtension, SNIExtension
-from tlslite.utils.ecc import getCurveByName, decodeX962Point, encodeX962Point,\
-        getPointByteSize
+from tlslite.utils.ecc import getCurveByName, getPointByteSize
 from tlslite.utils.compat import a2b_hex
 import ecdsa
 from operator import mul
@@ -1941,7 +1940,6 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
 
     def test_ECDHE_key_exchange(self):
         srv_key_ex = self.keyExchange.makeServerKeyExchange('sha1')
-
         KeyExchange.verifyServerKeyExchange(srv_key_ex,
                                             self.srv_pub_key,
                                             self.client_hello.random,
@@ -1953,10 +1951,15 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
         curve = getCurveByName(curveName)
         generator = curve.generator
         cln_Xc = ecdsa.util.randrange(generator.order())
-        cln_Ys = decodeX962Point(srv_key_ex.ecdh_Ys, curve)
-        cln_Yc = encodeX962Point(generator * cln_Xc)
+        abstractPoint = ecdsa.ellipticcurve.AbstractPoint().from_bytes(curve.curve, srv_key_ex.ecdh_Ys)
+        cln_Ys = ecdsa.ellipticcurve.Point(curve.curve,
+                                        abstractPoint[0],
+                                        abstractPoint[1])
+        point = generator * cln_Xc
+        cln_Yc = point.to_bytes('uncompressed')
 
         cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
+
         cln_key_ex.createECDH(cln_Yc)
 
         cln_S = cln_Ys * cln_Xc
@@ -1981,9 +1984,9 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
         curve = getCurveByName(curveName)
         generator = curve.generator
         cln_Xc = ecdsa.util.randrange(generator.order())
-        cln_Ys = decodeX962Point(srv_key_ex.ecdh_Ys, curve)
-        cln_Yc = encodeX962Point(generator * cln_Xc)
-
+        point = generator * cln_Xc
+        cln_Yc = bytearray(point.to_bytes('uncompressed'))
+        
         cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
         cln_key_ex.createECDH(cln_Yc)
 
