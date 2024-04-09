@@ -396,6 +396,10 @@ class HandshakeSettings(object):
         # resumed connections (as tickets are single-use in TLS 1.3
         self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
+        # data needed for the signature algorithms cert extension
+        self.more_sig_schemes_cert = []
+        self.ecdsaSigHashesCert = []
+        self.rsaSigHashesCert = []
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -675,6 +679,10 @@ class HandshakeSettings(object):
         other.max_early_data = self.max_early_data
         other.ticket_count = self.ticket_count
         other.record_size_limit = self.record_size_limit
+        # signature algorithms cert
+        other.more_sig_schemes_cert = self.more_sig_schemes_cert
+        other.ecdsaSigHashesCert = self.ecdsaSigHashesCert
+        other.rsaSigHashesCert = self.rsaSigHashesCert
 
     @staticmethod
     def _remove_all_matches(values, needle):

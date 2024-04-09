@@ -2830,9 +2830,15 @@ class TLSConnection(TLSRecordLayer):
                 cr_settings.dsaSigHashes = []
                 valid_sig_algs = self._sigHashesToList(cr_settings)
                 assert valid_sig_algs
-
+                cr_settings.more_sig_schemes = cr_settings.more_sig_schemes_cert
+                cr_settings.ecdsaSigHashes = cr_settings.ecdsaSigHashesCert
+                cr_settings.rsaSigHashes = cr_settings.rsaSigHashesCert
+                valid_sig_algs_cert = self._sigHashesToList(cr_settings)
                 certificate_request = CertificateRequest(self.version)
                 certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
+                if valid_sig_algs_cert:
+                    sig_algs_cert_ext = SignatureAlgorithmsCertExtension().create(valid_sig_algs_cert)
+                    certificate_request.addExtension(sig_algs_cert_ext)
                 self._queue_message(certificate_request)
 
             certificate = Certificate(CertificateType.x509, self.version)
