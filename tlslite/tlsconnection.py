@@ -2830,13 +2830,11 @@ class TLSConnection(TLSRecordLayer):
                 cr_settings.dsaSigHashes = []
                 valid_sig_algs = self._sigHashesToList(cr_settings)
                 assert valid_sig_algs
-                cr_settings.more_sig_schemes = cr_settings.more_sig_schemes_cert
-                cr_settings.ecdsaSigHashes = cr_settings.ecdsaSigHashesCert
-                cr_settings.rsaSigHashes = cr_settings.rsaSigHashesCert
-                valid_sig_algs_cert = self._sigHashesToList(cr_settings)
+                valid_sig_algs_cert = self._sigHashesToList(cr_settings, sig_algs_cert=True)
                 certificate_request = CertificateRequest(self.version)
                 certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
-                if valid_sig_algs_cert:
+                # if there is no difference the extension can be omitted
+                if set(valid_sig_algs_cert) != set(valid_sig_algs):
                     sig_algs_cert_ext = SignatureAlgorithmsCertExtension().create(valid_sig_algs_cert)
                     certificate_request.addExtension(sig_algs_cert_ext)
                 self._queue_message(certificate_request)
@@ -4674,7 +4672,7 @@ class TLSConnection(TLSRecordLayer):
 
     @staticmethod
     def _sigHashesToList(settings, privateKey=None, certList=None,
-                         version=(3, 3)):
+                         version=(3, 3), sig_algs_cert=False):
         """Convert list of valid signature hashes to array of tuples"""
         certType = None
         publicKey = None
@@ -4685,7 +4683,9 @@ class TLSConnection(TLSRecordLayer):
         sigAlgs = []
 
         if not certType or certType == "Ed25519" or certType == "Ed448":
-            for sig_scheme in settings.more_sig_schemes:
+            sig_schemes = settings.more_sig_schemes if not sig_algs_cert else \
+                settings.more_sig_schemes_cert 
+            for sig_scheme in sig_schemes:
                 if version < (3, 3):
                     # EdDSA is supported only in TLS 1.2 and 1.3
                     continue
@@ -4694,7 +4694,9 @@ class TLSConnection(TLSRecordLayer):
                 sigAlgs.append(getattr(SignatureScheme, sig_scheme.lower()))
 
         if not certType or certType == "ecdsa":
-            for hashName in settings.ecdsaSigHashes:
+            hash_names = settings.ecdsaSigHashes if not sig_algs_cert else \
+                settings.ecdsa_sig_hashes_cert
+            for hashName in hash_names:
                 # only SHA256, SHA384 and SHA512 are allowed in TLS 1.3
                 if version > (3, 3) and hashName in ("sha1", "sha224"):
                     continue
@@ -4719,12 +4721,15 @@ class TLSConnection(TLSRecordLayer):
                                 SignatureAlgorithm.dsa))
 
         if not certType or certType in ("rsa", "rsa-pss"):
-            for schemeName in settings.rsaSchemes:
+            rsa_schemes = settings.rsaSchemes if not sig_algs_cert else \
+                settings.rsa_sig_schemes_cert
+            for schemeName in rsa_schemes:
                 # pkcs#1 v1.5 signatures are not allowed in TLS 1.3
                 if version > (3, 3) and schemeName == "pkcs1":
                     continue
-
-                for hashName in settings.rsaSigHashes:
+                rsa_sig_hashes = settings.rsaSigHashes if not sig_algs_cert else \
+                    settings.rsa_sig_hashes_cert
+                for hashName in rsa_sig_hashes:
                     # rsa-pss certificates can't be used to make PKCS#1 v1.5
                     # signatures
                     if certType == "rsa-pss" and schemeName == "pkcs1":
