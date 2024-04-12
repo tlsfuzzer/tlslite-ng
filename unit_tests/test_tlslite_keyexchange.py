@@ -2523,13 +2523,13 @@ class TestRawDHKeyExchange(unittest.TestCase):
         kex = RawDHKeyExchange(None, None)
 
         with self.assertRaises(NotImplementedError):
-            kex.calc_public_value(None)
+            kex.calc_public_value(None, None)
 
     def test_calc_shared_value(self):
         kex = RawDHKeyExchange(None, None)
 
         with self.assertRaises(NotImplementedError):
-            kex.calc_shared_key(None, None)
+            kex.calc_shared_key(None, None, None)
 
 
 class TestFFDHKeyExchange(unittest.TestCase):

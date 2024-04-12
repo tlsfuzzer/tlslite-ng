@@ -744,8 +744,8 @@ class TLSConnection(TLSRecordLayer):
             shares = []
             for group_name in settings.keyShares:
                 group_id = getattr(GroupName, group_name)
-                key_share = self._genKeyShareEntry(group_id, (3, 4))
-
+                key_share = self._genKeyShareEntry(group_id, (3, 4),
+                                                   settings.ecPointFormats[0])
                 shares.append(key_share)
             # if TLS 1.3 is enabled, key_share must always be sent
             # (unless only static PSK is used)
@@ -763,7 +763,7 @@ class TLSConnection(TLSRecordLayer):
                 if cipher in CipherSuite.ecdhAllSuites), None) is not None:
             groups.extend(self._curveNamesToList(settings))
             extensions.append(ECPointFormatsExtension().\
-                              create([ECPointFormat.uncompressed]))
+                              create(settings.ecPointFormats))
         # Advertise FFDHE groups if we have DHE ciphers
         if next((cipher for cipher in cipherSuites
                  if cipher in CipherSuite.dhAllSuites), None) is not None:
@@ -838,7 +838,7 @@ class TLSConnection(TLSRecordLayer):
                                session_id, wireCipherSuites,
                                certificateTypes, 
                                srpUsername,
-                               reqTack, nextProtos is not None, 
+                               reqTack, nextProtos is not None,
                                serverName,
                                extensions=extensions)
 
@@ -915,6 +915,7 @@ class TLSConnection(TLSRecordLayer):
 
         hello_retry = None
         ext = result.getExtension(ExtensionType.supported_versions)
+
         if result.random == TLS_1_3_HRR and ext and ext.version > (3, 3):
             self.version = ext.version
             hello_retry = result
@@ -974,8 +975,16 @@ class TLSConnection(TLSRecordLayer):
                                                   "did sent the key share "
                                                   "for"):
                         yield result
-
-                key_share = self._genKeyShareEntry(group_id, (3, 4))
+                ext_negotiated = 0
+                ext_c = clientHello.getExtension(ExtensionType.ec_point_formats)
+                ext_s = hello_retry.getExtension(ExtensionType.ec_point_formats)
+                if ext_c and ext_s:
+                    ext_negotiated = None
+                    for ext in ext_c.formats:
+                        if ext in ext_s.formats and ext_negotiated is None:
+                            ext_negotiated = ext
+                key_share = self._genKeyShareEntry(group_id, (3, 4),
+                                                   ext_negotiated)
 
                 # old key shares need to be removed
                 cl_key_share_ext.client_shares = [key_share]
@@ -1175,12 +1184,12 @@ class TLSConnection(TLSRecordLayer):
         return ECDHKeyExchange(group, version)
 
     @classmethod
-    def _genKeyShareEntry(cls, group, version):
+    def _genKeyShareEntry(cls, group, version, ext_negotiated):
         """Generate KeyShareEntry object from randomly selected private value.
         """
         kex = cls._getKEX(group, version)
         private = kex.get_random_private_key()
-        share = kex.calc_public_value(private)
+        share = kex.calc_public_value(private, ext_negotiated)
         return KeyShareEntry().create(group, share, private)
 
     @staticmethod
@@ -1212,9 +1221,21 @@ class TLSConnection(TLSRecordLayer):
                 raise TLSIllegalParameterException("Server selected not "
                                                    "advertised group.")
             kex = self._getKEX(sr_kex.group, self.version)
-
+            ext_supported = set([0])
+            ext_c = clientHello.getExtension(ExtensionType.ec_point_formats)
+            ext_s = serverHello.getExtension(ExtensionType.ec_point_formats)
+            if ext_c and ext_s:
+                ext_supported = set()
+                for ext in ext_c.formats:
+                    if ext in ext_s.formats:
+                        ext_supported.add(ext)
+            ext_supported = set()
+            for ext in clientHello.getExtension(ExtensionType.ec_point_formats).formats:
+                if ext in serverHello.getExtension(ExtensionType.ec_point_formats).formats:
+                    ext_supported.add(ext)
             shared_sec = kex.calc_shared_key(cl_kex.private,
-                                             sr_kex.key_exchange)
+                                             sr_kex.key_exchange,
+                                             ext_supported)
         else:
             shared_sec = bytearray(prf_size)
 
@@ -1855,8 +1876,8 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      clientRandom,
                                                      serverRandom)
-        self._calcPendingStates(cipherSuite, masterSecret, 
-                                clientRandom, serverRandom, 
+        self._calcPendingStates(cipherSuite, masterSecret,
+                                clientRandom, serverRandom,
                                 cipherImplementations)
 
         #Exchange ChangeCipherSpec and Finished messages
@@ -2270,8 +2291,8 @@ class TLSConnection(TLSRecordLayer):
         if clientHello.getExtension(ExtensionType.ec_point_formats):
             # even though the selected cipher may not use ECC, client may want
             # to send a CA certificate with ECDSA...
-            extensions.append(ECPointFormatsExtension().create(
-                [ECPointFormat.uncompressed]))
+            extensions.append(ECPointFormatsExtension().
+                              create(settings.ecPointFormats))
 
         # if client sent Heartbeat extension
         if clientHello.getExtension(ExtensionType.heartbeat):
@@ -2709,11 +2730,29 @@ class TLSConnection(TLSRecordLayer):
                 (psk is None and privateKey):
             self.ecdhCurve = selected_group
             kex = self._getKEX(selected_group, version)
-            key_share = self._genKeyShareEntry(selected_group, version)
 
+            ext_negotiated = 0
+            ext_supported = set([0])
+            ext_c = clientHello.getExtension(ExtensionType.ec_point_formats)
+            if ext_c and settings.ecPointFormats:
+                ext_negotiated = None
+                ext_supported = set()
+                for ext in ext_c.formats:
+                    if ext in settings.ecPointFormats:
+                        ext_supported.add(ext)
+                        if ext_negotiated is None:
+                            ext_negotiated = ext
+                if len(ext_supported) == 0:
+                    raise TLSHandshakeFailure(
+                        "No negotiated point extension")
+
+            key_share = self._genKeyShareEntry(selected_group,
+                                               version,
+                                               ext_negotiated)
             try:
                 shared_sec = kex.calc_shared_key(key_share.private,
-                                                 cl_key_share.key_exchange)
+                                                 cl_key_share.key_exchange,
+                                                 ext_supported)
             except TLSIllegalParameterException as alert:
                 for result in self._sendError(
                         AlertDescription.illegal_parameter,

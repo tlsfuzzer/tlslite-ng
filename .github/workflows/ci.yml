@@ -80,6 +80,10 @@ jobs:
             os: ubuntu-latest
             python-version: '3.11'
             opt-deps: ['m2crypto']
+          - name: py3.11 with m2crypto
+            os: ubuntu-latest
+            python-version: '3.11'
+            opt-deps: ['m2crypto']
           - name: py2.7 with pycrypto
             os: ubuntu-20.04
             python-version: 2.7
@@ -433,7 +437,13 @@ jobs:
           COVERALLS_FLAG_NAME: ${{ matrix.name }}
           COVERALLS_PARALLEL: true
           COVERALLS_SERVICE_NAME: github
-        run: coveralls
+          PY_VERSION: ${{ matrix.python-version }}
+        run: |
+          if [[ $PY_VERSION == "2.6" ]]; then
+            COVERALLS_SKIP_SSL_VERIFY=1 coveralls
+          else
+            coveralls
+          fi
       - name: Publish coverage to Codeclimate
         if: ${{ contains(matrix.opt-deps, 'codeclimate') }}
         env:

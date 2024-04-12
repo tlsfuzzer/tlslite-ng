@@ -704,15 +704,16 @@ class AECDHKeyExchange(KeyExchange):
 
         kex = ECDHKeyExchange(self.group_id, self.serverHello.server_version)
         self.ecdhXs = kex.get_random_private_key()
+        ext_negotiated = 0
+        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if extC and extS:
+            ext_negotiated = None
+            for ext in extC.formats:
+                if ext in extS.formats and ext_negotiated is None:
+                    ext_negotiated = ext
 
-        if isinstance(self.ecdhXs, ecdsa.keys.SigningKey):
-            ecdhYs = bytearray(
-                self.ecdhXs.get_verifying_key().to_string(
-                    encoding = 'uncompressed'
-                    )
-                )
-        else:
-            ecdhYs = kex.calc_public_value(self.ecdhXs)
+        ecdhYs = kex.calc_public_value(self.ecdhXs, ext_negotiated)
 
         version = self.serverHello.server_version
         serverKeyExchange = ServerKeyExchange(self.cipherSuite, version)
@@ -730,7 +731,15 @@ class AECDHKeyExchange(KeyExchange):
             raise TLSDecodeError("No key share")
 
         kex = ECDHKeyExchange(self.group_id, self.serverHello.server_version)
-        return kex.calc_shared_key(self.ecdhXs, ecdhYc)
+        ext_supported = [0]
+        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if extC and extS:
+            ext_supported = []
+            for ext in extC.formats:
+                if ext in extS.formats:
+                    ext_supported.append(ext)
+        return kex.calc_shared_key(self.ecdhXs, ecdhYc, ext_supported)
 
     def processServerKeyExchange(self, srvPublicKey, serverKeyExchange):
         """Process the server key exchange, return premaster secret"""
@@ -748,15 +757,20 @@ class AECDHKeyExchange(KeyExchange):
         kex = ECDHKeyExchange(serverKeyExchange.named_curve,
                               self.serverHello.server_version)
         ecdhXc = kex.get_random_private_key()
-        if isinstance(ecdhXc, ecdsa.keys.SigningKey):
-            self.ecdhYc = bytearray(
-                ecdhXc.get_verifying_key().to_string(
-                    encoding = 'uncompressed'
-                    )
-                )
-        else:
-            self.ecdhYc = kex.calc_public_value(ecdhXc)
-        return kex.calc_shared_key(ecdhXc, ecdh_Ys)
+        ext_negotiated = 0
+        ext_supported = [0]
+        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if extC and extS:
+            ext_supported = []
+            for ext in extC.formats:
+                if ext in extS.formats:
+                    ext_negotiated = None
+                    ext_supported.append(ext)
+                    if ext_negotiated is None:
+                        ext_negotiated = ext
+        self.ecdhYc = kex.calc_public_value(ecdhXc, ext_negotiated)
+        return kex.calc_shared_key(ecdhXc, ecdh_Ys, ext_supported)
 
     def makeClientKeyExchange(self):
         """Make client key exchange for ECDHE"""
@@ -903,11 +917,11 @@ class RawDHKeyExchange(object):
         """
         raise NotImplementedError("Abstract class")
 
-    def calc_public_value(self, private):
+    def calc_public_value(self, private, frm_negotiated):
         """Calculate the public value from the provided private value."""
         raise NotImplementedError("Abstract class")
 
-    def calc_shared_key(self, private, peer_share):
+    def calc_shared_key(self, private, peer_share, frm_supported_):
         """Calcualte the shared key given our private and remote share value"""
         raise NotImplementedError("Abstract class")
 
@@ -940,7 +954,7 @@ class FFDHKeyExchange(RawDHKeyExchange):
         needed_bytes = divceil(paramStrength(self.prime) * 2, 8)
         return bytesToNumber(getRandomBytes(needed_bytes))
 
-    def calc_public_value(self, private):
+    def calc_public_value(self, private, frm_negotiated=None):
         """
         Calculate the public value for given private value.
 
@@ -964,7 +978,7 @@ class FFDHKeyExchange(RawDHKeyExchange):
                 "Key share does not match FFDH prime")
         return bytesToNumber(peer_share)
 
-    def calc_shared_key(self, private, peer_share):
+    def calc_shared_key(self, private, peer_share, frm_supported_=None):
         """Calculate the shared key."""
         peer_share = self._normalise_peer_share(peer_share)
         # First half of RFC 2631, Section 2.1.5. Validate the client's public
@@ -1021,20 +1035,30 @@ class ECDHKeyExchange(RawDHKeyExchange):
         else:
             return x448, bytearray(X448_G), X448_ORDER_SIZE
 
-    def calc_public_value(self, private):
+    @staticmethod
+    def _get_ext_name(ext):
+        """Get extension name from the numeric value."""
+        transform = {0: 'uncompressed', 1: 'compressed', 2: 'compressed'}
+        return transform[ext]
+
+    def calc_public_value(self, private, frm_negotiated=0):
         """Calculate public value for given private key."""
+        extension = self._get_ext_name(frm_negotiated)
         if isinstance(private, ecdsa.keys.SigningKey):
-            return private.verifying_key.to_string('uncompressed')
+            return private.verifying_key.to_string(extension)
         if self.group in self._x_groups:
             fun, generator, _ = self._get_fun_gen_size()
             return fun(private, generator)
         else:
             curve = getCurveByName(GroupName.toStr(self.group))
             point = curve.generator * private
-            return bytearray(point.to_bytes('uncompressed'))
+            return bytearray(point.to_bytes(encoding=extension))
 
-    def calc_shared_key(self, private, peer_share):
+    def calc_shared_key(self, private, peer_share, frm_supported_=set([0])):
         """Calculate the shared key,"""
+        frm_supported = set()
+        for ext in frm_supported_:
+            frm_supported.add(self._get_ext_name(ext))
 
         if self.group in self._x_groups:
             fun, _, size = self._get_fun_gen_size()
@@ -1049,7 +1073,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
         curve = getCurveByName(GroupName.toRepr(self.group))
         try:
             abstractPoint = ecdsa.ellipticcurve.AbstractPoint()
-            point = abstractPoint.from_bytes(curve.curve, peer_share)
+            point = abstractPoint.from_bytes(curve.curve, peer_share,
+                                             valid_encodings=frm_supported)
             ecdhYc = ecdsa.ellipticcurve.Point(
                 curve.curve, point[0], point[1])
 
@@ -1057,7 +1082,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
             raise TLSIllegalParameterException("Invalid ECC point")
         if isinstance(private, ecdsa.keys.SigningKey):
             ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
-            ecdh.load_received_public_key_bytes(peer_share)
+            ecdh.load_received_public_key_bytes(peer_share,
+                                                valid_encodings=frm_supported)
             return bytearray(ecdh.generate_sharedsecret_bytes())
         S = ecdhYc * private
 

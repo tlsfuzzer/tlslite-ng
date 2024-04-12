@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType
+from .constants import CertificateType, ECPointFormat
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
@@ -408,6 +408,9 @@ class HandshakeSettings(object):
         self.macNames = list(MAC_NAMES)
         self.keyExchangeNames = list(KEY_EXCHANGE_NAMES)
         self.cipherImplementations = list(CIPHER_IMPLEMENTATIONS)
+        self.ecPointFormats = [ECPointFormat.uncompressed, 
+                               ECPointFormat.ansiX962_compressed_char2,
+                               ECPointFormat.ansiX962_compressed_prime]
 
     @staticmethod
     def _sanityCheckKeySizes(other):
