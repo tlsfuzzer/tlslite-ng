@@ -4747,11 +4747,13 @@ class TLSConnection(TLSRecordLayer):
                         if certType != 'rsa-pss':
                             sigAlgs.append(getattr(SignatureScheme,
                                                    "rsa_{0}_rsae_{1}"
-                                                   .format(scheme_name, hash_name)))
+                                                   .format(scheme_name,
+                                                           hash_name)))
                         if certType != 'rsa':
                             sigAlgs.append(getattr(SignatureScheme,
                                                    "rsa_{0}_pss_{1}"
-                                                   .format(scheme_name, hash_name)))
+                                                   .format(scheme_name,
+                                                           hash_name)))
                     except AttributeError:
                         if scheme_name == 'pkcs1':
                             sigAlgs.append((getattr(HashAlgorithm, hash_name),
