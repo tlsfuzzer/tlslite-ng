@@ -1229,10 +1229,6 @@ class TLSConnection(TLSRecordLayer):
                 for ext in ext_c.formats:
                     if ext in ext_s.formats:
                         ext_supported.add(ext)
-            ext_supported = set()
-            for ext in clientHello.getExtension(ExtensionType.ec_point_formats).formats:
-                if ext in serverHello.getExtension(ExtensionType.ec_point_formats).formats:
-                    ext_supported.add(ext)
             shared_sec = kex.calc_shared_key(cl_kex.private,
                                              sr_kex.key_exchange,
                                              ext_supported)

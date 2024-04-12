@@ -5,6 +5,7 @@ on:
     branches:
     - master
     - tlslite-ng-0.7
+    - format_extension
   pull_request:
 
 jobs:

@@ -705,12 +705,12 @@ class AECDHKeyExchange(KeyExchange):
         kex = ECDHKeyExchange(self.group_id, self.serverHello.server_version)
         self.ecdhXs = kex.get_random_private_key()
         ext_negotiated = 0
-        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
-        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
-        if extC and extS:
+        ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if ext_c and ext_s:
             ext_negotiated = None
-            for ext in extC.formats:
-                if ext in extS.formats and ext_negotiated is None:
+            for ext in ext_c.formats:
+                if ext in ext_s.formats and ext_negotiated is None:
                     ext_negotiated = ext
 
         ecdhYs = kex.calc_public_value(self.ecdhXs, ext_negotiated)
@@ -732,12 +732,12 @@ class AECDHKeyExchange(KeyExchange):
 
         kex = ECDHKeyExchange(self.group_id, self.serverHello.server_version)
         ext_supported = [0]
-        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
-        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
-        if extC and extS:
+        ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if ext_c and ext_s:
             ext_supported = []
-            for ext in extC.formats:
-                if ext in extS.formats:
+            for ext in ext_c.formats:
+                if ext in ext_s.formats:
                     ext_supported.append(ext)
         return kex.calc_shared_key(self.ecdhXs, ecdhYc, ext_supported)
 
@@ -759,13 +759,13 @@ class AECDHKeyExchange(KeyExchange):
         ecdhXc = kex.get_random_private_key()
         ext_negotiated = 0
         ext_supported = [0]
-        extC = self.clientHello.getExtension(ExtensionType.ec_point_formats)
-        extS = self.serverHello.getExtension(ExtensionType.ec_point_formats)
-        if extC and extS:
+        ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+        ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+        if ext_c and ext_s:
             ext_supported = []
-            for ext in extC.formats:
-                if ext in extS.formats:
-                    ext_negotiated = None
+            for ext in ext_c.formats:
+                ext_negotiated = None
+                if ext in ext_s.formats:
                     ext_supported.append(ext)
                     if ext_negotiated is None:
                         ext_negotiated = ext
