@@ -2830,12 +2830,14 @@ class TLSConnection(TLSRecordLayer):
                 cr_settings.dsaSigHashes = []
                 valid_sig_algs = self._sigHashesToList(cr_settings)
                 assert valid_sig_algs
-                valid_sig_algs_cert = self._sigHashesToList(cr_settings, sig_algs_cert=True)
+                valid_sig_algs_cert = self._sigHashesToList(cr_settings,
+                                                            sig_algs_cert=True)
                 certificate_request = CertificateRequest(self.version)
                 certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
                 # if there is no difference the extension can be omitted
                 if set(valid_sig_algs_cert) != set(valid_sig_algs):
-                    sig_algs_cert_ext = SignatureAlgorithmsCertExtension().create(valid_sig_algs_cert)
+                    sig_algs_cert_ext = SignatureAlgorithmsCertExtension()
+                    sig_algs_cert_ext.create(valid_sig_algs_cert)
                     certificate_request.addExtension(sig_algs_cert_ext)
                 self._queue_message(certificate_request)
 
@@ -4684,7 +4686,7 @@ class TLSConnection(TLSRecordLayer):
 
         if not certType or certType == "Ed25519" or certType == "Ed448":
             sig_schemes = settings.more_sig_schemes if not sig_algs_cert else \
-                settings.more_sig_schemes_cert 
+                settings.more_sig_schemes_cert
             for sig_scheme in sig_schemes:
                 if version < (3, 3):
                     # EdDSA is supported only in TLS 1.2 and 1.3
@@ -4696,9 +4698,9 @@ class TLSConnection(TLSRecordLayer):
         if not certType or certType == "ecdsa":
             hash_names = settings.ecdsaSigHashes if not sig_algs_cert else \
                 settings.ecdsa_sig_hashes_cert
-            for hashName in hash_names:
+            for hash_name in hash_names:
                 # only SHA256, SHA384 and SHA512 are allowed in TLS 1.3
-                if version > (3, 3) and hashName in ("sha1", "sha224"):
+                if version > (3, 3) and hash_name in ("sha1", "sha224"):
                     continue
 
                 # in TLS 1.3 ECDSA key curve is bound to hash
@@ -4706,38 +4708,38 @@ class TLSConnection(TLSRecordLayer):
                     curve = publicKey.curve_name
                     matching_hash = TLSConnection._curve_name_to_hash_name(
                         curve)
-                    if hashName != matching_hash:
+                    if hash_name != matching_hash:
                         continue
 
-                sigAlgs.append((getattr(HashAlgorithm, hashName),
+                sigAlgs.append((getattr(HashAlgorithm, hash_name),
                                 SignatureAlgorithm.ecdsa))
 
         if not certType or certType == "dsa":
-            for hashName in settings.dsaSigHashes:
+            for hash_name in settings.dsaSigHashes:
                 if version > (3, 3):
                     continue
 
-                sigAlgs.append((getattr(HashAlgorithm, hashName),
+                sigAlgs.append((getattr(HashAlgorithm, hash_name),
                                 SignatureAlgorithm.dsa))
 
         if not certType or certType in ("rsa", "rsa-pss"):
             rsa_schemes = settings.rsaSchemes if not sig_algs_cert else \
                 settings.rsa_sig_schemes_cert
-            for schemeName in rsa_schemes:
+            for scheme_name in rsa_schemes:
                 # pkcs#1 v1.5 signatures are not allowed in TLS 1.3
-                if version > (3, 3) and schemeName == "pkcs1":
+                if version > (3, 3) and scheme_name == "pkcs1":
                     continue
                 rsa_sig_hashes = settings.rsaSigHashes if not sig_algs_cert else \
                     settings.rsa_sig_hashes_cert
-                for hashName in rsa_sig_hashes:
+                for hash_name in rsa_sig_hashes:
                     # rsa-pss certificates can't be used to make PKCS#1 v1.5
                     # signatures
-                    if certType == "rsa-pss" and schemeName == "pkcs1":
+                    if certType == "rsa-pss" and scheme_name == "pkcs1":
                         continue
                     try:
                         # 1024 bit keys are too small to create valid
                         # rsa-pss-SHA512 signatures
-                        if schemeName == 'pss' and hashName == 'sha512'\
+                        if scheme_name == 'pss' and hash_name == 'sha512'\
                                 and privateKey and privateKey.n < 2**2047:
                             continue
                         # advertise support for both rsaEncryption and RSA-PSS OID
@@ -4745,14 +4747,14 @@ class TLSConnection(TLSRecordLayer):
                         if certType != 'rsa-pss':
                             sigAlgs.append(getattr(SignatureScheme,
                                                    "rsa_{0}_rsae_{1}"
-                                                   .format(schemeName, hashName)))
+                                                   .format(scheme_name, hash_name)))
                         if certType != 'rsa':
                             sigAlgs.append(getattr(SignatureScheme,
                                                    "rsa_{0}_pss_{1}"
-                                                   .format(schemeName, hashName)))
+                                                   .format(scheme_name, hash_name)))
                     except AttributeError:
-                        if schemeName == 'pkcs1':
-                            sigAlgs.append((getattr(HashAlgorithm, hashName),
+                        if scheme_name == 'pkcs1':
+                            sigAlgs.append((getattr(HashAlgorithm, hash_name),
                                             SignatureAlgorithm.rsa))
                         continue
         return sigAlgs
