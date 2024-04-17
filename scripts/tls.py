@@ -399,6 +399,7 @@ def printGoodConnection(connection, seconds):
     if connection.server_cert_compression_algo:
         print("  Server compression algorithm used: {0}".format(
             connection.server_cert_compression_algo))
+    print("  Session used ec point format extension: {0}".format(connection.session.ec_point_format))
 
 def printExporter(connection, expLabel, expLength):
     if expLabel is None:
