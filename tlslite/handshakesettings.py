@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType
+from .constants import CertificateType, ECPointFormat
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
@@ -61,6 +61,8 @@ KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
+EC_POINT_FORMATS = [ECPointFormat.ansiX962_compressed_prime,
+                    ECPointFormat.uncompressed]
 
 
 class Keypair(object):
@@ -353,6 +355,10 @@ class HandshakeSettings(object):
     :vartype keyExchangeNames: list
     :ivar keyExchangeNames: Enabled key exchange types for the connection,
         influences selected cipher suites.
+
+    :vartype ec_point_formats: list
+    :ivar ec_point_formats: Enabled point format extension for
+     elliptic curves.
     """
 
     def _init_key_settings(self):
@@ -396,6 +402,7 @@ class HandshakeSettings(object):
         # resumed connections (as tickets are single-use in TLS 1.3
         self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
+        self.ec_point_formats = list(EC_POINT_FORMATS)
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -599,6 +606,12 @@ class HandshakeSettings(object):
                 not 64 <= other.record_size_limit <= 2**14 + 1:
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
+        bad_ec_ext = [i for i in other.ec_point_formats if
+                      i not in EC_POINT_FORMATS]
+        if bad_ec_ext:
+            raise ValueError("Unknown EC point format provided: "
+                             "{0}".format(bad_ec_ext))
+
         HandshakeSettings._sanityCheckEMSExtension(other)
 
     @staticmethod
@@ -667,6 +680,7 @@ class HandshakeSettings(object):
         other.sendFallbackSCSV = self.sendFallbackSCSV
         other.useEncryptThenMAC = self.useEncryptThenMAC
         other.usePaddingExtension = self.usePaddingExtension
+        other.ec_point_formats = self.ec_point_formats
         # session tickets
         other.padding_cb = self.padding_cb
         other.ticketKeys = self.ticketKeys
