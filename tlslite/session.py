@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Dave Baggett (Arcode Corporation) - canonicalCipherName
 #
@@ -72,6 +72,9 @@ class Session(object):
     :vartype tls_1_0_tickets: list
     :ivar tls_1_0_tickets: list of TLS 1.2 and earlier session tickets received
         from the server
+
+    :vartype ec_point_format: int
+    :ivar ec_point_format: used EC point format for the ECDH key exchange;
     """
 
     def __init__(self):
@@ -94,6 +97,7 @@ class Session(object):
         self.resumptionMasterSecret = bytearray(0)
         self.tickets = None
         self.tls_1_0_tickets = None
+        self.ec_point_format = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
@@ -102,7 +106,7 @@ class Session(object):
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
                resumptionMasterSecret=bytearray(0), tickets=None,
-               tls_1_0_tickets=None):
+               tls_1_0_tickets=None, ec_point_format=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -110,7 +114,7 @@ class Session(object):
         self.clientCertChain = clientCertChain
         self.serverCertChain = serverCertChain
         self.tackExt = tackExt
-        self.tackInHelloExt = tackInHelloExt  
+        self.tackInHelloExt = tackInHelloExt
         self.serverName = serverName
         self.resumable = resumable
         self.encryptThenMAC = encryptThenMAC
@@ -123,6 +127,7 @@ class Session(object):
         # NOTE we need a reference copy not a copy of object here!
         self.tickets = tickets
         self.tls_1_0_tickets = tls_1_0_tickets
+        self.ec_point_format = ec_point_format
 
     def _clone(self):
         other = Session()
@@ -145,6 +150,7 @@ class Session(object):
         other.resumptionMasterSecret = self.resumptionMasterSecret
         other.tickets = self.tickets
         other.tls_1_0_tickets = self.tls_1_0_tickets
+        other.ec_point_format = self.ec_point_format
         return other
 
     def valid(self):
@@ -167,7 +173,7 @@ class Session(object):
             return self.tackExt.tack.getTackId()
         else:
             return None
-        
+
     def getBreakSigs(self):
         if self.tackExt and self.tackExt.break_sigs:
             return self.tackExt.break_sigs
@@ -181,7 +187,7 @@ class Session(object):
         :returns: The name of the cipher used with this connection.
         """
         return CipherSuite.canonicalCipherName(self.cipherSuite)
-        
+
     def getMacName(self):
         """Get the name of the HMAC hash algo used with this connection.
 
