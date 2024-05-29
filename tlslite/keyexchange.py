@@ -766,7 +766,9 @@ class AECDHKeyExchange(KeyExchange):
         ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
         if ext_c and ext_s:
             try:
-                ext_supported = [i for i in ext_c.formats if i in ext_s.formats]
+                ext_supported = [
+                    i for i in ext_c.formats if i in ext_s.formats
+                    ]
                 ext_negotiated = ext_supported[0]
             except IndexError:
                 raise TLSIllegalParameterException("No common EC point format")
@@ -1108,7 +1110,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
         if isinstance(private, ecdsa.keys.SigningKey):
             ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
             ecdh.load_received_public_key_bytes(peer_share,
-                                                valid_encodings=valid_encodings)
+                                                valid_encodings= \
+                                                    valid_encodings)
             return bytearray(ecdh.generate_sharedsecret_bytes())
         S = ecdhYc * private
 
