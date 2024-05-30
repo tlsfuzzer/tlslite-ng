@@ -1044,7 +1044,7 @@ class ECDHKeyExchange(RawDHKeyExchange):
 
     @staticmethod
     def _get_point_format(ext):
-        """Get extension name from the numeric value."""
+        """Get point format from the numeric value."""
         transform = {ECPointFormat.uncompressed: 'uncompressed',
                      ECPointFormat.ansiX962_compressed_char2: 'compressed',
                      ECPointFormat.ansiX962_compressed_prime: 'compressed'}
@@ -1110,8 +1110,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
         if isinstance(private, ecdsa.keys.SigningKey):
             ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
             ecdh.load_received_public_key_bytes(peer_share,
-                                                valid_encodings= \
-                                                    valid_encodings)
+                                                valid_encodings=
+                                                valid_encodings)
             return bytearray(ecdh.generate_sharedsecret_bytes())
         S = ecdhYc * private
 
