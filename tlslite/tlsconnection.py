@@ -664,7 +664,6 @@ class TLSConnection(TLSRecordLayer):
                 try:
                     ext_ec_point = next((i for i in ext_c.formats \
                                         if i in ext_s.formats))
-                
                 except StopIteration as alert:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
@@ -2437,7 +2436,6 @@ class TLSConnection(TLSRecordLayer):
                 try:
                     ext_ec_point = next((i for i in ext_c.formats \
                                         if i in ext_s.formats))
-                
                 except StopIteration as alert:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
