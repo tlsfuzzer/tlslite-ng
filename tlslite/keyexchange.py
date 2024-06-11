@@ -762,16 +762,18 @@ class AECDHKeyExchange(KeyExchange):
         ecdhXc = kex.get_random_private_key()
         ext_negotiated = ECPointFormat.uncompressed
         ext_supported = [ECPointFormat.uncompressed]
-        ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
-        ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
-        if ext_c and ext_s:
-            try:
-                ext_supported = [
-                    i for i in ext_c.formats if i in ext_s.formats
-                    ]
-                ext_negotiated = ext_supported[0]
-            except IndexError:
-                raise TLSIllegalParameterException("No common EC point format")
+
+        if self.clientHello:
+            ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
+            ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
+            if ext_c and ext_s:
+                try:
+                    ext_supported = [
+                        i for i in ext_c.formats if i in ext_s.formats
+                        ]
+                    ext_negotiated = ext_supported[0]
+                except IndexError:
+                    raise TLSIllegalParameterException("No common EC point format")
 
         self.ecdhYc = kex.calc_public_value(ecdhXc, ext_negotiated)
         return kex.calc_shared_key(ecdhXc, ecdh_Ys, ext_supported)
