@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Dave Baggett (Arcode Corporation) - canonicalCipherName
 #
@@ -74,7 +74,7 @@ class Session(object):
         from the server
 
     :vartype ec_point_format: int
-    :ivar ec_point_format: used EC point format for the ECDH key exchange; 
+    :ivar ec_point_format: used EC point format for the ECDH key exchange;
     """
 
     def __init__(self):
@@ -114,7 +114,7 @@ class Session(object):
         self.clientCertChain = clientCertChain
         self.serverCertChain = serverCertChain
         self.tackExt = tackExt
-        self.tackInHelloExt = tackInHelloExt  
+        self.tackInHelloExt = tackInHelloExt
         self.serverName = serverName
         self.resumable = resumable
         self.encryptThenMAC = encryptThenMAC
@@ -150,6 +150,7 @@ class Session(object):
         other.resumptionMasterSecret = self.resumptionMasterSecret
         other.tickets = self.tickets
         other.tls_1_0_tickets = self.tls_1_0_tickets
+        other.ec_point_format = self.ec_point_format
         return other
 
     def valid(self):
@@ -172,7 +173,7 @@ class Session(object):
             return self.tackExt.tack.getTackId()
         else:
             return None
-        
+
     def getBreakSigs(self):
         if self.tackExt and self.tackExt.break_sigs:
             return self.tackExt.break_sigs
@@ -186,7 +187,7 @@ class Session(object):
         :returns: The name of the cipher used with this connection.
         """
         return CipherSuite.canonicalCipherName(self.cipherSuite)
-        
+
     def getMacName(self):
         """Get the name of the HMAC hash algo used with this connection.
 
