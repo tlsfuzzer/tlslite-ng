@@ -568,12 +568,16 @@ handshake() method, doing some sort of server handshake on the connection
 argument.  If the handshake method returns True, the RequestHandler will be
 triggered.  See the tests/httpsserver.py example.
 
-10 Using tlslite-ng with asyncore
+10 Using tlslite-ng with asyncore (or asyncio - Python 3.12+)
 =================================
 
 tlslite-ng can be used with subclasses of asyncore.dispatcher.  See the comments
 in TLSAsyncDispatcherMixIn.py for details.  This is still experimental, and
 may not work with all asyncore.dispatcher subclasses.
+
+as said above, asyncore is deprecated in Python 3.12, and asyncio should be used.
+Implementation is similar to TLSAsyncDispatcherMixIn.py, but instead, use the class
+TLSAsyncioDispatcherMixIn.py.
 
 11 History
 ===========
