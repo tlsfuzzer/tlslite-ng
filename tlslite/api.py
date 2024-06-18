@@ -36,9 +36,9 @@ except ModuleNotFoundError:
 try:
     from .integration.tlsasyncdispatchermixin import TLSAsyncDispatcherMixIn
 except ModuleNotFoundError:
-    # NOTE: Left this try-except block as is, due to the possibility to use both
-    # asyncore and asyncio in the same project no matter the python version (if the
-    # asyncore module is available).
+    # NOTE: Left this try-except block as is, due to the possibility to use
+    # both asyncore and asyncio in the same project no matter the python
+    # version (if the asyncore module is available).
     pass
 
 from .integration.pop3_tls import POP3_TLS
