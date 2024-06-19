@@ -1,6 +1,6 @@
 # Authors:
 #   Trevor Perrin
-#   Esteban Sánchez - python 3.12 port
+#   Esteban Sanchez (FosanzDev) - python 3.12 port
 #
 # See the LICENSE file for legal information regarding use of this file.
 
