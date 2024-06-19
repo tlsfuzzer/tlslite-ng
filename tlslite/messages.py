@@ -21,6 +21,7 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_attrs, deprecated_params
 from .extensions import *
 from .utils.format_output import none_as_unknown
+from .utils.compression import compression_algo_impls
 
 
 class RecordHeader(object):
@@ -532,6 +533,27 @@ class ClientHello(HelloMessage):
             names = list(sni_ext.hostNames)
             names[0] = hostname
             sni_ext.hostNames = names
+
+    @property
+    def compressed_certificate_algs(self):
+        """
+        Returns the list of supported algorithms.
+
+        We store the list in an extension even for TLS < 1.3
+        Extensions are used/valid only for TLS 1.3 but they are a good
+        unified storage mechanism for all versions.
+        """
+        ext = self.getExtension(ExtensionType.compress_certificate)
+        if ext:
+            return ext.algorithms
+        return None
+
+    @compressed_certificate_algs.setter
+    def compressed_certificate_algs(self, val):
+        self._removeExt(ExtensionType.compress_certificate)
+        if val is not None:
+            ext = CompressCertificateExtension().create(val)
+            self.addExtension(ext)
 
     def create(self, version, random, session_id, cipher_suites,
                certificate_types=None, srpUsername=None,
@@ -1277,6 +1299,27 @@ class CertificateRequest(HelloMessage):
         self._removeExt(ExtensionType.signature_algorithms)
         if val is not None:
             ext = SignatureAlgorithmsExtension().create(val)
+            self.addExtension(ext)
+
+    @property
+    def compressed_certificate_algs(self):
+        """
+        Returns the list of supported algorithms.
+
+        We store the list in an extension even for TLS < 1.3
+        Extensions are used/valid only for TLS 1.3 but they are a good
+        unified storage mechanism for all versions.
+        """
+        ext = self.getExtension(ExtensionType.compress_certificate)
+        if ext:
+            return ext.algorithms
+        return None
+
+    @compressed_certificate_algs.setter
+    def compressed_certificate_algs(self, val):
+        self._removeExt(ExtensionType.compress_certificate)
+        if val is not None:
+            ext = CompressCertificateExtension().create(val)
             self.addExtension(ext)
 
     def create(self, certificate_types=None, certificate_authorities=None,
@@ -2449,3 +2492,113 @@ class KeyUpdate(HandshakeMsg):
         writer = Writer()
         writer.add(self.message_type, 1)
         return self.postWrite(writer)
+
+
+class CompressedCertificate(Certificate):
+
+    def __init__(self, certificateType, version=(3, 2)):
+        super(CompressedCertificate, self).__init__(certificateType, version)
+        self.handshakeType = HandshakeType.compressed_certificate
+        self.compression_algo = None
+        self._compression_cache= None
+        self._msg_len_cache= None
+
+    def _compress(self, msg):
+        if not (
+            (self.compression_algo == CompressionAlgorithm.zlib) or
+            (self.compression_algo == CompressionAlgorithm.brotli
+             and compression_algo_impls["brotli_compress"]) or
+            (self.compression_algo == CompressionAlgorithm.zstd
+             and compression_algo_impls["zstd_compress"])
+        ):
+            raise ValueError("Unknown compression algorithm code: {0}"
+                                      .format(self.compression_algo))
+
+        if self.compression_algo == CompressionAlgorithm.zlib:
+            compressed_msg = zlib.compress(msg)
+        elif self.compression_algo == CompressionAlgorithm.brotli:
+            compressed_msg = compression_algo_impls["brotli_compress"](msg)
+        else:  # self.compression_algo == CompressionAlgorithm.zstd
+            compressed_msg = compression_algo_impls["zstd_compress"](msg)
+
+        return compressed_msg
+
+    def _decompress(self, compressed_msg, exprected_length):
+        if not (
+            (self.compression_algo == CompressionAlgorithm.zlib) or
+            (self.compression_algo == CompressionAlgorithm.brotli
+             and compression_algo_impls["brotli_decompress"]) or
+            (self.compression_algo == CompressionAlgorithm.zstd
+             and compression_algo_impls["zstd_decompress"])
+        ):
+            raise BadCertificateError("Unknown compression algorithm code: {0}"
+                                      .format(self.compression_algo))
+
+        try:
+            if self.compression_algo == CompressionAlgorithm.zlib:
+                decompressed_msg = zlib.decompress(
+                    compressed_msg, bufsize=exprected_length)
+            elif self.compression_algo == CompressionAlgorithm.brotli:
+                if compression_algo_impls["brotli_accepts_limit"]:
+                    decompressed_msg = compression_algo_impls["brotli_decompress"](
+                        compressed_msg, exprected_length)
+                else:
+                    decompressed_msg = compression_algo_impls["brotli_decompress"](
+                        compressed_msg)
+            else:  # self.compression_algo == CompressionAlgorithm.zstd
+                if compression_algo_impls["zstd_accepts_limit"]:
+                    decompressed_msg = compression_algo_impls["zstd_decompress"](
+                        compressed_msg, exprected_length)
+                else:
+                    decompressed_msg = compression_algo_impls["zstd_decompress"](
+                        compressed_msg)
+        except Exception:  # pragma: no cover
+            raise BadCertificateError("Error on decompressing the message.")
+
+        if len(decompressed_msg) != exprected_length:
+            raise BadCertificateError(
+                "Decompressed message doesn't much length.")
+
+        return decompressed_msg
+
+    def create(self, compression_algo, cert_chain, context=b''):
+        """Create CompressedCertificate message."""
+        super(CompressedCertificate, self).create(cert_chain, context)
+        self.compression_algo = compression_algo
+        self._compression_cache= None
+        self._msg_len_cache= None
+        return self
+
+    def parse(self, p):
+        """Deserialize CompressedCertificate message from parser."""
+        p.startLengthCheck(3)
+        self.compression_algo = p.get(2)
+        exprected_length = p.get(3)
+        compressed_msg = p.getVarBytes(3)
+        p.stopLengthCheck()
+        certificate_msg = self._decompress(compressed_msg, exprected_length)
+
+        parser = Parser(exprected_length.to_bytes(3, 'big') + certificate_msg)
+        super(CompressedCertificate, self).parse(parser)
+
+        return self
+
+    def write(self):
+        """Serialise CompressedCertificate message."""
+        if not self._compression_cache:
+            certificate_msg = super(CompressedCertificate, self).write()
+            certificate_msg = certificate_msg[4:]
+            self._msg_len_cache = len(certificate_msg)
+            self._compression_cache = self._compress(bytes(certificate_msg))
+
+        writer = Writer()
+        writer.add(self.compression_algo, 2)
+        writer.add(self._msg_len_cache, 3)
+        writer.add(len(self._compression_cache), 3)
+        writer.bytes += self._compression_cache
+        return self.postWrite(writer)
+
+    def __repr__(self):
+        return "Compressed {0}".format(
+            super(CompressedCertificate, self).__repr__()
+        )

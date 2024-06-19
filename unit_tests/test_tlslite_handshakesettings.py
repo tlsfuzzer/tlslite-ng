@@ -482,6 +482,71 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("new session tickets", str(e.exception))
 
+    def test_single_compression_algo(self):
+        hs = HandshakeSettings()
+        hs.certificate_compression_send = 'zlib'
+        hs.certificate_compression_receive = 'zlib'
+
+        hs = hs.validate()
+
+        self.assertEqual(hs.certificate_compression_send, ['zlib'])
+        self.assertEqual(hs.certificate_compression_receive, ['zlib'])
+
+    def test_unknown_compression_algo(self):
+        hs = HandshakeSettings()
+        hs.certificate_compression_send = 1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "certificate_compression must be a list of strings or a string",
+            str(e.exception)
+        )
+
+        hs.certificate_compression_send = "test"
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['test']'", str(e.exception))
+
+        hs.certificate_compression_send = ["wrong"]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['wrong']'", str(e.exception))
+
+        hs.certificate_compression_send = None
+        hs.certificate_compression_receive = 1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "certificate_compression must be a list of strings or a string",
+            str(e.exception)
+        )
+
+        hs.certificate_compression_receive = "test"
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['test']'", str(e.exception))
+
+        hs.certificate_compression_receive = ["wrong"]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['wrong']'", str(e.exception))
+
 
 class TestKeypair(unittest.TestCase):
     def test___init___(self):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Kees Bos - Added tests for XML-RPC
 #   Dimitris Moraitis - Anon ciphersuites
@@ -48,7 +48,7 @@ from tlslite.constants import KeyUpdateMessageType
 
 try:
     from tack.structures.Tack import Tack
-    
+
 except ImportError:
     pass
 
@@ -56,10 +56,10 @@ def printUsage(s=None):
     if m2cryptoLoaded:
         crypto = "M2Crypto/OpenSSL"
     else:
-        crypto = "Python crypto"        
+        crypto = "Python crypto"
     if s:
         print("ERROR: %s" % s)
-    print("""\ntls.py version %s (using %s)  
+    print("""\ntls.py version %s (using %s)
 
 Commands:
   server HOST:PORT DIRECTORY
@@ -67,7 +67,7 @@ Commands:
   client HOST:PORT DIRECTORY
 """ % (__version__, crypto))
     sys.exit(-1)
-    
+
 
 def testConnClient(conn):
     b1 = os.urandom(1)
@@ -92,9 +92,9 @@ def testConnClient(conn):
     assert r1000 == b1000
 
 def clientTestCmd(argv):
-    
+
     address = argv[0]
-    dir = argv[1]    
+    dir = argv[1]
 
     #Split address into hostname/port tuple
     address = address.split(":")
@@ -137,6 +137,7 @@ def clientTestCmd(argv):
     assert(connection.session.cipherSuite in constants.CipherSuite.aeadSuites)
     assert(connection.encryptThenMAC == False)
     assert connection.session.appProto is None
+    assert connection.server_cert_compression_algo == "zlib"
     connection.close()
 
     test_no += 1
@@ -170,6 +171,21 @@ def clientTestCmd(argv):
     assert connection.session.cipherSuite in constants.CipherSuite.aeadSuites
     assert connection.encryptThenMAC == False
     assert connection.session.appProto == b'http/1.1'
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 TLSv1.3 (no cert_comp)".format(test_no))
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    settings.certificate_compression_receive = []
+    settings.certificate_compression_send = []
+    connection = connect()
+    connection.handshakeClientCert(serverName=address[0],
+                                   settings=settings)
+    testConnClient(connection)
+    assert connection.server_cert_compression_algo is None
+    assert connection.client_cert_compression_algo is None
     connection.close()
 
     test_no += 1
@@ -235,7 +251,7 @@ def clientTestCmd(argv):
     settings.minVersion = (3,0)
     settings.maxVersion = (3,0)
     connection.handshakeClientCert(settings=settings)
-    testConnClient(connection)    
+    testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
     connection.close()
 
@@ -670,7 +686,7 @@ def clientTestCmd(argv):
     settings.cipherNames = ["rc4"]
     settings.maxVersion = (3, 3)
     connection.handshakeClientCert(settings=settings)
-    testConnClient(connection)    
+    testConnClient(connection)
     assert(isinstance(connection.session.serverCertChain, X509CertChain))
     assert(connection.session.cipherSuite == constants.CipherSuite.TLS_RSA_WITH_RC4_128_MD5)
     assert(connection.encryptThenMAC == False)
@@ -689,8 +705,8 @@ def clientTestCmd(argv):
         connection = connect()
         connection.handshakeClientCert(settings=settings)
         assert(connection.session.tackExt.tacks[0].getTackId() == "5lcbe.eyweo.yxuan.rw6xd.jtoz7")
-        assert(connection.session.tackExt.activation_flags == 1)        
-        testConnClient(connection)    
+        assert(connection.session.tackExt.activation_flags == 1)
+        testConnClient(connection)
         connection.close()
 
         test_no += 1
@@ -856,7 +872,7 @@ def clientTestCmd(argv):
     print("Test {0} - good SRP: with X.509 certificate, TLSv1.0".format(test_no))
     settings = HandshakeSettings()
     settings.minVersion = (3,1)
-    settings.maxVersion = (3,1)    
+    settings.maxVersion = (3,1)
     synchro.recv(1)
     connection = connect()
     connection.handshakeClientSRP("test", "password", settings=settings)
@@ -1215,7 +1231,7 @@ def clientTestCmd(argv):
     connection = connect()
     settings = HandshakeSettings()
     settings.maxVersion = (3, 3)
-    connection.handshakeClientSRP("test", "garbage", serverName=address[0], 
+    connection.handshakeClientSRP("test", "garbage", serverName=address[0],
                                   session=session, settings=settings)
     testConnClient(connection)
     #Don't close! -- see below
@@ -1294,7 +1310,7 @@ def clientTestCmd(argv):
             settings.cipherNames = [cipher]
             settings.cipherImplementations = [implementation, "python"]
             settings.minVersion = (3,1)
-            settings.maxVersion = (3,1)            
+            settings.maxVersion = (3,1)
             connection.handshakeClientCert(settings=settings)
             testConnClient(connection)
             print("%s %s" % (connection.getCipherName(), connection.getCipherImplementation()))
@@ -1875,7 +1891,7 @@ def serverTestCmd(argv):
 
     address = argv[0]
     dir = argv[1]
-    
+
     #Split address into hostname/port tuple
     address = address.split(":")
     address = ( address[0], int(address[1]) )
@@ -2010,7 +2026,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     connection.handshakeServer(anon=True)
-    testConnServer(connection)    
+    testConnServer(connection)
     connection.close()
 
     test_no += 1
@@ -2022,6 +2038,7 @@ def serverTestCmd(argv):
     assert connection.session.serverName == address[0]
     assert connection.extendedMasterSecret
     assert connection.session.appProto is None
+    assert connection.server_cert_compression_algo == "zlib"
     testConnServer(connection)
     connection.close()
 
@@ -2052,6 +2069,21 @@ def serverTestCmd(argv):
     assert connection.extendedMasterSecret
     assert connection.session.appProto == b'http/1.1'
     testConnServer(connection)
+    connection.close()
+
+    test_no += 1
+
+    print("Test {0} - good X.509 TLSv1.3 (no cert_comp)".format(test_no))
+    synchro.recv(1)
+    settings = HandshakeSettings()
+    settings.certificate_compression_receive = []
+    settings.certificate_compression_send = []
+    connection = connect()
+    connection.handshakeClientCert(serverName=address[0],
+                                   settings=settings)
+    testConnClient(connection)
+    assert connection.server_cert_compression_algo is None
+    assert connection.client_cert_compression_algo is None
     connection.close()
 
     test_no += 1
@@ -2600,7 +2632,7 @@ def serverTestCmd(argv):
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, \
                                certChain=x509Chain, privateKey=x509Key)
-    testConnServer(connection)    
+    testConnServer(connection)
     connection.close()
 
     test_no += 1
@@ -2905,7 +2937,7 @@ def serverTestCmd(argv):
     sessionCache = SessionCache()
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, sessionCache=sessionCache)
-    assert(connection.session.serverName == address[0])    
+    assert(connection.session.serverName == address[0])
     testConnServer(connection)
     connection.close()
 
@@ -2916,7 +2948,7 @@ def serverTestCmd(argv):
     connection = connect()
     connection.handshakeServer(verifierDB=verifierDB, sessionCache=sessionCache)
     assert(connection.session.serverName == address[0])
-    testConnServer(connection)    
+    testConnServer(connection)
     #Don't close! -- see next test
 
     test_no += 1
@@ -3048,7 +3080,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -3059,7 +3091,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"spdy/2", b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -3070,7 +3102,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"http/1.1", b"spdy/2"])
     testConnServer(connection)
     connection.close()
@@ -3081,7 +3113,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"spdy/2", b"http/1.1"])
     testConnServer(connection)
     connection.close()
@@ -3092,7 +3124,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"http/1.1", b"spdy/2", b"spdy/3"])
     testConnServer(connection)
     connection.close()
@@ -3103,7 +3135,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[b"spdy/3", b"spdy/2"])
     testConnServer(connection)
     connection.close()
@@ -3114,7 +3146,7 @@ def serverTestCmd(argv):
     synchro.send(b'R')
     connection = connect()
     settings = HandshakeSettings()
-    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key, 
+    connection.handshakeServer(certChain=x509Chain, privateKey=x509Key,
                                settings=settings, nextProtos=[])
     testConnServer(connection)
     connection.close()
