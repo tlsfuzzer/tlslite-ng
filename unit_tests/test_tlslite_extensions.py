@@ -27,7 +27,7 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
         HeartbeatExtension, IntExtension, RecordSizeLimitExtension, \
-        SessionTicketExtension
+        SessionTicketExtension, CompressedCertificateExtension
 from tlslite.utils.codec import Parser, Writer
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
@@ -2906,6 +2906,70 @@ class TestSessionTicketExtension(unittest.TestCase):
         self.assertEqual(
             str(ext),
             "SessionTicketExtension(ticket=bytearray(b'\\xab\\xcd'))")
+
+
+class TestCompressedCertificateExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = CompressedCertificateExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertIsNone(ext.algorithms)
+        self.assertEqual(ext.extType, 27)
+        self.assertEqual(ext.extData, bytearray())
+
+    def test_create(self):
+        ext = CompressedCertificateExtension()
+        ext = ext.create([1, 2, 3])
+
+        self.assertIsInstance(ext, CompressedCertificateExtension)
+        self.assertEqual(ext.algorithms, [1, 2, 3])
+
+    def test_write(self):
+        ext = CompressedCertificateExtension().create([1, 2, 3])
+
+        self.assertEqual(bytearray(
+            b'\x00\x1b' +  # type
+            b'\x00\x07' +  # ext length
+            b'\x06' +  # array length
+            b'\x00\x01' + # first item - zlib
+            b'\x00\x02' +  # second item - brotli
+            b'\x00\x03'),  # third item - zstd
+            ext.write())
+
+    def test_parse(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x1b' +  # type
+            b'\x00\x07' +  # ext length
+            b'\x06' +  # array length
+            b'\x00\x01' + # first item - zlib
+            b'\x00\x02'+  # second item - brotli
+            b'\x00\x03'))  # third item - zstd
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, CompressedCertificateExtension)
+        self.assertEqual(ext.algorithms, [1, 2, 3])
+
+    def test_parse_empty(self):
+        ext = TLSExtension()
+
+        parser = Parser(bytearray(
+            b'\x00\x1b' +  # type
+            b'\x00\x00'))  # length
+
+        ext = ext.parse(parser)
+
+        self.assertIsInstance(ext, CompressedCertificateExtension)
+        self.assertIsNone(ext.algorithms)
+
+    def test___repr__(self):
+        ext = CompressedCertificateExtension().create([1, 2, 3])
+
+        self.assertEqual(
+            repr(ext),
+            "CompressedCertificateExtension(algorithms=[zlib, brotli, zstd])")
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ except ImportError:
 from tlslite.handshakesettings import HandshakeSettings
 from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
         ContentType, AlertDescription, AlertLevel, HandshakeType, GroupName, \
-        TLSEnum, SignatureScheme
+        TLSEnum, SignatureScheme, CertificateCompressionAlgorithm
 
 class TestTLSEnumSubClassing(unittest.TestCase):
 
@@ -345,3 +345,7 @@ class TestSignatureScheme(unittest.TestCase):
         ret = SignatureScheme.getHash('ed25519')
 
         self.assertEqual(ret, 'intrinsic')
+
+class TestCertificateCompressionAlgorithm(unittest.TestCase):
+    def test_toRepr(self):
+        self.assertEqual(CertificateCompressionAlgorithm.toStr(1), 'zlib')
