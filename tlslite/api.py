@@ -27,7 +27,11 @@ try:
     from .integration.tlsasynciodispatchermixin \
         import TLSAsyncioDispatcherMixIn
 
-except ModuleNotFoundError:
+except ImportError:
+    # ModuleNotFoundError is a subclass of ImportError. Python 2 does not
+    # raise ModuleNotFoundError, so we need to catch ImportError instead.
+    # ModuleNotFoundError is returned in Python 3.6 and above.
+
     # NOTE: asyncio is not available in base python 2, so this try-except
     # block is necessary to avoid breaking the import of the
     # rest of the module.
@@ -35,7 +39,7 @@ except ModuleNotFoundError:
 
 try:
     from .integration.tlsasyncdispatchermixin import TLSAsyncDispatcherMixIn
-except ModuleNotFoundError:
+except ImportError:
     # NOTE: Left this try-except block as is, due to the possibility to use
     # both asyncore and asyncio in the same project no matter the python
     # version (if the asyncore module is available).
