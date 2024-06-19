@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Google - defining ClientCertificateType
 #   Google (adapted by Sam Rushing) - NPN support
@@ -129,6 +129,7 @@ class HandshakeType(TLSEnum):
     finished = 20
     certificate_status = 22
     key_update = 24  # TLS 1.3
+    compressed_certificate = 25  # TLS 1.3
     next_protocol = 67
     message_hash = 254  # TLS 1.3
 
@@ -168,6 +169,7 @@ class ExtensionType(TLSEnum):
     client_hello_padding = 21  # RFC 7685
     encrypt_then_mac = 22  # RFC 7366
     extended_master_secret = 23  # RFC 7627
+    compress_certificate = 27  # RFC 8879
     record_size_limit = 28  # RFC 8449
     session_ticket = 35 # RFC 5077
     extended_random = 40  # draft-rescorla-tls-extended-random-02
@@ -579,6 +581,17 @@ class PskKeyExchangeMode(TLSEnum):
 
     psk_ke = 0
     psk_dhe_ke = 1
+
+
+class CertificateCompressionAlgorithm(TLSEnum):
+    """
+    Compression algorithms used for the compression of certificates
+    from RFC 8879.
+    """
+
+    zlib = 1
+    brotli = 2
+    zstd = 3
 
 
 class CipherSuite:
