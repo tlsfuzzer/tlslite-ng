@@ -149,42 +149,77 @@ jobs:
             os: ubuntu-latest
             python-version: '3.12'
             opt-deps: ['gmpy2']
-          # finally test with multiple dependencies installed at the same time
-          - name: py2.7 with m2crypto, pycrypto, gmpy, and gmpy2
+          - name: py2.7 with brotli
             os: ubuntu-20.04
             python-version: 2.7
-            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - name: py3.6 with m2crypto, pycrypto, gmpy, and gmpy2
+            # zstandard is available for py3.8 and above
+            opt-deps: ['brotli']
+          - name: py3.6 with brotli
             os: ubuntu-20.04
             python-version: 3.6
-            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2']
-          - name: py3.7 with m2crypto, gmpy, and gmpy2
+            # zstandard is available for py3.8 and above
+            opt-deps: ['brotli']
+          - name: py3.7 with brotli
             os: ubuntu-latest
             python-version: 3.7
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.8 with m2crypto, gmpy, and gmpy2
+            # zstandard is available for py3.8 and above
+            opt-deps: ['brotli']
+          - name: py3.8 with brotli and zstandard
             os: ubuntu-latest
             python-version: 3.8
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.9 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['brotli', 'zstd']
+          - name: py3.9 with brotli and zstandard
             os: ubuntu-latest
             python-version: 3.9
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.10 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['brotli', 'zstd']
+          - name: py3.10 with brotli and zstandard
             os: ubuntu-latest
             python-version: '3.10'
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2']
-          - name: py3.11 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['brotli', 'zstd']
+          - name: py3.11 with brotli and zstandard
+            os: ubuntu-latest
+            python-version: '3.11'
+            opt-deps: ['brotli', 'zstd']
+          - name: py3.12with brotli and zstandard
+            os: ubuntu-latest
+            python-version: '3.12'
+            opt-deps: ['brotli', 'zstd']
+          # finally test with multiple dependencies installed at the same time
+          - name: py2.7 with m2crypto, pycrypto, gmpy, gmpy2, and brotli
+            os: ubuntu-20.04
+            python-version: 2.7
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli']
+          - name: py3.6 with m2crypto, pycrypto, gmpy,  gmpy2, and brotli
+            os: ubuntu-20.04
+            python-version: 3.6
+            opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli']
+          - name: py3.7 with m2crypto, gmpy, gmpy2, and brotli
+            os: ubuntu-latest
+            python-version: 3.7
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli']
+          - name: py3.8 with m2crypto, gmpy, gmpy2, and brotli
+            os: ubuntu-latest
+            python-version: 3.8
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.9 with m2crypto, gmpy, gmpy2, brotli, and zstandard
+            os: ubuntu-latest
+            python-version: 3.9
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.10 with m2crypto, gmpy, gmpy2, brotli, and zstandard
+            os: ubuntu-latest
+            python-version: '3.10'
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.11 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: '3.11'
             # gmpy doesn't build with 3.11
-            opt-deps: ['m2crypto', 'gmpy2']
-          - name: py3.12 with m2crypto, gmpy, and gmpy2
+            opt-deps: ['m2crypto', 'gmpy2', 'brotli', 'zstd']
+          - name: py3.12 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: '3.12'
             # gmpy doesn't build with 3.12
             # coverage to codeclimate can be submitted just once
-            opt-deps: ['m2crypto', 'gmpy2', 'codeclimate']
+            opt-deps: ['m2crypto', 'gmpy2', 'codeclimate', 'brotli', 'zstd']
     steps:
       - uses: actions/checkout@v2
         if: ${{ !matrix.container }}
@@ -300,6 +335,17 @@ jobs:
         if: ${{ contains(matrix.opt-deps, 'gmpy2') && matrix.python-version == '3.12' }}
         # for py3.12 we need pre-release version: https://github.com/aleaxit/gmpy/issues/446
         run: pip install --pre gmpy2
+      - name: Install brotli for Python 2
+        if: ${{ contains(matrix.opt-deps, 'brotli') && matrix.python-version == '2.7' }}
+        # using 1.0.9 for Python 2 because latest is not compatible
+        # https://github.com/google/brotli/issues/1074
+        run: pip install brotli==1.0.9
+      - name: Install brotli
+        if: ${{ contains(matrix.opt-deps, 'brotli') && matrix.python-version != '2.7' }}
+        run: pip install brotli
+      - name: Install zstandard for py3.8 and after
+        if: ${{ contains(matrix.opt-deps, 'zstd') }}
+        run: pip install zstandard
       - name: Install build dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |
@@ -310,7 +356,7 @@ jobs:
           wget https://files.pythonhosted.org/packages/72/20/7f0f433060a962200b7272b8c12ba90ef5b903e218174301d0abfd523813/unittest2-1.1.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/85/d5/818d0e603685c4a613d56f065a721013e942088047ff1027a632948bdae6/coverage-4.5.4.tar.gz
           wget https://files.pythonhosted.org/packages/a8/5a/5cf074e1c6681dcbb4e640113f58bed16955e7da9a6c8090b518031775e7/hypothesis-2.0.0.tar.gz
-          wget https://files.pythonhosted.org/packages/f8/86/410d53faff049641f34951843245d168261512aea787a1f9f05c3fa025a0/pylint-1.7.6-py2.py3-none-any.whl 
+          wget https://files.pythonhosted.org/packages/f8/86/410d53faff049641f34951843245d168261512aea787a1f9f05c3fa025a0/pylint-1.7.6-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/81/a6/d076eeb83f383ac7a25e030709abebc6781bcf930d67316be6d47641637e/diff_cover-4.0.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/8c/2d/aad7f16146f4197a11f8e91fb81df177adcc2073d36a17b1491fd09df6ed/pycparser-2.18.tar.gz
           wget https://files.pythonhosted.org/packages/4b/2a/0276479a4b3caeb8a8c1af2f8e4355746a97fab05a372e4a2c6a6b876165/idna-2.7-py2.py3-none-any.whl
@@ -336,7 +382,7 @@ jobs:
           wget https://files.pythonhosted.org/packages/c2/f8/49697181b1651d8347d24c095ce46c7346c37335ddc7d255833e7cde674d/ipaddress-1.0.23-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/c7/a3/c5da2a44c85bfbb6eebcfc1dde24933f8704441b98fdde6528f4831757a6/linecache2-1.0.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/bc/a9/01ffebfb562e4274b6487b4bb1ddec7ca55ec7510b22e4c51f14098443b8/chardet-3.0.4-py2.py3-none-any.whl
-          wget https://files.pythonhosted.org/packages/bd/c9/6fdd990019071a4a32a5e7cb78a1d92c53851ef4f56f62a3486e6a7d8ffb/urllib3-1.23-py2.py3-none-any.whl 
+          wget https://files.pythonhosted.org/packages/bd/c9/6fdd990019071a4a32a5e7cb78a1d92c53851ef4f56f62a3486e6a7d8ffb/urllib3-1.23-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/5e/a0/5f06e1e1d463903cf0c0eebeb751791119ed7a4b3737fdc9a77f1cdfb51f/certifi-2020.12.5-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/8d/08/00aab975c99d156aec2d47e9e7a947ac3af3efab5065f666c8b157acc7a8/lazy_object_proxy-1.3.1-cp26-cp26mu-manylinux1_x86_64.whl
           wget https://files.pythonhosted.org/packages/82/f7/e43cefbe88c5fd371f4cf0cf5eb3feccd07515af9fd6cf7dbf1d1793a797/wrapt-1.12.1.tar.gz
