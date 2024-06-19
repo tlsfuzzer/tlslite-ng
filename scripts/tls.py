@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Marcelo Fernandez - bugfix and NPN support
 #   Martin von Loewis - python 3 port
@@ -38,6 +38,7 @@ from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
 from tlslite.constants import KeyUpdateMessageType
+from tlslite.utils.compression import compression_algo_impls
 
 try:
     from tack.structures.Tack import Tack
@@ -58,7 +59,7 @@ def printUsage(s=None):
     if tackpyLoaded:
         print("  tackpy      : Loaded")
     else:
-        print("  tackpy      : Not Loaded")            
+        print("  tackpy      : Not Loaded")
     if m2cryptoLoaded:
         print("  M2Crypto    : Loaded")
     else:
@@ -77,9 +78,29 @@ def printUsage(s=None):
         print("  GMPY2       : Not Loaded")
 
     print("")
+    print("Compression:")
+    print("  zlib compress      : Loaded")
+    print("  zlib decompress    : Loaded")
+    print("  brotli compress    : {0}".format(
+        "Loaded" if compression_algo_impls["brotli_compress"]
+        else "Not Loaded"
+    ))
+    print("  brotli decompress  : {0}".format(
+        "Loaded" if compression_algo_impls["brotli_decompress"]
+        else "Not Loaded"
+    ))
+    print("  zstd decompress    : {0}".format(
+        "Loaded" if compression_algo_impls["zstd_compress"]
+        else "Not Loaded"
+    ))
+    print("  zstd decompress    : {0}".format(
+        "Loaded" if compression_algo_impls["zstd_decompress"]
+        else "Not Loaded"
+    ))
+    print("")
     print("""Commands:
 
-  server  
+  server
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
@@ -144,8 +165,8 @@ def handleArgs(argv, argString, flagsList=[]):
     try:
         opts, argv = getopt.getopt(argv, getOptArgString, flagsList)
     except getopt.GetoptError as e:
-        printError(e) 
-    # Default values if arg not present  
+        printError(e)
+    # Default values if arg not present
     privateKey = None
     cert_chain = None
     virtual_hosts = []
@@ -367,6 +388,12 @@ def printGoodConnection(connection, seconds):
     print("  Extended Master Secret: {0}".format(
                                                connection.extendedMasterSecret))
     print("  Session Resumed: {0}".format(connection.resumed))
+    if connection.client_cert_compression_algo:
+        print("  Client compression algorithm used: {0}".format(
+            connection.client_cert_compression_algo))
+    if connection.server_cert_compression_algo:
+        print("  Server compression algorithm used: {0}".format(
+            connection.server_cert_compression_algo))
 
 def printExporter(connection, expLabel, expLength):
     if expLabel is None:
@@ -378,7 +405,7 @@ def printExporter(connection, expLabel, expLength):
     print("  Exporter length: {0}".format(expLength))
     print("  Keying material: {0}".format(exp))
 
-    
+
 def clientCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, username, password,
             expLabel,
@@ -387,7 +414,7 @@ def clientCmd(argv):
         handleArgs(argv, "kcuplLa", ["psk=", "psk-ident=", "psk-sha384",
                                      "resumption", "ssl3", "max-ver=",
                                      "cipherlist="])
-        
+
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
         raise SyntaxError("Must specify CERT and KEY together")
     if (username and not password) or (not username and password):
@@ -403,7 +430,7 @@ def clientCmd(argv):
     sock.connect(address)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     connection = TLSConnection(sock)
-    
+
     settings = HandshakeSettings()
     if psk:
         settings.pskConfigs = [(psk_ident, psk, psk_hash)]
@@ -418,13 +445,13 @@ def clientCmd(argv):
     try:
         start = time_stamp()
         if username and password:
-            connection.handshakeClientSRP(username, password, 
+            connection.handshakeClientSRP(username, password,
                 settings=settings, serverName=address[0])
         else:
             connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
         stop = time_stamp()
-        print("Handshake success")        
+        print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
             print(str(a))
@@ -544,7 +571,7 @@ def serverCmd(argv):
         print("Using Tacks...")
     if reqCert:
         print("Asking for client certificates...")
-        
+
     #############
     sessionCache = SessionCache()
     username = None

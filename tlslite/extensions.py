@@ -12,7 +12,7 @@ from .utils.codec import Writer, Parser, DecodeError
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
-        HeartbeatMode
+        HeartbeatMode, CompressionAlgorithm
 from .errors import TLSInternalError
 
 
@@ -2158,43 +2158,54 @@ class SessionTicketExtension(TLSExtension):
                                        self.ticket)
 
 
-TLSExtension._universalExtensions = \
-    {
-        ExtensionType.server_name: SNIExtension,
-        ExtensionType.status_request: StatusRequestExtension,
-        ExtensionType.cert_type: ClientCertTypeExtension,
-        ExtensionType.supported_groups: SupportedGroupsExtension,
-        ExtensionType.ec_point_formats: ECPointFormatsExtension,
-        ExtensionType.srp: SRPExtension,
-        ExtensionType.signature_algorithms: SignatureAlgorithmsExtension,
-        ExtensionType.alpn: ALPNExtension,
-        ExtensionType.supports_npn: NPNExtension,
-        ExtensionType.client_hello_padding: PaddingExtension,
-        ExtensionType.renegotiation_info: RenegotiationInfoExtension,
-        ExtensionType.heartbeat: HeartbeatExtension,
-        ExtensionType.supported_versions: SupportedVersionsExtension,
-        ExtensionType.key_share: ClientKeyShareExtension,
-        ExtensionType.signature_algorithms_cert:
-            SignatureAlgorithmsCertExtension,
-        ExtensionType.pre_shared_key: PreSharedKeyExtension,
-        ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
-        ExtensionType.cookie: CookieExtension,
-        ExtensionType.record_size_limit: RecordSizeLimitExtension,
-        ExtensionType.session_ticket: SessionTicketExtension}
+class CompressCertificateExtension(VarListExtension):
+    """Client and server compress certificate extension from RFC 8879"""
 
-TLSExtension._serverExtensions = \
-    {
-        ExtensionType.cert_type: ServerCertTypeExtension,
-        ExtensionType.tack: TACKExtension,
-        ExtensionType.key_share: ServerKeyShareExtension,
-        ExtensionType.supported_versions: SrvSupportedVersionsExtension,
-        ExtensionType.pre_shared_key: SrvPreSharedKeyExtension}
+    def __init__(self):
+        """Create instance of class."""
+        super(CompressCertificateExtension, self).__init__(
+            2, 1, 'algorithms', ExtensionType.compress_certificate,
+            CompressionAlgorithm)
 
-TLSExtension._certificateExtensions = \
-    {
-        ExtensionType.status_request: CertificateStatusExtension}
 
-TLSExtension._hrrExtensions = \
-    {
-        ExtensionType.key_share: HRRKeyShareExtension,
-        ExtensionType.supported_versions: SrvSupportedVersionsExtension}
+TLSExtension._universalExtensions = {
+    ExtensionType.server_name: SNIExtension,
+    ExtensionType.status_request: StatusRequestExtension,
+    ExtensionType.cert_type: ClientCertTypeExtension,
+    ExtensionType.supported_groups: SupportedGroupsExtension,
+    ExtensionType.ec_point_formats: ECPointFormatsExtension,
+    ExtensionType.srp: SRPExtension,
+    ExtensionType.signature_algorithms: SignatureAlgorithmsExtension,
+    ExtensionType.alpn: ALPNExtension,
+    ExtensionType.supports_npn: NPNExtension,
+    ExtensionType.client_hello_padding: PaddingExtension,
+    ExtensionType.renegotiation_info: RenegotiationInfoExtension,
+    ExtensionType.heartbeat: HeartbeatExtension,
+    ExtensionType.supported_versions: SupportedVersionsExtension,
+    ExtensionType.key_share: ClientKeyShareExtension,
+    ExtensionType.signature_algorithms_cert:
+        SignatureAlgorithmsCertExtension,
+    ExtensionType.pre_shared_key: PreSharedKeyExtension,
+    ExtensionType.psk_key_exchange_modes: PskKeyExchangeModesExtension,
+    ExtensionType.cookie: CookieExtension,
+    ExtensionType.record_size_limit: RecordSizeLimitExtension,
+    ExtensionType.session_ticket: SessionTicketExtension,
+    ExtensionType.compress_certificate: CompressCertificateExtension
+}
+
+TLSExtension._serverExtensions = {
+    ExtensionType.cert_type: ServerCertTypeExtension,
+    ExtensionType.tack: TACKExtension,
+    ExtensionType.key_share: ServerKeyShareExtension,
+    ExtensionType.supported_versions: SrvSupportedVersionsExtension,
+    ExtensionType.pre_shared_key: SrvPreSharedKeyExtension
+}
+
+TLSExtension._certificateExtensions = {
+    ExtensionType.status_request: CertificateStatusExtension
+}
+
+TLSExtension._hrrExtensions = {
+    ExtensionType.key_share: HRRKeyShareExtension,
+    ExtensionType.supported_versions: SrvSupportedVersionsExtension
+}

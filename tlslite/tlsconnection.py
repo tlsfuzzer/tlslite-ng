@@ -39,6 +39,7 @@ from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
 from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
+from .utils.compression import choose_compression_send_algo
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -86,6 +87,8 @@ class TLSConnection(TLSRecordLayer):
         # used only for TLS 1.2 and earlier
         self._peer_record_size_limit = None
         self._pha_supported = False
+        self.client_cert_compression_algo = None
+        self.server_cert_compression_algo = None
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -808,6 +811,16 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(SessionTicketExtension().create(
                 bytearray(0)))
 
+        # when TLS 1.3 advertised, send also compress_certificate extension
+        if (
+            next((i for i in settings.versions if i >= (3, 4)), None)
+            and settings.certificate_compression_receive
+        ):
+            algos_numbers = [getattr(CompressionAlgorithm, algo) for algo
+                             in settings.certificate_compression_receive]
+            extensions.append(CompressCertificateExtension().create(
+                algos_numbers))
+
         # don't send empty list of extensions or extensions in SSLv3
         if not extensions or settings.maxVersion == (3, 0):
             extensions = None
@@ -825,7 +838,7 @@ class TLSConnection(TLSRecordLayer):
                 clientHello = ClientHello()
                 clientHello.create(sent_version, getRandomBytes(32),
                                    session.sessionID, wireCipherSuites,
-                                   certificateTypes, 
+                                   certificateTypes,
                                    session.srpUsername,
                                    reqTack, nextProtos is not None,
                                    session.serverName,
@@ -836,9 +849,9 @@ class TLSConnection(TLSRecordLayer):
             clientHello = ClientHello()
             clientHello.create(sent_version, getRandomBytes(32),
                                session_id, wireCipherSuites,
-                               certificateTypes, 
+                               certificateTypes,
                                srpUsername,
-                               reqTack, nextProtos is not None, 
+                               reqTack, nextProtos is not None,
                                serverName,
                                extensions=extensions)
 
@@ -1083,7 +1096,7 @@ class TLSConnection(TLSRecordLayer):
                 AlertDescription.illegal_parameter,
                 "Server responded with incorrect compression method"):
                 yield result
-        if serverHello.tackExt:            
+        if serverHello.tackExt:
             if not clientHello.tack:
                 for result in self._sendError(\
                     AlertDescription.illegal_parameter,
@@ -1300,7 +1313,8 @@ class TLSConnection(TLSRecordLayer):
         if not sr_psk:
             for result in self._getMsg(ContentType.handshake,
                                        (HandshakeType.certificate_request,
-                                        HandshakeType.certificate),
+                                        HandshakeType.certificate,
+                                        HandshakeType.compressed_certificate),
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
@@ -1310,14 +1324,21 @@ class TLSConnection(TLSRecordLayer):
             if isinstance(result, CertificateRequest):
                 certificate_request = result
 
-                # we got CertificateRequest so now we'll get Certificate
+                # we got CertificateRequest so now we'll get Certificate or
+                # Compressed Certificate
                 for result in self._getMsg(ContentType.handshake,
-                                           HandshakeType.certificate,
+                                           (HandshakeType.certificate,
+                                            HandshakeType.\
+                                                compressed_certificate),
                                            CertificateType.x509):
                     if result in (0, 1):
                         yield result
                     else:
                         break
+
+            if isinstance(result, CompressedCertificate):
+                self.server_cert_compression_algo = CompressionAlgorithm.toStr(
+                   result.compression_algo )
 
             certificate = result
             assert isinstance(certificate, Certificate)
@@ -1418,8 +1439,6 @@ class TLSConnection(TLSRecordLayer):
                                        server_finish_hs, prfName)
 
         if certificate_request:
-            client_certificate = Certificate(serverHello.certificate_type,
-                                             self.version)
             if clientCertChain:
                 # Check to make sure we have the same type of certificates the
                 # server requested
@@ -1430,7 +1449,22 @@ class TLSConnection(TLSRecordLayer):
                             "Client certificate is of wrong type"):
                         yield result
 
-            client_certificate.create(clientCertChain)
+            chosen_compression_algo = choose_compression_send_algo(
+                self.version, certificate_request.compressed_certificate_algs,
+                settings.certificate_compression_send)
+
+            if chosen_compression_algo:
+                self.client_cert_compression_algo = CompressionAlgorithm.toStr(
+                    chosen_compression_algo)
+                client_certificate = CompressedCertificate(
+                    serverHello.certificate_type, self.version)
+                client_certificate.create(
+                    chosen_compression_algo, clientCertChain)
+            else:
+                client_certificate = Certificate(serverHello.certificate_type,
+                                                 self.version)
+                client_certificate.create(clientCertChain)
+
             # we need to send the message even if we don't have a certificate
             for result in self._sendMsg(client_certificate):
                 yield result
@@ -1605,7 +1639,7 @@ class TLSConnection(TLSRecordLayer):
         #
         # !!! We assume the client may have specified nextProtos as a list of
         # strings so we convert them to bytearrays (it's awkward to require
-        # the user to specify a list of bytearrays or "bytes", and in 
+        # the user to specify a list of bytearrays or "bytes", and in
         # Python 2.6 bytes() is just an alias for str() anyways...
         if nextProtos is not None and serverHello.next_protos is not None:
             for p in nextProtos:
@@ -1617,7 +1651,7 @@ class TLSConnection(TLSRecordLayer):
                 # the client SHOULD select the first protocol it supports.
                 return bytearray(nextProtos[0])
         return None
- 
+
     def _clientResume(self, session, serverHello, clientRandom,
                       nextProto, settings):
 
@@ -1778,7 +1812,17 @@ class TLSConnection(TLSRecordLayer):
                         "Server doesn't accept any sigalgs we support: " +
                         str(certificateRequest.supported_signature_algs)):
                     yield result
-            clientCertificate = Certificate(certificateType)
+
+            chosen_compression_algo = choose_compression_send_algo(
+                self.version, certificateRequest.compressed_certificate_algs,
+                settings.certificate_compression_send)
+
+            if chosen_compression_algo:
+                self.client_cert_compression_algo = CompressionAlgorithm.toStr(
+                    chosen_compression_algo)
+                clientCertificate = CompressedCertificate(certificateType)
+            else:
+                clientCertificate = Certificate(certificateType)
 
             if clientCertChain:
                 #Check to make sure we have the same type of
@@ -1790,7 +1834,11 @@ class TLSConnection(TLSRecordLayer):
                             "Client certificate is of wrong type"):
                         yield result
 
-                clientCertificate.create(clientCertChain)
+                if chosen_compression_algo:
+                    clientCertificate.create(
+                        chosen_compression_algo, clientCertChain)
+                else:
+                    clientCertificate.create(clientCertChain)
             # we need to send the message even if we don't have a certificate
             for result in self._sendMsg(clientCertificate):
                 yield result
@@ -1855,8 +1903,8 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      clientRandom,
                                                      serverRandom)
-        self._calcPendingStates(cipherSuite, masterSecret, 
-                                clientRandom, serverRandom, 
+        self._calcPendingStates(cipherSuite, masterSecret,
+                                clientRandom, serverRandom,
                                 cipherImplementations)
 
         #Exchange ChangeCipherSpec and Finished messages
@@ -1967,13 +2015,13 @@ class TLSConnection(TLSRecordLayer):
         if tackpyLoaded:
             if not tack_ext:
                 tack_ext = cert_chain.getTackExt()
-         
+
             # If there's a TACK (whether via TLS or TACK Cert), check that it
-            # matches the cert chain   
+            # matches the cert chain
             if tack_ext and tack_ext.tacks:
                 for tack in tack_ext.tacks:
                     if not cert_chain.checkTack(tack):
-                        for result in self._sendError(  
+                        for result in self._sendError(
                                 AlertDescription.illegal_parameter,
                                 "Other party's TACK doesn't match their public key"):
                                 yield result
@@ -1989,7 +2037,7 @@ class TLSConnection(TLSRecordLayer):
     def handshakeServer(self, verifierDB=None,
                         certChain=None, privateKey=None, reqCert=False,
                         sessionCache=None, settings=None, checker=None,
-                        reqCAs = None, 
+                        reqCAs = None,
                         tacks=None, activationFlags=0,
                         nextProtos=None, anon=False, alpn=None, sni=None):
         """Perform a handshake in the role of server.
@@ -2090,7 +2138,7 @@ class TLSConnection(TLSRecordLayer):
     def handshakeServerAsync(self, verifierDB=None,
                              certChain=None, privateKey=None, reqCert=False,
                              sessionCache=None, settings=None, checker=None,
-                             reqCAs=None, 
+                             reqCAs=None,
                              tacks=None, activationFlags=0,
                              nextProtos=None, anon=False, alpn=None, sni=None
                              ):
@@ -2108,9 +2156,9 @@ class TLSConnection(TLSRecordLayer):
         handshaker = self._handshakeServerAsyncHelper(\
             verifierDB=verifierDB, cert_chain=certChain,
             privateKey=privateKey, reqCert=reqCert,
-            sessionCache=sessionCache, settings=settings, 
-            reqCAs=reqCAs, 
-            tacks=tacks, activationFlags=activationFlags, 
+            sessionCache=sessionCache, settings=settings,
+            reqCAs=reqCAs,
+            tacks=tacks, activationFlags=activationFlags,
             nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni)
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
@@ -2118,8 +2166,8 @@ class TLSConnection(TLSRecordLayer):
 
     def _handshakeServerAsyncHelper(self, verifierDB,
                              cert_chain, privateKey, reqCert, sessionCache,
-                             settings, reqCAs, 
-                             tacks, activationFlags, 
+                             settings, reqCAs,
+                             tacks, activationFlags,
                              nextProtos, anon, alpn, sni):
 
         self._handshakeStart(client=False)
@@ -2136,7 +2184,7 @@ class TLSConnection(TLSRecordLayer):
         if privateKey and not cert_chain:
             raise ValueError("Caller passed a privateKey but no cert_chain")
         if reqCAs and not reqCert:
-            raise ValueError("Caller passed reqCAs but not reqCert")            
+            raise ValueError("Caller passed reqCAs but not reqCert")
         if cert_chain and not isinstance(cert_chain, X509CertChain):
             raise ValueError("Unrecognized certificate type")
         if activationFlags and not tacks:
@@ -2153,7 +2201,7 @@ class TLSConnection(TLSRecordLayer):
 
         # OK Start exchanging messages
         # ******************************
-        
+
         # Handle ClientHello and resumption
         for result in self._serverGetClientHello(settings, privateKey,
                                                  cert_chain,
@@ -2161,8 +2209,8 @@ class TLSConnection(TLSRecordLayer):
                                                  anon, alpn, sni):
             if result in (0,1): yield result
             elif result == None:
-                self._handshakeDone(resumed=True)                
-                return # Handshake was resumed, we're done 
+                self._handshakeDone(resumed=True)
+                return # Handshake was resumed, we're done
             else: break
         (clientHello, version, cipherSuite, sig_scheme, privateKey,
             cert_chain) = result
@@ -2191,7 +2239,7 @@ class TLSConnection(TLSRecordLayer):
             sessionID = getRandomBytes(32)
         else:
             sessionID = bytearray(0)
-        
+
         if not clientHello.supports_npn:
             nextProtos = None
 
@@ -2470,7 +2518,21 @@ class TLSConnection(TLSRecordLayer):
         context = bytes(getRandomBytes(32))
 
         certificate_request = CertificateRequest(self.version)
-        certificate_request.create(context=context, sig_algs=valid_sig_algs)
+
+        extensions = []
+        if self.version >= (3, 4):
+            if settings:
+                algos_numbers = [
+                    getattr(CompressionAlgorithm, algo) for algo
+                    in settings.certificate_compression_receive
+                ]
+            else:
+                algos_numbers = [1]
+            extensions.append(CompressCertificateExtension().create(
+                algos_numbers))
+
+        certificate_request.create(context=context, sig_algs=valid_sig_algs,
+                                   extensions=extensions)
 
         self._cert_requests[context] = certificate_request
 
@@ -2831,12 +2893,36 @@ class TLSConnection(TLSRecordLayer):
                 valid_sig_algs = self._sigHashesToList(cr_settings)
                 assert valid_sig_algs
 
+                extensions = []
+                if self.version >= (3, 4):
+                    algos_numbers = [
+                        getattr(CompressionAlgorithm, algo) for algo
+                        in settings.certificate_compression_receive
+                    ]
+                    extensions.append(CompressCertificateExtension().create(
+                        algos_numbers))
+
                 certificate_request = CertificateRequest(self.version)
-                certificate_request.create(context=ctx, sig_algs=valid_sig_algs)
+                certificate_request.create(
+                    context=ctx, sig_algs=valid_sig_algs,
+                    extensions=extensions)
                 self._queue_message(certificate_request)
 
-            certificate = Certificate(CertificateType.x509, self.version)
-            certificate.create(serverCertChain, bytearray())
+            chosen_compression_algo = choose_compression_send_algo(
+                self.version, clientHello.compressed_certificate_algs,
+                settings.certificate_compression_send)
+
+            if chosen_compression_algo:
+                self.server_cert_compression_algo = CompressionAlgorithm.toStr(
+                    chosen_compression_algo)
+                certificate = CompressedCertificate(CertificateType.x509,
+                                                    self.version)
+                certificate.create(chosen_compression_algo, serverCertChain,
+                                   bytearray())
+            else:
+                certificate = Certificate(CertificateType.x509, self.version)
+                certificate.create(serverCertChain, bytearray())
+
             self._queue_message(certificate)
 
             certificate_verify = CertificateVerify(self.version)
@@ -2922,14 +3008,19 @@ class TLSConnection(TLSRecordLayer):
         #Get [Certificate,] (if was requested)
         if reqCert and selected_psk is None:
             for result in self._getMsg(ContentType.handshake,
-                                       HandshakeType.certificate,
+                                       (HandshakeType.certificate,
+                                        HandshakeType.compressed_certificate),
                                        CertificateType.x509):
                 if result in (0, 1):
                     yield result
                 else:
                     break
             client_certificate = result
-            assert isinstance(client_certificate, Certificate)
+            if isinstance(client_certificate, CompressedCertificate):
+                self.client_cert_compression_algo = CompressionAlgorithm.toStr(
+                    client_certificate.compression_algo)
+            else:
+                assert isinstance(client_certificate, Certificate)
             client_cert_chain = client_certificate.cert_chain
 
         #Get and check CertificateVerify, if relevant
@@ -3695,9 +3786,9 @@ class TLSConnection(TLSRecordLayer):
                     yield result
 
                 #Calculate pending connection states
-                self._calcPendingStates(session.cipherSuite, 
+                self._calcPendingStates(session.cipherSuite,
                                         session.masterSecret,
-                                        clientHello.random, 
+                                        clientHello.random,
                                         serverHello.random,
                                         settings.cipherImplementations)
 
@@ -3986,13 +4077,24 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.insufficient_security):
                 yield result
 
-        #Send ServerHello[, Certificate], ServerKeyExchange,
-        #ServerHelloDone
+        #Send ServerHello[, Certificate or Compressed Certificate],
+        #ServerKeyExchange, ServerHelloDone
         msgs = []
         msgs.append(serverHello)
         if cipherSuite in CipherSuite.srpCertSuites:
-            certificateMsg = Certificate(CertificateType.x509)
-            certificateMsg.create(serverCertChain)
+            chosen_compression_algo = choose_compression_send_algo(
+                self.version, clientHello.compressed_certificate_algs,
+                settings.certificate_compression_send)
+
+            if chosen_compression_algo:
+                self.server_cert_compression_algo = CompressionAlgorithm.toStr(
+                    chosen_compression_algo)
+                certificateMsg = CompressedCertificate(CertificateType.x509)
+                certificateMsg.create(chosen_compression_algo, serverCertChain)
+            else:
+                certificateMsg = Certificate(CertificateType.x509)
+                certificateMsg.create(serverCertChain)
+
             msgs.append(certificateMsg)
         msgs.append(serverKeyExchange)
         msgs.append(ServerHelloDone())
@@ -4177,15 +4279,31 @@ class TLSConnection(TLSRecordLayer):
                                 serverCertChain, keyExchange,
                                 reqCert, reqCAs, cipherSuite,
                                 settings):
-        #Send ServerHello, Certificate[, ServerKeyExchange]
-        #[, CertificateRequest], ServerHelloDone
+        #Send ServerHello, Certificate or Compressed Certificate
+        #[, ServerKeyExchange] [, CertificateRequest], ServerHelloDone
         msgs = []
 
         # If we verify a client cert chain, return it
         clientCertChain = None
 
         msgs.append(serverHello)
-        msgs.append(Certificate(CertificateType.x509).create(serverCertChain))
+
+        chosen_compression_algo = choose_compression_send_algo(
+            self.version, clientHello.compressed_certificate_algs,
+            settings.certificate_compression_send)
+
+        if chosen_compression_algo:
+            self.server_cert_compression_algo = CompressionAlgorithm.toStr(
+                chosen_compression_algo)
+            certificate = CompressedCertificate(CertificateType.x509,
+                                                self.version)
+            certificate.create(chosen_compression_algo, serverCertChain,
+                                bytearray())
+        else:
+            certificate = Certificate(CertificateType.x509, self.version)
+            certificate.create(serverCertChain, bytearray())
+
+        msgs.append(certificate)
         try:
             serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
         except TLSInternalError as alert:
@@ -4215,9 +4333,19 @@ class TLSConnection(TLSRecordLayer):
             if cr_settings.dsaSigHashes:
                 cert_types.append(ClientCertificateType.dss_sign)
 
+            extensions = []
+            if self.version >= (3, 4):
+                algos_numbers = [
+                    getattr(CompressionAlgorithm, algo) for algo
+                    in cr_settings.certificate_compression_receive
+                ]
+                extensions.append(CompressCertificateExtension().create(
+                    algos_numbers))
+
             certificateRequest.create(cert_types,
                                       reqCAs,
-                                      valid_sig_algs)
+                                      valid_sig_algs,
+                                      extensions=extensions)
             msgs.append(certificateRequest)
         msgs.append(ServerHelloDone())
         for result in self._sendMsgs(msgs):
@@ -4422,7 +4550,7 @@ class TLSConnection(TLSRecordLayer):
         self.session.masterSecret = masterSecret
 
         #Calculate pending connection states
-        self._calcPendingStates(cipherSuite, masterSecret, 
+        self._calcPendingStates(cipherSuite, masterSecret,
                                 clientRandom, serverRandom,
                                 cipherImplementations)
 
@@ -4534,7 +4662,7 @@ class TLSConnection(TLSRecordLayer):
         #Switch to pending read state
         self._changeReadState()
 
-        #Server Finish - Are we waiting for a next protocol echo? 
+        #Server Finish - Are we waiting for a next protocol echo?
         if expect_next_protocol:
             for result in self._getMsg(ContentType.handshake, HandshakeType.next_protocol):
                 if result in (0,1):
