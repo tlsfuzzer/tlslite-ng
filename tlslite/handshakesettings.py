@@ -11,6 +11,7 @@ from .constants import CertificateType
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types
+from .utils.compression import compression_algo_impls
 
 CIPHER_NAMES = ["chacha20-poly1305",
                 "aes256gcm", "aes128gcm",
@@ -61,6 +62,19 @@ KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
+
+ALL_COMPRESSION_ALGOS_SEND = ["zlib"]
+if compression_algo_impls["brotli_compress"]:
+    ALL_COMPRESSION_ALGOS_SEND.append('brotli')
+if compression_algo_impls["zstd_compress"]:
+    ALL_COMPRESSION_ALGOS_SEND.append('zstd')
+
+ALL_COMPRESSION_ALGOS_RECEIVE = ["zlib"]
+if compression_algo_impls["brotli_decompress"]:
+    ALL_COMPRESSION_ALGOS_RECEIVE.append('brotli')
+if compression_algo_impls["zstd_decompress"]:
+    ALL_COMPRESSION_ALGOS_RECEIVE.append('zstd')
+
 
 
 class Keypair(object):
@@ -353,6 +367,20 @@ class HandshakeSettings(object):
     :vartype keyExchangeNames: list
     :ivar keyExchangeNames: Enabled key exchange types for the connection,
         influences selected cipher suites.
+
+    :vartype certificate_compression_send: list(str)
+    :ivar certificate_compression_send: a list of compression algorithms that
+        will be used to compress the certificate if compress_cerificate(27)
+        extension is supported in the handshake. This option is for when a
+        certificate was send/compressed by this peer.
+
+    :vartype certificate_compression_receive: list(str)
+    :ivar certificate_compression_receive: a list of compression algorithms
+        that will be used to compress the certificate if
+        compress_cerificate(27) extension is supported in the handshake. This
+        option is for when a certificate was received/decompressed by this
+        peer.
+
     """
 
     def _init_key_settings(self):
@@ -396,6 +424,12 @@ class HandshakeSettings(object):
         # resumed connections (as tickets are single-use in TLS 1.3
         self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
+
+        # Certificate compression
+        self.certificate_compression_send = list(ALL_COMPRESSION_ALGOS_SEND)
+        self.certificate_compression_receive = \
+            list(ALL_COMPRESSION_ALGOS_RECEIVE)
+
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -582,6 +616,8 @@ class HandshakeSettings(object):
     @staticmethod
     def _sanityCheckExtensions(other):
         """Check if set extension settings are sane"""
+        not_matching = HandshakeSettings._not_matching
+
         if other.useEncryptThenMAC not in (True, False):
             raise ValueError("useEncryptThenMAC can only be True or False")
 
@@ -600,6 +636,28 @@ class HandshakeSettings(object):
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
         HandshakeSettings._sanityCheckEMSExtension(other)
+
+        if other.certificate_compression_send:
+            if not hasattr(other.certificate_compression_send, '__iter__'):
+                raise ValueError("certificate_compression must be an iterable "
+                                 "of strings")
+
+            unknownAlgos = not_matching(other.certificate_compression_send,
+                                        ALL_COMPRESSION_ALGOS_SEND)
+            if unknownAlgos:
+                raise ValueError("Unknown compression algorithm: '{0}'"
+                                 .format(unknownAlgos))
+
+        if other.certificate_compression_receive:
+            if not hasattr(other.certificate_compression_receive, '__iter__'):
+                raise ValueError("certificate_compression must be an iterable "
+                                 "of strings")
+
+            unknownAlgos = not_matching(other.certificate_compression_receive,
+                                        ALL_COMPRESSION_ALGOS_RECEIVE)
+            if unknownAlgos:
+                raise ValueError("Unknown compression algorithm: '{0}'"
+                                 .format(unknownAlgos))
 
     @staticmethod
     def _not_allowed_len(values, sieve):
@@ -675,6 +733,9 @@ class HandshakeSettings(object):
         other.max_early_data = self.max_early_data
         other.ticket_count = self.ticket_count
         other.record_size_limit = self.record_size_limit
+        other.certificate_compression_send = self.certificate_compression_send
+        other.certificate_compression_receive = \
+            self.certificate_compression_receive
 
     @staticmethod
     def _remove_all_matches(values, needle):

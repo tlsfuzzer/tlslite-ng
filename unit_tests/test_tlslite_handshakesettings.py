@@ -482,6 +482,63 @@ class TestHandshakeSettings(unittest.TestCase):
 
         self.assertIn("new session tickets", str(e.exception))
 
+    def test_unknown_compression_algo(self):
+        hs = HandshakeSettings()
+        hs.certificate_compression_send = 1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "certificate_compression must be an iterable of strings",
+            str(e.exception)
+        )
+
+        hs.certificate_compression_send = "test"
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['t', 'e', 's', 't']'",
+            str(e.exception))
+
+        hs.certificate_compression_send = ["wrong"]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['wrong']'", str(e.exception))
+
+        hs.certificate_compression_send = None
+        hs.certificate_compression_receive = 1
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "certificate_compression must be an iterable of strings",
+            str(e.exception)
+        )
+
+        hs.certificate_compression_receive = "test"
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['t', 'e', 's', 't']'",
+            str(e.exception))
+
+        hs.certificate_compression_receive = ["wrong"]
+
+        with self.assertRaises(ValueError) as e:
+            hs.validate()
+
+        self.assertIn(
+            "Unknown compression algorithm: '['wrong']'", str(e.exception))
+
 
 class TestKeypair(unittest.TestCase):
     def test___init___(self):
