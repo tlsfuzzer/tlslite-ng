@@ -14,6 +14,9 @@ except ImportError:
     import unittest.mock as mock
     from unittest.mock import call
 
+import sys
+
+PY_VER = sys.version_info
 
 from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         RecordHeader2, Message, ClientKeyExchange, ServerKeyExchange, \
@@ -22,14 +25,15 @@ from tlslite.messages import ClientHello, ServerHello, RecordHeader3, Alert, \
         Certificate, Finished, HelloMessage, ChangeCipherSpec, NextProtocol, \
         ApplicationData, EncryptedExtensions, CertificateEntry, \
         NewSessionTicket, SessionTicketPayload, Heartbeat, HelloRequest, \
-        KeyUpdate, NewSessionTicket1_0
-from tlslite.utils.codec import Parser, DecodeError
+        KeyUpdate, NewSessionTicket1_0, CompressedCertificate
+from tlslite.utils.codec import Parser, DecodeError, BadCertificateError, \
+        Writer
 from tlslite.constants import CipherSuite, CertificateType, ContentType, \
         AlertLevel, AlertDescription, ExtensionType, ClientCertificateType, \
         HashAlgorithm, SignatureAlgorithm, ECCurveType, GroupName, \
         SSL2HandshakeType, CertificateStatusType, HandshakeType, \
         SignatureScheme, TLS_1_3_HRR, HeartbeatMessageType, \
-        KeyUpdateMessageType
+        KeyUpdateMessageType, CertificateCompressionAlgorithm
 from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
     SRPExtension, TLSExtension, NPNExtension, SupportedGroupsExtension, \
     ServerCertTypeExtension, PreSharedKeyExtension, PskIdentity, \
@@ -37,6 +41,8 @@ from tlslite.extensions import SNIExtension, ClientCertTypeExtension, \
 from tlslite.errors import TLSInternalError
 from tlslite.x509 import X509
 from tlslite.x509certchain import X509CertChain
+from tlslite.utils.compression import compression_algo_impls
+from tlslite.utils.brotlidecpy import decompress as custom_decompress
 
 
 srv_raw_certificate = str(
@@ -3968,6 +3974,207 @@ class TestKeyUpdate(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             KeyUpdate().parse(parser)
+
+
+class TestCompressedCertificate(unittest.TestCase):
+    def test___init__(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        self.assertIsNotNone(cc)
+        self.assertIsInstance(cc, CompressedCertificate)
+        self.assertEqual(cc.handshakeType,
+                         HandshakeType.compressed_certificate)
+        self.assertIsNone(cc.compression_algo)
+        self.assertIsNone(cc._compression_cache)
+        self.assertIsNone(cc._msg_len_cache)
+
+    def test___repr__(self):
+        cc = CompressedCertificate(CertificateType.x509)
+        cc = cc.create(CertificateCompressionAlgorithm.zlib,
+                       X509CertChain([bytearray(b'one'),
+                                      bytearray(b'two')]))
+        self.assertEqual(repr(cc),
+                "Compressed Certificate(cert_chain=[bytearray(b'one'), "
+                "bytearray(b'two')])")
+
+    def test_write_empty(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        algos = [CertificateCompressionAlgorithm.zlib]
+        if compression_algo_impls['brotli_compress']:
+            algos.append(CertificateCompressionAlgorithm.brotli)
+        if compression_algo_impls['zstd_compress']:
+            algos.append(CertificateCompressionAlgorithm.zstd)
+
+        for algo in algos:
+            cc.create(algo, X509CertChain())
+
+            compressed_cert = cc._compress(
+                bytearray(b'\x00\x00\x00')  # length of the list of certs
+            )
+            compressed_len = len(compressed_cert)
+            message_len = 8 + compressed_len
+
+            writer = Writer()
+            writer.bytes += b'\x19' # type of message - compressed certificate
+            writer.add(message_len, 3)
+            writer.add(algo, 2)
+            writer.bytes += b'\x00\x00\x03'  # length of uncompressed message
+            writer.add(compressed_len, 3)
+            writer.bytes += compressed_cert
+
+            self.assertEqual(cc.write(), writer.bytes)
+            self.assertIsNotNone(cc._compression_cache)
+            self.assertIsNotNone(cc._msg_len_cache)
+
+    def test_write_none(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        algos = [CertificateCompressionAlgorithm.zlib]
+        if compression_algo_impls['brotli_compress']:
+            algos.append(CertificateCompressionAlgorithm.brotli)
+        if compression_algo_impls['zstd_compress']:
+            algos.append(CertificateCompressionAlgorithm.zstd)
+
+        for algo in algos:
+            cc.create(algo, None)
+
+            compressed_cert = cc._compress(
+                bytearray(b'\x00\x00\x00')  # length of the list of certs
+            )
+            compressed_len = len(compressed_cert)
+            message_len = 8 + compressed_len
+
+            writer = Writer()
+            writer.bytes += b'\x19' # type of message - compressed certificate
+            writer.add(message_len, 3)
+            writer.add(algo, 2)
+            writer.bytes += b'\x00\x00\x03'  # length of uncompressed message
+            writer.add(compressed_len, 3)
+            writer.bytes += compressed_cert
+
+            self.assertEqual(cc.write(), writer.bytes)
+            self.assertIsNotNone(cc._compression_cache)
+            self.assertIsNotNone(cc._msg_len_cache)
+
+    @unittest.skipIf(PY_VER < (3, ),
+        "In Python2 zlib fails to decompress an empty message")
+    def test_parse_empty(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        algos = [CertificateCompressionAlgorithm.zlib]
+        if compression_algo_impls['brotli_compress']:
+            algos.append(CertificateCompressionAlgorithm.brotli)
+        if compression_algo_impls['zstd_compress']:
+            algos.append(CertificateCompressionAlgorithm.zstd)
+
+        for algo in algos:
+            cc.compression_algo = algo
+            compressed_cert = cc._compress(
+                bytearray(b'\x00\x00\x00')  # length of the list of certs
+            )
+            cc.compression_algo = None
+
+            compressed_len = len(compressed_cert)
+            message_len = 8 + compressed_len
+
+            writer = Writer()
+            writer.add(message_len, 3)
+            writer.add(algo, 2)
+            writer.bytes += b'\x00\x00\x03'  # length of uncompressed message
+            writer.add(compressed_len, 3)
+            writer.bytes += compressed_cert
+
+            parser = Parser(writer.bytes)
+
+            cc = cc.parse(parser)
+
+            self.assertIsNone(cc.cert_chain)
+            self.assertEqual(cc.compression_algo, algo)
+            cc.compression_algo = None
+
+    @unittest.skipIf(PY_VER < (3, ),
+        "In Python2 zlib fails to decompress an empty message")
+    def test_parse_empty_with_wrong_expected_size(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        cc.compression_algo = CertificateCompressionAlgorithm.zlib
+        compressed_cert = cc._compress(
+            bytearray(b'\x00\x00\x00')  # length of the list of certs
+        )
+
+        compressed_len = len(compressed_cert)
+        message_len = 8 + compressed_len
+
+        writer = Writer()
+        writer.add(message_len, 3)
+        writer.add(CertificateCompressionAlgorithm.zlib, 2)
+        writer.bytes += b'\x00\x00\x04'  # length of uncompressed message
+        writer.add(compressed_len, 3)
+        writer.bytes += compressed_cert
+
+        parser = Parser(writer.bytes)
+
+        with self.assertRaises(BadCertificateError) as e:
+            cc = cc.parse(parser)
+
+        self.assertIn("Decompressed message doesn't much length",
+                      str(e.exception))
+
+    def test_unknown_algo(self):
+        cc = CompressedCertificate(CertificateType.x509)
+        cc.compression_algo = 10
+
+        with self.assertRaises(ValueError) as e:
+            cc._compress(bytearray(100))
+
+        self.assertIn("Unknown compression algorithm code: 10",
+                      str(e.exception))
+
+        with self.assertRaises(BadCertificateError) as e:
+            cc._decompress(bytearray(100), 20)
+
+        self.assertIn("Unknown compression algorithm code: 10",
+                      str(e.exception))
+
+    @unittest.skipIf(compression_algo_impls['brotli_compress'] is None,
+                     "requires brotli package for compression")
+    def test_custom_decompression(self):
+        cc = CompressedCertificate(CertificateType.x509)
+        cc.compression_algo = CertificateCompressionAlgorithm.brotli
+        msg = bytearray(100)
+        compressed_message = cc._compress(msg)
+        decompressed_message = custom_decompress(compressed_message)
+
+        self.assertEqual(decompressed_message, msg)
+
+    def test_compression_decompression(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        algos = [CertificateCompressionAlgorithm.zlib]
+        if compression_algo_impls['brotli_compress']:
+            algos.append(CertificateCompressionAlgorithm.brotli)
+        if compression_algo_impls['zstd_compress']:
+            algos.append(CertificateCompressionAlgorithm.zstd)
+
+        for algo in algos:
+            cc.compression_algo = algo
+            msg = bytearray(100)
+            compressed_message = cc._compress(msg)
+            decompressed_message = cc._decompress(compressed_message, 100)
+
+            self.assertEqual(decompressed_message, msg)
+
+    def test_check_wrong_compressed_message(self):
+        cc = CompressedCertificate(CertificateType.x509)
+        cc.compression_algo = CertificateCompressionAlgorithm.zlib
+        msg = bytearray(100)
+
+        with self.assertRaises(BadCertificateError) as e:
+            cc._decompress(msg, 20)
+
+        self.assertIn("Error on decompressing the message.",
+                      str(e.exception))
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Google (adapted by Sam Rushing) - NPN support
 #   Google - minimal padding
@@ -19,6 +19,8 @@ from .utils.compat import *
 from .utils.cryptomath import *
 from .utils.codec import Parser, BadCertificateError
 from .utils.lists import to_str_delimiter, getFirstMatching
+from .utils.compression import compression_algo_impls, \
+    choose_compression_send_algo
 from .errors import *
 from .messages import *
 from .mathtls import *
@@ -333,9 +335,24 @@ class TLSRecordLayer(object):
                                   HandshakeType.key_update,
                                   HandshakeType.certificate_request)
             elif self._cert_requests:
-                allowedHsTypes = (HandshakeType.new_session_ticket,
-                                  HandshakeType.key_update,
-                                  HandshakeType.certificate)
+                cert_req_with_comp_cert_ext = False
+                for cert_request in self._cert_requests.values():
+                    cert_req_comp_cert_ext = cert_request.getExtension(
+                        ExtensionType.compress_certificate)
+                    cert_req_with_comp_cert_ext = cert_req_with_comp_cert_ext \
+                        or cert_req_comp_cert_ext is not None
+                    if cert_req_with_comp_cert_ext:
+                        break
+
+                if cert_req_with_comp_cert_ext:
+                    allowedHsTypes = (HandshakeType.new_session_ticket,
+                                      HandshakeType.key_update,
+                                      HandshakeType.certificate,
+                                      HandshakeType.compressed_certificate)
+                else:
+                    allowedHsTypes = (HandshakeType.new_session_ticket,
+                                      HandshakeType.key_update,
+                                      HandshakeType.certificate)
                 constructor_type = CertificateType.x509
             else:
                 allowedHsTypes = (HandshakeType.new_session_ticket,
@@ -367,6 +384,11 @@ class TLSRecordLayer(object):
                         # KeyUpdate messages are not solicited, while call with
                         # min==0 are done to perform PHA
                         try_once = True
+                    elif isinstance(result, CompressedCertificate):
+                        self.client_cert_compression_algo = \
+                            result.compression_algo
+                        for result in self._handle_srv_pha(result):
+                            yield result
                     elif isinstance(result, Certificate):
                         for result in self._handle_srv_pha(result):
                             yield result
@@ -502,7 +524,7 @@ class TLSRecordLayer(object):
                     yield result
                 alert = None
                 # By default close the socket, since it's been observed
-                # that some other libraries will not respond to the 
+                # that some other libraries will not respond to the
                 # close_notify alert, thus leaving us hanging if we're
                 # expecting it
                 if self.closeSocket:
@@ -613,7 +635,7 @@ class TLSRecordLayer(object):
         # class, so that when fileobject.close() gets called, it will
         # close() us, causing the refcount to be decremented (decrefAsync).
         #
-        # If this is the last close() on the outstanding fileobjects / 
+        # If this is the last close() on the outstanding fileobjects /
         # TLSConnection, then the "actual" close alerts will be sent,
         # socket closed, etc.
 
@@ -656,11 +678,11 @@ class TLSRecordLayer(object):
     def shutdown(self, how):
         """Shutdown the underlying socket."""
         return self.sock.shutdown(how)
-    	
+
     def fileno(self):
         """Not implement in TLS Lite."""
         raise NotImplementedError()
-    	
+
 
      #*********************************************************
      # Public Functions END
@@ -679,8 +701,19 @@ class TLSRecordLayer(object):
             prf_size = 48
 
         msgs = []
-        msgs.append(Certificate(CertificateType.x509, self.version)
-                    .create(cert, cert_request.certificate_request_context))
+
+        valid_compression_algos = ["zlib"]
+        if compression_algo_impls["brotli_compress"]:
+            valid_compression_algos.append("brotli")
+        if compression_algo_impls["zstd_compress"]:
+            valid_compression_algos.append("zstd")
+
+        client_certificate = self._create_cert_msg(
+            'client', cert_request, valid_compression_algos, cert,
+            CertificateType.x509, cert_request.certificate_request_context,
+            self.version)
+
+        msgs.append(client_certificate)
         handshake_context.update(msgs[0].write())
         if cert.x509List and p_key:
             # sign the CertificateVerify only when we have a private key to do
@@ -1225,6 +1258,9 @@ class TLSRecordLayer(object):
                     yield ServerHello().parse(p)
                 elif subType == HandshakeType.certificate:
                     yield Certificate(constructorType, self.version).parse(p)
+                elif subType == HandshakeType.compressed_certificate:
+                    yield CompressedCertificate(
+                        constructorType, self.version).parse(p)
                 elif subType == HandshakeType.certificate_request:
                     yield CertificateRequest(self.version).parse(p)
                 elif subType == HandshakeType.certificate_verify:
@@ -1482,3 +1518,36 @@ class TLSRecordLayer(object):
                     self.session.cipherSuite,
                     self.session.cl_app_secret,
                     self.session.sr_app_secret)
+
+    def _create_cert_msg(self, peer, request_msg, valid_compression_algos,
+                         cert_chain, cert_type, cert_context=b'',
+                         version=(3, 2)):
+        """
+        Creates either a Certificate or a CompressedCertificate message
+        depending if the compress_certificate extension is present.
+        """
+
+        cert_req_comp_cert_ext = request_msg.getExtension(
+            ExtensionType.compress_certificate)
+        chosen_compression_algo = choose_compression_send_algo(
+            version, cert_req_comp_cert_ext,
+            valid_compression_algos)
+
+        if chosen_compression_algo:
+            if peer == "server":
+                self.server_cert_compression_algo = \
+                    CertificateCompressionAlgorithm.toStr(
+                        chosen_compression_algo)
+            else:
+                self.client_cert_compression_algo = \
+                    CertificateCompressionAlgorithm.toStr(
+                        chosen_compression_algo)
+
+            certificate_msg = CompressedCertificate(cert_type, version)
+            certificate_msg.create(
+                chosen_compression_algo, cert_chain, cert_context)
+        else:
+            certificate_msg = Certificate(cert_type, version)
+            certificate_msg.create(cert_chain, cert_context)
+
+        return certificate_msg
