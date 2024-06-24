@@ -1,4 +1,7 @@
-# Author: Trevor Perrin
+# Authors:
+#   Trevor Perrin
+#   Esteban Sanchez (FosanzDev) - python 3.12 port
+#
 # See the LICENSE file for legal information regarding use of this file.
 
 __version__ = "0.8.0-beta1"
@@ -18,12 +21,25 @@ from .x509certchain import X509CertChain
 
 from .integration.httptlsconnection import HTTPTLSConnection
 from .integration.tlssocketservermixin import TLSSocketServerMixIn
+
+try:
+    from .integration.tlsasynciodispatchermixin \
+        import TLSAsyncioDispatcherMixIn
+
+except ImportError:
+    # NOTE: asyncio is not available in base python 2, so this try-except
+    # block is necessary to avoid breaking the import of the
+    # rest of the module.
+    pass
+
 try:
     from .integration.tlsasyncdispatchermixin import TLSAsyncDispatcherMixIn
-except ModuleNotFoundError:
-    # asyncore was removed in 3.12, I don't use it, so don't know how
-    # to fix it
+except ImportError:
+    # NOTE: Left this try-except block as is, due to the possibility to use
+    # both asyncore and asyncio in the same project no matter the python
+    # version (if the asyncore module is available).
     pass
+
 from .integration.pop3_tls import POP3_TLS
 from .integration.imap4_tls import IMAP4_TLS
 from .integration.smtp_tls import SMTP_TLS
