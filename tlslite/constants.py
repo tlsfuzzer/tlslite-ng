@@ -240,6 +240,15 @@ class SignatureScheme(TLSEnum):
     rsa_pss_sha384 = (8, 5)
     rsa_pss_sha512 = (8, 6)
 
+    # RFC 8734
+    # the names are from RFC, so we don't care that they don't follow naming
+    # pattern
+    # pylint: disable=invalid-name
+    ecdsa_brainpoolP256r1tls13_sha256 = (8, 0x1A)
+    ecdsa_brainpoolP384r1tls13_sha384 = (8, 0x1B)
+    ecdsa_brainpoolP512r1tls13_sha512 = (8, 0x1C)
+    # pylint: enable=invalid-name
+
     dsa_sha1 = (2, 2)
     dsa_sha224 = (3, 2)
     dsa_sha256 = (4, 2)
@@ -420,6 +429,12 @@ class GroupName(TLSEnum):
     ffdhe6144 = 259
     ffdhe8192 = 260
     allFF = list(range(256, 261))
+
+    # RFC8734
+    brainpoolP256r1tls13 = 31
+    brainpoolP384r1tls13 = 32
+    brainpoolP512r1tls13 = 33
+    allEC.extend(list(range(31, 34)))
 
     all = allEC + allFF
 
