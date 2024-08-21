@@ -1873,8 +1873,6 @@ class TLSConnection(TLSRecordLayer):
                                                      serverRandom)
         self._calcPendingStates(cipherSuite, masterSecret,
                                 clientRandom, serverRandom,
-        self._calcPendingStates(cipherSuite, masterSecret,
-                                clientRandom, serverRandom,
                                 cipherImplementations)
 
         #Exchange ChangeCipherSpec and Finished messages
