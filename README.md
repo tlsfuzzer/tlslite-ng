@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-beta1 (2023-08-24)
+tlslite-ng version 0.8.0-beta2 (2024-08-22)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -95,7 +95,7 @@ Currently it is distributed under Gnu LGPLv2 license.
 Requirements:
 
 * Python 2.6 or higher is required.
-* Python 3.5 or higher is supported.
+* Python 3.6 or higher is supported.
 * python ecdsa >= 0.13.3 library
   ([GitHub](https://github.com/warner/python-ecdsa),
   [PyPI](https://pypi.python.org/pypi/ecdsa))
@@ -702,6 +702,11 @@ TLSAsyncioDispatcherMixIn.py.
   other backends)
 * Ticket based session resumption in TLS 1.2 and earlier
 * strict size checking of `session_id` field in ClientHello
+* use python-ecdsa code for parsing ECDH key shares, speed up calculation
+  of shared secrets (Ganna Starovoytova)
+* fix sending of session ticket extension from the server without
+  a ticket (George Pantelakis)
+* add Brainpool IDs for TLS 1.3 from RFC 8734
 
 0.7.0 - 2017-07-31
 
