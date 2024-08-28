@@ -1738,7 +1738,10 @@ class ClientKeyExchange(HandshakeMsg):
             else:
                 raise AssertionError()
         elif self.cipherSuite in CipherSuite.dhAllSuites:
-            self.dh_Yc = bytesToNumber(parser.getVarBytes(2))
+            val = parser.getVarBytes(2)
+            if len(val) < 1:
+                raise DecodeError("DH key share too short")
+            self.dh_Yc = bytesToNumber(val)
         elif self.cipherSuite in CipherSuite.ecdhAllSuites:
             self.ecdh_Yc = parser.getVarBytes(1)
         else:
