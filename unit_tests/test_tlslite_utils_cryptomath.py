@@ -100,6 +100,12 @@ class TestNumberToBytesFunctions(unittest.TestCase):
         self.assertEqual(numberToByteArray(0x00000000000001),
                          bytearray(b'\x01'))
 
+    def test_numberToByteArray_zero_bigendian(self):
+        self.assertEqual(numberToByteArray(0, endian="big"), bytearray(b'\x00'))
+
+    def test_numberToByteArray_zero_littleendian(self):
+        self.assertEqual(numberToByteArray(0, endian="little"), bytearray(b'\x00'))
+
     def test_numberToByteArray_with_MSB_number(self):
         self.assertEqual(numberToByteArray(0xff),
                          bytearray(b'\xff'))

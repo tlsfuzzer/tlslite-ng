@@ -106,7 +106,10 @@ if sys.version_info >= (3,0):
     def int_to_bytes(val, length=None, byteorder="big"):
         """Return number converted to bytes"""
         if length is None:
-            length = byte_length(val)
+            if val:
+                length = byte_length(val)
+            else:
+                length = 1
         # for gmpy we need to convert back to native int
         if type(val) != int:
             val = int(val)
@@ -206,7 +209,10 @@ else:
     def int_to_bytes(val, length=None, byteorder="big"):
         """Return number converted to bytes"""
         if length is None:
-            length = byte_length(val)
+            if val:
+                length = byte_length(val)
+            else:
+                length = 1
         if byteorder == "big":
             return bytearray((val >> i) & 0xff
                              for i in reversed(range(0, length*8, 8)))
