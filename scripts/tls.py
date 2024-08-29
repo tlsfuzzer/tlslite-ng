@@ -367,6 +367,7 @@ def printGoodConnection(connection, seconds):
     print("  Extended Master Secret: {0}".format(
                                                connection.extendedMasterSecret))
     print("  Session Resumed: {0}".format(connection.resumed))
+    print("  Session used ec point format extension: {0}".format(connection.session.ec_point_format))
 
 def printExporter(connection, expLabel, expLength):
     if expLabel is None:
@@ -424,7 +425,7 @@ def clientCmd(argv):
             connection.handshakeClientCert(cert_chain, privateKey,
                 settings=settings, serverName=address[0], alpn=alpn)
         stop = time_stamp()
-        print("Handshake success")        
+        print("Handshake success")
     except TLSLocalAlert as a:
         if a.description == AlertDescription.user_canceled:
             print(str(a))
