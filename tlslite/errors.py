@@ -1,4 +1,4 @@
-# Authors: 
+# Authors:
 #   Trevor Perrin
 #   Dave Baggett (Arcode Corporation) - Added TLSUnsupportedError.
 #

@@ -1986,7 +1986,7 @@ class TestECDHE_RSAKeyExchange(unittest.TestCase):
         cln_Xc = ecdsa.util.randrange(generator.order())
         point = generator * cln_Xc
         cln_Yc = bytearray(point.to_bytes('uncompressed'))
-        
+
         cln_key_ex = ClientKeyExchange(self.cipher_suite, (3, 3))
         cln_key_ex.createECDH(cln_Yc)
 

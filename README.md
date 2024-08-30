@@ -81,7 +81,7 @@ Hubert Kario. TLS Lite was written (mostly) by Trevor
 Perrin. It includes code from Bram Cohen, Google, Kees Bos, Sam Rushing,
 Dimitris Moraitis, Marcelo Fernandez, Martin von Loewis, Dave Baggett, Yngve
 N. Pettersen (ported by Paul Sokolovsky), Mirko Dziadzka, David Benjamin,
-and Hubert Kario.
+Sidney Markowitz, and Hubert Kario.
 
 Original code in TLS Lite has either been dedicated to the public domain by its
 authors, or placed under a BSD-style license. See the LICENSE file for
