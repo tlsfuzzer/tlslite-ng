@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-beta2 (2024-08-22)
+tlslite-ng version 0.8.0-beta3 (2024-08-30)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -34,7 +34,7 @@ API documentation is available in the `docs/_build/html` directory of the PyPI
 package
 or can be automatically generated using `make docs` with Sphinx installed.
 
-If you have questions or feedback, feel free to contact me (Hubert Kario
+If you have questions or feedback, feel free to contact me (Alicja Kario
 &lt;hkario at redhat.com>). Issues and pull
 requests can also be submitted through github issue tracking system, at the
 project's main page at [GitHub](https://github.com/tlsfuzzer/tlslite-ng), see
@@ -77,11 +77,11 @@ Implemented TLS features include:
 ============================
 
 tlslite-ng is a fork of TLS Lite, it is currently maintained and developed by
-Hubert Kario. TLS Lite was written (mostly) by Trevor
+Alicja Kario. TLS Lite was written (mostly) by Trevor
 Perrin. It includes code from Bram Cohen, Google, Kees Bos, Sam Rushing,
 Dimitris Moraitis, Marcelo Fernandez, Martin von Loewis, Dave Baggett, Yngve
 N. Pettersen (ported by Paul Sokolovsky), Mirko Dziadzka, David Benjamin,
-Sidney Markowitz, and Hubert Kario.
+Sidney Markowitz, and Alicja Kario.
 
 Original code in TLS Lite has either been dedicated to the public domain by its
 authors, or placed under a BSD-style license. See the LICENSE file for
@@ -707,6 +707,11 @@ TLSAsyncioDispatcherMixIn.py.
 * fix sending of session ticket extension from the server without
   a ticket (George Pantelakis)
 * add Brainpool IDs for TLS 1.3 from RFC 8734
+* add support for compress_certificate extension from RFC 8879
+  (George Pantelakis)
+* Fix int_to_bytes and numberToByteArray encoding of 0 with length not
+  specified, and thus also ClientKeyExchange handling for DHE with missing
+  key share
 
 0.7.0 - 2017-07-31
 
@@ -835,7 +840,7 @@ TLSAsyncioDispatcherMixIn.py.
 * Don't offer SSLv3 by default (e.g. POODLE)
 * Fixed bug with `PyCrypto_RSA` integration
 * Fixed harmless bug that added non-prime into sieves list
-* Added "make test" and "make test-dev" targets (Hubert Kario)
+* Added "make test" and "make test-dev" targets (Alicja Kario)
 
 0.4.5 - 3/20/2013
 
