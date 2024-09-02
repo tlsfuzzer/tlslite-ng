@@ -3005,3 +3005,191 @@ d1109ba4"""))
 
         self.assertNotEqual(msg, b'forty two')
         self.assertEqual(msg, plaintext)
+
+
+class TestRSA4096Decrypt(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        priv_key = """
+-----BEGIN PRIVATE KEY-----
+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
+q4gl5hM8H5F0iWcKq25nZYHamz7f
+-----END PRIVATE KEY-----"""
+        cls.priv_key = parsePEMKey(priv_key, private=True)
+
+        pub_key = """
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAj945U+VcSE8cQkquyQPf
+bznTDbFgUpaAGhgtOudGjhkns4b+edH6FhsolPhosaN18xnDBrO72l/LRaETpVcO
+skcxgM/hEZ+gfCXkaIyiVeIVpqxWvBEH7iQzzOhFy29V9ruMMA6cA7NCFXOI1A+n
+pF07DRBVtJo8OwpES3JxlxVBQ14/yfKVb3heXMbRWYuficHBO/TF/vExB/DgFvVt
+dTvbL3Dxbsx1CNIL9QYsXGSL1btKc1XEKTXir+NWWVttDzTqcpyOyYzown+Hmxmc
+dN8uIu4wNi6S85243Jok9RntWvzR0uga4gP//YAo3AL4HTv0sLO6xCSxByUNIJjA
+bkrd8mkKTna3o5lzV9gr8+nsENeouIYqvAK2pnMokSFR47H0CVjHoq2F+2QrKwlU
+bdFhhPTz1MaP5gyGdwqUNCEcDcQsLiTt+QKi7U1GhV4UVuZf1v4W1W2k48gJndlu
+eywhYz4e0uNcxAkZes7n+5Hhm2ndPeE5JvHa/vzeO5gLT/AvkNmASBLMTqmKG1ZQ
+D/0c57KuknFMimoDHSm8t/BHsMm7znDf4OHw2wbO2viXadWOHBU+7oE3rYoPshyZ
+SYI20EGAPLI8AD3mUQK5pzLDgbxBvhfLSyEZk/YiBuwFfHFXUNXNMatnvmyGVepK
+tabLQBHCibNsEt4a96CO3Q0CAwEAAQ==
+-----END PUBLIC KEY-----"""
+        cls.pub_key = parsePEMKey(pub_key, public=True)
+
+
+    def test_sanity(self):
+        self.assertIsNotNone(self.priv_key)
+        self.assertIsNotNone(self.pub_key)
+
+        msg = b"message"
+        self.assertEqual(msg, self.priv_key.decrypt(self.pub_key.encrypt(msg)))
+
+    def test_normal_decrypt(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+041f9bbe8372454ffadce0befc99ad4bd01cdbe016dffb5d0d84ee879e7ff64a25dced4d504f4
+8a14b700a34a1c148e4b4028eecc9158cf5e3469daad1dddb2157b176dcf5716627aebd6072b9
+65cfb67b42b149e88c0a8dc54703ec244637b3039b80c06d1d4968aeb838f3afcd3dc675fc907
+36cf0f0adaba182e27a19a7294cef500ed1fcca324c3ffa6ff02bd749a4a66f18da138d53ff54
+9c4e6b3fff0b9ee2029ea8293fcd72a03e1dee4445629979be7fd65e5dbe5e6e77ec2aa87879a
+01c3e2502af0cc4bc04b637d17b175d92b4dcd70cfe83b6c1d4f91c61e911b81cb6d60b99146f
+17937d127054521b132acb9ca95cbc6f80cd926d709bd7219d48ce7378e4416328a49be6c773d
+bdeb00ce23dc91f25f4807526cf4de8dd3fbb13ae1011eefe3a2aad9982f6c9268883b4633057
+d119c97c1178aae671859af0a488ab7b841c6583572d1261137a4292ba1c1caa4baf808be4207
+5940d7e612efa56ac9a7ffff3e7dbf10b6193ea14c4841fc5c43e031a69ddbd79118ccd92b16a
+6ef66c7404c001ebc6402301a90248eb6562b7a2f549f52c058109dd5f2617877719ad13e81d1
+9425a4cd5cf9e56e8538f5cb09b6f7ab646910b8c2ff6bf8cf17abdb4758bfba80df9f643950a
+6d4a8f60c6872700e5919d36503486667e4328a6b74b774eb483a9922706baa7f456644781cc0
+d78add9024e28da2d5e9d81"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        plaintext = b'lorem ipsum'
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_with_no_version_byte(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+6b11bd1777ac4f1d8f36a3ebd01090a4c2be1e2deb928cef6427c107f8cb
+1d7072c9d37d3b69de959c4d9f24ac92be7f584b0737416fcf9c58268b6e
+ef5c52cfbb3cd4ce241708f71fde98f9181ad5d8db734c61fe4bf2c5d1f1
+1b08d71f84bc448404041522387a67f7a2c7c9e24340343bcbf9b4d68487
+103d925751333cff995d031492542d60e55cdab81dffc882079ed578ba35
+c33d456be27fc1f56f0e2bc68d1bc35a0ce7b8a9a770816c7448013e56a1
+a8a9861885c99cf77b4beac682aa61822ffff61697e5afa566f10565644a
+cd1080bef01ef14b498b329f4e0d56f5c7c97b09398e557513c33354528e
+eccdb3dc167de119b0b9299e56bcc6814cc5edbbf1b49769ec3487be04b1
+0f3efa41e1a76eb9215ded0d2832923dcbc1e6444967c6945d2c975456cc
+5d495f1b02b272d11ed46ddea4fa8d264709beda36b252385ffc11679daa
+3fcdfe31f2980075f281dfbcfec2442092031a89323f5d83caeacbaded97
+26de616fd9b034ac076fc4a72f0331f6b9efff91b79b440af115ea1a352e
+a2a9bfb4e74c0215aff27fd51dce2ac9e90332dbcc1e3de009eee079b4e7
+0d2c0ce870aeca5c329471dc54a9e0c6c5e04275f1a8c0462971c6cda9c4
+b78ed362a8bdbb6f0de87b83cc4c1bcd813fde2741259cd1aad588d48440
+3f63eca6d991b7302be939be2cf9408c6501037eeb56da342710df4b5406
+cba9"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:1], b'\x02')
+        self.assertTrue(all(i != 0 for i in dec[1:507]))
+        self.assertEqual(dec[507:508], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("""
+dd843a3331f5ca2035ac2ae0f87e544ec369e85514e295aba369179ea312
+fa074253d3670842ce05fa5a3f55c6e0dae35e0d81075319604267f513a6
+2b44600f2afe610ffa79ada034ca28682d3a4526f67e4243ad2c6d545690
+4e2aa6401d521e43c0e3753441a9db79a23eeb981c9627d6382145b09e68
+2757213fa4f4466e985e5d4975437c1d56803bc48ee269c99cd1e72c10c7
+8fe4fc6119873d4d5ee55a159ab418ff0c87b8dfe54755cdc9e8997af9ce
+ff432a0913c75a"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_with_wrong_version_byte(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+36e373c18770cdbb666723a84d16af1b97669f056111890863c1fa32af22
+1e2f6ab211643dcfb00a59f5ce241eba6622badcd49ca0889295d09330f6
+619f0d258ac29e1bbe6df83f664834a7c5d5337b3a870f79d2e055fc4067
+4ec959799851d269355cb51b8b42e382d66b20ca898a91afe9944dc23359
+4dd6870ef9848958396e169790751ea5679e48fa3f64da78cb99d6d8cd0e
+651e9d2bcdb6e0a60c92dbdb193cd4a1013ae4d44af6bb9002e34b240ac8
+25f26345a7f5db787e30036d836b991f95e8cb2b1ebe6a722aceeabd98c6
+ebfc4ccd0d832ba4361f381790dc84d18b78814d8174f41a42932626ea80
+73356f2edb8af0cdcb09bdb03244c405f52207791aa95e783ac5bd8d4aa7
+8de41be84be6077e3e312e1775044c57b7befd5f34370fc9238bb8a9d3b8
+e18acfc2783442f121e1f9a47f4f2f688a1aebc4237afde71e070e4097ee
+05fa8bd20a80433d344a1409ad22c6109cd4799d2f3238586519efa37640
+cd615bb90ef55e29bed75f40e9315b8b80a9c9b09251c9cf206cbc8a34ed
+b3be4c7a0a538f4ffa20f76def706660fdd152e89b1b22660371e2a27b0f
+8d046a4f76dd355c5e250264317a5f52da6c438673158e3bc7cdf95880a7
+b93f3a1ddb1841a4b819841ecc22be19bd92acf5b63b395fce376f72fb60
+9a333486a3cc287f710370dcd57179a84d895c51ea6e1def763a0c2ff138
+ceb5"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertNotEqual(dec[0:1], b'\x00')
+        self.assertEqual(dec[1:2], b'\x02')
+        self.assertTrue(all(i != 0 for i in dec[2:507]))
+        self.assertEqual(dec[507:508], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("""
+51aa94d54ec9a891d92eb7e69cbfe6fd05a6561ea3f9768cb5224cbb1dc
+b9decc0278361147e6979bc3769b9ae741fc2928e94d7a0f8625e296f20
+39f23dde67ea90adcf1afd52424d02228189fe4c3603134ce07f72994bd
+d929cc5a2a4"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
