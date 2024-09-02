@@ -2024,6 +2024,7 @@ ce4af1874124ace3d99bb74db8d69d2528db22c3a37644640f95c05f"""))
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:2], b'\x01\x02')
+        self.assertTrue(all(i != 0 for i in dec[2:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex(remove_whitespace("a1f8c9255c35cfba403ccc"))
@@ -2049,6 +2050,7 @@ fef8a3834e17e5358d822980dc446e845b3ab4702b1ee41fe5db716d92348d5091c15d35a110
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:2], b'\x00\x01')
+        self.assertTrue(all(i != 0 for i in dec[2:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex(remove_whitespace("e6d700309ca0ed62452254"))
@@ -2154,6 +2156,7 @@ b6db86c22a8732241ebf3c6a4f2cf82671d917aba8bc61052b40ccddd743a94ea9b538175106
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:3], b'\x00\x00\x02')
+        self.assertTrue(all(i != 0 for i in dec[3:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex(remove_whitespace("3d4a054d9358209e9cbbb9"))
@@ -2180,6 +2183,7 @@ ac516b0d6412ba44ec6b4f268a55ef1c5ffbf18a2f4e3522bb7b6ed89774b79bffa22f7d3102
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertTrue(all(i != 0 for i in dec[3:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex("1f037dd717b07d3e7f7359")
@@ -2206,8 +2210,9 @@ b76d9ab8da52ea297ec11d92d770146faa1b300e0f91ef969b53e7d2907ffc984e9a9c9d11fb
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:2], b'\x00\x02')
-        self.assertNotEqual(dec[2:3], b'\x00')
+        self.assertTrue(all(i != 0 for i in dec[2:9]))
         self.assertEqual(dec[9:10], b'\x00')
+        self.assertTrue(all(i != 0 for i in dec[10:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex("63cb0bf65fc8255dd29e17")
