@@ -22,6 +22,30 @@ except ImportError:
     import unittest.mock as mock
     from unittest.mock import call
 
+
+def calc_kdk(key, ciphertext):
+    key_hash = secureHash(numberToByteArray(key.d, numBytes(key.n)), "sha256")
+
+    kdk = secureHMAC(key_hash, ciphertext, "sha256")
+
+    return kdk
+
+
+def calc_lengths(key, kdk):
+    lengths_bytes = key._dec_prf(kdk, b"length", 128 * 2 * 8)
+
+    max_sep_offset = numBytes(key.n) - 10
+    mask = (1 << numBits(max_sep_offset)) - 1
+
+    lengths_iter = iter(lengths_bytes)
+
+    lengths = [
+        ((i << 8) + j) & mask
+        for i, j in zip(lengths_iter, lengths_iter)
+    ]
+    return lengths
+
+
 class TestRSAPSS_components(unittest.TestCase):
     # component functions NOT tested from test vectors
 
@@ -1695,33 +1719,34 @@ class TestRSADecrypt(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         priv_key = """
------BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEAyMyDlxQJjaVsqiNkD5PciZfBY3KWj8Gwxt9RE8HJTosh5IrS
-KX5lQZARtObY9ec7G3iyV0ADIdHva2AtTsjOjRQclJBetK0wZjmkkgZTS25/JgdC
-Ppff/RM8iNchOZ3vvH6WzNy9fzquH+iScSv7SSmBfVEWZkQKH6y3ogj16hZZEK3Y
-o/LUlyAjYMy2MgJPDQcWnBkY8xb3lLFDrvVOyHUipMApePlomYC/+/ZJwwfoGBm/
-+IQJY41IvZS+FStZ/2SfoL1inQ/6GBPDq/S1a9PC6lRl3/oUWJKSqdiiStJr5+4F
-EHQbY4LUPIPVv6QKRmE9BivkRVF9vK8MtOGnaQIDAQABAoIBABRVAQ4PLVh2Y6Zm
-pv8czbvw7dgQBkbQKgI5IpCJksStOeVWWSlybvZQjDpxFY7wtv91HTnQdYC7LS8G
-MhBELQYD/1DbvXs1/iybsZpHoa+FpMJJAeAsqLWLeRmyDt8yqs+/Ua20vEthubfp
-aMqk1XD3DvGNgGMiiJPkfUOe/KeTJZvPLNEIo9hojN8HjnrHmZafIznSwfUiuWlo
-RimpM7quwmgWJeq4T05W9ER+nYj7mhmc9xAj4OJXsURBszyE07xnyoAx0mEmGBA6
-egpAhEJi912IkM1hblH5A1SI/W4Jnej/bWWk/xGCVIB8n1jS+7qLoVHcjGi+NJyX
-eiBOBMECgYEA+PWta6gokxvqRZuKP23AQdI0gkCcJXHpY/MfdIYColY3GziD7UWe
-z5cFJkWe3RbgVSL1pF2UdRsuwtrycsf4gWpSwA0YCAFxY02omdeXMiL1G5N2MFSG
-lqn32MJKWUl8HvzUVc+5fuhtK200lyszL9owPwSZm062tcwLsz53Yd0CgYEAznou
-O0mpC5YzChLcaCvfvfuujdbcA7YUeu+9V1dD8PbaTYYjUGG3Gv2crS00Al5WrIaw
-93Q+s14ay8ojeJVCRGW3Bu0iF15XGMjHC2cD6o9rUQ+UW+SOWja7PDyRcytYnfwF
-1y2AkDGURSvaITSGR+xylD8RqEbmL66+jrU2sP0CgYB2/hXxiuI5zfHfa0RcpLxr
-uWjXiMIZM6T13NKAAz1nEgYswIpt8gTB+9C+RjB0Q+bdSmRWN1Qp1OA4yiVvrxyb
-3pHGsXt2+BmV+RxIy768e/DjSUwINZ5OjNalh9e5bWIh/X4PtcVXXwgu5XdpeYBx
-sru0oyI4FRtHMUu2VHkDEQKBgQCZiEiwVUmaEAnLx9KUs2sf/fICDm5zZAU+lN4a
-AA3JNAWH9+JydvaM32CNdTtjN3sDtvQITSwCfEs4lgpiM7qe2XOLdvEOp1vkVgeL
-9wH2fMaz8/3BhuZDNsdrNy6AkQ7ICwrcwj0C+5rhBIaigkgHW06n5W3fzziC5FFW
-FHGikQKBgGQ790ZCn32DZnoGUwITR++/wF5jUfghqd67YODszeUAWtnp7DHlWPfp
-LCkyjnRWnXzvfHTKvCs1XtQBoaCRS048uwZITlgZYFEWntFMqi76bqBE4FTSYUTM
-FinFUBBVigThM/RLfCRNrCW/kTxXuJDuSfVIJZzWNAT+9oWdz5da
------END RSA PRIVATE KEY-----
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDIzIOXFAmNpWyq
+I2QPk9yJl8FjcpaPwbDG31ETwclOiyHkitIpfmVBkBG05tj15zsbeLJXQAMh0e9r
+YC1OyM6NFByUkF60rTBmOaSSBlNLbn8mB0I+l9/9EzyI1yE5ne+8fpbM3L1/Oq4f
+6JJxK/tJKYF9URZmRAofrLeiCPXqFlkQrdij8tSXICNgzLYyAk8NBxacGRjzFveU
+sUOu9U7IdSKkwCl4+WiZgL/79knDB+gYGb/4hAljjUi9lL4VK1n/ZJ+gvWKdD/oY
+E8Or9LVr08LqVGXf+hRYkpKp2KJK0mvn7gUQdBtjgtQ8g9W/pApGYT0GK+RFUX28
+rwy04adpAgMBAAECggEAFFUBDg8tWHZjpmam/xzNu/Dt2BAGRtAqAjkikImSxK05
+5VZZKXJu9lCMOnEVjvC2/3UdOdB1gLstLwYyEEQtBgP/UNu9ezX+LJuxmkehr4Wk
+wkkB4CyotYt5GbIO3zKqz79RrbS8S2G5t+loyqTVcPcO8Y2AYyKIk+R9Q578p5Ml
+m88s0Qij2GiM3weOeseZlp8jOdLB9SK5aWhGKakzuq7CaBYl6rhPTlb0RH6diPua
+GZz3ECPg4lexREGzPITTvGfKgDHSYSYYEDp6CkCEQmL3XYiQzWFuUfkDVIj9bgmd
+6P9tZaT/EYJUgHyfWNL7uouhUdyMaL40nJd6IE4EwQKBgQD49a1rqCiTG+pFm4o/
+bcBB0jSCQJwlcelj8x90hgKiVjcbOIPtRZ7PlwUmRZ7dFuBVIvWkXZR1Gy7C2vJy
+x/iBalLADRgIAXFjTaiZ15cyIvUbk3YwVIaWqffYwkpZSXwe/NRVz7l+6G0rbTSX
+KzMv2jA/BJmbTra1zAuzPndh3QKBgQDOei47SakLljMKEtxoK9+9+66N1twDthR6
+771XV0Pw9tpNhiNQYbca/ZytLTQCXlashrD3dD6zXhrLyiN4lUJEZbcG7SIXXlcY
+yMcLZwPqj2tRD5Rb5I5aNrs8PJFzK1id/AXXLYCQMZRFK9ohNIZH7HKUPxGoRuYv
+rr6OtTaw/QKBgHb+FfGK4jnN8d9rRFykvGu5aNeIwhkzpPXc0oADPWcSBizAim3y
+BMH70L5GMHRD5t1KZFY3VCnU4DjKJW+vHJvekcaxe3b4GZX5HEjLvrx78ONJTAg1
+nk6M1qWH17ltYiH9fg+1xVdfCC7ld2l5gHGyu7SjIjgVG0cxS7ZUeQMRAoGBAJmI
+SLBVSZoQCcvH0pSzax/98gIObnNkBT6U3hoADck0BYf34nJ29ozfYI11O2M3ewO2
+9AhNLAJ8SziWCmIzup7Zc4t28Q6nW+RWB4v3AfZ8xrPz/cGG5kM2x2s3LoCRDsgL
+CtzCPQL7muEEhqKCSAdbTqflbd/POILkUVYUcaKRAoGAZDv3RkKffYNmegZTAhNH
+77/AXmNR+CGp3rtg4OzN5QBa2ensMeVY9+ksKTKOdFadfO98dMq8KzVe1AGhoJFL
+Tjy7BkhOWBlgURae0UyqLvpuoETgVNJhRMwWKcVQEFWKBOEz9Et8JE2sJb+RPFe4
+kO5J9UglnNY0BP72hZ3Pl1o=
+-----END PRIVATE KEY-----
 """
         cls.priv_key = parsePEMKey(priv_key, private=True)
 
@@ -1765,26 +1790,81 @@ aQIDAQAB
     def test_decryption(self):
         # a random positive test case
         ciphertext = a2b_hex(remove_whitespace("""
-8bfe264e85d3bdeaa6b8851b8e3b956ee3d226fd3f69063a86880173a273d9f283b2eebdd1ed
-35f7e02d91c571981b6737d5320bd8396b0f3ad5b019daec1b0aab3cbbc026395f4fd14f1367
-3f2dfc81f9b660ec26ac381e6db3299b4e460b43fab9955df2b3cfaa20e900e19c856238fd37
-1899c2bf2ce8c868b76754e5db3b036533fd603746be13c10d4e3e6022ebc905d20c2a7f32b2
-15a4cd53b3f44ca1c327d2c2b651145821c08396c89071f665349c25e44d2733cd9305985cee
-f6430c3cf57af5fa224089221218fa34737c79c446d28a94c41c96e4e92ac53fbcf384dea841
-9ea089f8784445a492c812eb0d409467f75afd7d4d1078886205a066"""))
+8bfe264e85d3bdeaa6b8851b8e3b956ee3d226fd3f69063a86880173a273d9f2
+83b2eebdd1ed35f7e02d91c571981b6737d5320bd8396b0f3ad5b019daec1b0a
+ab3cbbc026395f4fd14f13673f2dfc81f9b660ec26ac381e6db3299b4e460b43
+fab9955df2b3cfaa20e900e19c856238fd371899c2bf2ce8c868b76754e5db3b
+036533fd603746be13c10d4e3e6022ebc905d20c2a7f32b215a4cd53b3f44ca1
+c327d2c2b651145821c08396c89071f665349c25e44d2733cd9305985ceef643
+0c3cf57af5fa224089221218fa34737c79c446d28a94c41c96e4e92ac53fbcf3
+84dea8419ea089f8784445a492c812eb0d409467f75afd7d4d1078886205a066
+"""))
         self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
         msg = self.priv_key.decrypt(ciphertext)
         self.assertEqual(msg, b'lorem ipsum dolor sit amet')
 
+    def test_valid_to_empty(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+443ad9c5f00a1f4e9601717d274aacc93a824cb4d99b3c6a42e2b017e52e0184
+43bd77d34a80703cd9b6acf523cd3b2cd1fea31940a68fba828836f1c3ed2fef
+071e95e0922ff0f47d0e81dacc13ecdeda3db6476f41e5b3f9ccfcfdf9155800
+7b68ffbbe5e93bb088f1e4f0bb39bc7d8600b38930ecd00a341d8cc76955837e
+fff0f0797c4b46fb1b375bba49bcdc877f39aaadb045c56b836072383eec6627
+ae280ad4f9a45d6e5b4cc7cf61d42b194ff0b9c9167c621e5380d8333e3b7f20
+c8d564c9ec6c2805f77c0146adea2f688a943b67ce8889f4a6353e6396d551c3
+6a6dbf19359a825d14b69ccc4fd747cf14a1ca8578d7f0a67dc14b37f5e17ca3
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is valid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x00\x02')
+        self.assertTrue(i != 0 for i in dec[2:-1])
+        self.assertEqual(dec[-1:], b'\x00')
+
+        msg = self.priv_key.decrypt(ciphertext)
+        self.assertEqual(msg, b'')
+
+    def test_positive_11_byte_long_with_null_padded_ciphertext(self):
+        # ciphertext that starts with a null byte, decrypts to real 11 byte
+        # long plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+00a2e8f114ea8d05d12dc843e3cc3b2edc8229ff2a028bda29ba9d55e3cd0291
+1902fef1f42a075bf05e8016e8567213d6f260fa49e360779dd81aeea3e04c2c
+b567e0d72b98bf754014561b7511e083d20e0bfb9cd23f8a0d3c88900c49d2fc
+d5843ff0765607b2026f28202a87aa94678aed22a0c20724541394cd8f44e373
+eba1d2bae98f516c1e2ba3d86852d064f856b1daf24795e767a2b90396e50743
+e3150664afab131fe40ea405dcf572dd1079af1d3f0392ccadcca0a12740dbb2
+13b925ca2a06b1bc1383e83a658c82ba2e7427342379084d5f66b544579f0766
+4cb26edd4f10fd913fdbc0de05ef887d4d1ec1ac95652397ea7fd4e4759fda8b
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        plaintext = b'lorem ipsum'
+
+        # sanity check that the decrypted ciphertext is valid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x00\x02')
+        self.assertTrue(i != 0 for i in dec[2:-12])
+        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
+
+        self.assertEqual(len(plaintext), 11)
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
     def test_invalid_decrypting_to_empty(self):
         ciphertext = a2b_hex(remove_whitespace("""
-20aaa8adbbc593a924ba1c5c7990b5c2242ae4b99d0fe636a19a4cf754edbcee774e472fe028
-160ed42634f8864900cb514006da642cae6ae8c7d087caebcfa6dad1551301e130344989a1d4
-62d4164505f6393933450c67bc6d39d8f5160907cabc251b737925a1cf21e5c6aa5781b7769f
-6a2a583d97cce008c0f8b6add5f0b2bd80bee60237aa39bb20719fe75749f4bc4e42466ef5a8
-61ae3a92395c7d858d430bfe38040f445ea93fa2958b503539800ffa5ce5f8cf51fa8171a91f
-36cb4f4575e8de6b4d3f096ee140b938fd2f50ee13f0d050222e2a72b0a3069ff3a6738e82c8
-7090caa5aed4fcbe882c49646aa250b98f12f83c8d528113614a29e7"""))
+20aaa8adbbc593a924ba1c5c7990b5c2242ae4b99d0fe636a19a4cf754edbcee
+774e472fe028160ed42634f8864900cb514006da642cae6ae8c7d087caebcfa6
+dad1551301e130344989a1d462d4164505f6393933450c67bc6d39d8f5160907
+cabc251b737925a1cf21e5c6aa5781b7769f6a2a583d97cce008c0f8b6add5f0
+b2bd80bee60237aa39bb20719fe75749f4bc4e42466ef5a861ae3a92395c7d85
+8d430bfe38040f445ea93fa2958b503539800ffa5ce5f8cf51fa8171a91f36cb
+4f4575e8de6b4d3f096ee140b938fd2f50ee13f0d050222e2a72b0a3069ff3a6
+738e82c87090caa5aed4fcbe882c49646aa250b98f12f83c8d528113614a29e7
+"""))
         self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
 
         # sanity check that the decrypted ciphertext is invalid
@@ -1800,13 +1880,15 @@ f6430c3cf57af5fa224089221218fa34737c79c446d28a94c41c96e4e92ac53fbcf384dea841
         # the last value from PRF is 245, which is exactly the max we
         # can return
         ciphertext = a2b_hex(remove_whitespace("""
-48cceab10f39a4db32f60074feea473cbcdb7accf92e150417f76b44756b190e843e79ec12aa
-85083a21f5437e7bad0a60482e601198f9d86923239c8786ee728285afd0937f7dde12717f28
-389843d7375912b07b991f4fdb0190fced8ba665314367e8c5f9d2981d0f5128feeb46cb50fc
-237e64438a86df198dd0209364ae3a842d77532b66b7ef263b83b1541ed671b120dfd660462e
-2107a4ee7b964e734a7bd68d90dda61770658a3c242948532da32648687e0318286473f675b4
-12d6468f013f14d760a358dfcad3cda2afeec5e268a37d250c37f722f468a70dfd92d7294c3c
-1ee1e7f8843b7d16f9f37ef35748c3ae93aa155cdcdfeb4e78567303"""))
+48cceab10f39a4db32f60074feea473cbcdb7accf92e150417f76b44756b190e
+843e79ec12aa85083a21f5437e7bad0a60482e601198f9d86923239c8786ee72
+8285afd0937f7dde12717f28389843d7375912b07b991f4fdb0190fced8ba665
+314367e8c5f9d2981d0f5128feeb46cb50fc237e64438a86df198dd0209364ae
+3a842d77532b66b7ef263b83b1541ed671b120dfd660462e2107a4ee7b964e73
+4a7bd68d90dda61770658a3c242948532da32648687e0318286473f675b412d6
+468f013f14d760a358dfcad3cda2afeec5e268a37d250c37f722f468a70dfd92
+d7294c3c1ee1e7f8843b7d16f9f37ef35748c3ae93aa155cdcdfeb4e78567303
+"""))
         self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
 
         # sanity check that the decrypted ciphertext is invalid
@@ -1816,14 +1898,17 @@ f6430c3cf57af5fa224089221218fa34737c79c446d28a94c41c96e4e92ac53fbcf384dea841
             b'\x78\x05\x5c\xc0\xd7\x02\xfe\xd7\x6a\xbe\x53')
 
         plaintext = a2b_hex(remove_whitespace("""
-22d850137b9eebe092b24f602dc5bb7918c16bd89ddbf20467b119d205f9c2e4bd7d2592cf1e
-532106e0f33557565923c73a02d4f09c0c22bea89148183e60317f7028b3aa1f261f91c97939
-3101d7e15f4067e63979b32751658ef769610fe97cf9cef3278b3117d384051c3b1d82c251c2
-305418c8f6840530e631aad63e70e20e025bcd8efb54c92ec6d3b106a2f8e64eeff7d38495b0
-fc50c97138af4b1c0a67a1c4e27b077b8439332edfa8608dfeae653cd6a628ac550395f7e743
-90e42c11682234870925eeaa1fa71b76cf1f2ee3bda69f6717033ff8b7c95c9799e7a3bea5e7
-e4a1c359772fb6b1c6e6c516661dfe30c3"""))
-        self.assertEqual(len(plaintext), 245)
+22d850137b9eebe092b24f602dc5bb7918c16bd89ddbf20467b119d205f9c2e4
+bd7d2592cf1e532106e0f33557565923c73a02d4f09c0c22bea89148183e6031
+7f7028b3aa1f261f91c979393101d7e15f4067e63979b32751658ef769610fe9
+7cf9cef3278b3117d384051c3b1d82c251c2305418c8f6840530e631aad63e70
+e20e025bcd8efb54c92ec6d3b106a2f8e64eeff7d38495b0fc50c97138af4b1c
+0a67a1c4e27b077b8439332edfa8608dfeae653cd6a628ac550395f7e74390e4
+2c11682234870925eeaa1fa71b76cf1f2ee3bda69f6717033ff8b7c95c9799e7
+a3bea5e7e4a1c359772fb6b1c6e6c516661dfe30c3
+"""))
+        self.assertEqual(len(plaintext), numBytes(self.pub_key.n) - 2 - 8 - 1)
+        self.assertEqual(len(plaintext), 2048 // 8 - 2 - 8 - 1)
 
         msg = self.priv_key.decrypt(ciphertext)
 
@@ -1833,14 +1918,29 @@ e4a1c359772fb6b1c6e6c516661dfe30c3"""))
         # the last value from the PRF is 246, which is longer than the max
         # allowed length: 245, so it needs to select second to last: 2
         ciphertext = a2b_hex(remove_whitespace("""
-1439e08c3f84c1a7fec74ce07614b20e01f6fa4e8c2a6cffdc3520d8889e5d9a950c6425798f
-85d4be38d300ea5695f13ecd4cb389d1ff5b82484b494d6280ab7fa78e645933981cb934cce8
-bfcd114cc0e6811eefa47aae20af638a1cd163d2d3366186d0a07df0c81f6c9f3171cf356147
-2e98a6006bf75ddb457bed036dcce199369de7d94ef2c68e8467ee0604eea2b3009479162a78
-91ba5c40cab17f49e1c438cb6eaea4f76ce23cce0e483ff0e96fa790ea15be67671814342d0a
-23f4a20262b6182e72f3a67cd289711503c85516a9ed225422f98b116f1ab080a80abd6f0216
-df88d8cfd67c139243be8dd78502a7aaf6bc99d7da71bcdf627e7354"""))
+1439e08c3f84c1a7fec74ce07614b20e01f6fa4e8c2a6cffdc3520d8889e5d9a
+950c6425798f85d4be38d300ea5695f13ecd4cb389d1ff5b82484b494d6280ab
+7fa78e645933981cb934cce8bfcd114cc0e6811eefa47aae20af638a1cd163d2
+d3366186d0a07df0c81f6c9f3171cf3561472e98a6006bf75ddb457bed036dcc
+e199369de7d94ef2c68e8467ee0604eea2b3009479162a7891ba5c40cab17f49
+e1c438cb6eaea4f76ce23cce0e483ff0e96fa790ea15be67671814342d0a23f4
+a20262b6182e72f3a67cd289711503c85516a9ed225422f98b116f1ab080a80a
+bd6f0216df88d8cfd67c139243be8dd78502a7aaf6bc99d7da71bcdf627e7354
+"""))
         self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        kdk = calc_kdk(self.priv_key, ciphertext)
+
+        lengths = calc_lengths(self.priv_key, kdk)
+        max_len = numBytes(self.pub_key.n) - 1 - 1 - 8 -1
+
+        # the last_len is too long
+        self.assertGreater(lengths[-1], max_len)
+        self.assertEqual(lengths[-1], 246)
+
+        # while second to last is short enough
+        self.assertLessEqual(lengths[-2], max_len)
+        self.assertEqual(2, lengths[-2])
 
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
@@ -1848,12 +1948,167 @@ df88d8cfd67c139243be8dd78502a7aaf6bc99d7da71bcdf627e7354"""))
         self.assertNotEqual(dec[1:2], b'\x02')
         self.assertEqual(dec[-3:], b'\xd1\x90\x17')
 
-        plaintext = a2b_hex(remove_whitespace("0f9b"))
+        plaintext = a2b_hex(remove_whitespace("""
+0f9b
+"""))
 
         self.assertEqual(len(plaintext), 2)
 
         msg = self.priv_key.decrypt(ciphertext)
 
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_byte_long_wrong_version_byte(self):
+        # an otherwise correct plaintext, but with wrong first byte
+        # (0x01 instead of 0x00), generates a random 11 byte long plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+9b2ec9c0c917c98f1ad3d0119aec6be51ae3106e9af1914d48600ab6a2c0c0c8
+ae02a2dc3039906ff3aac904af32ec798fd65f3ad1afa2e69400e7c1de81f572
+8f3b3291f38263bc7a90a0563e43ce7a0d4ee9c0d8a716621ca5d3d081188769
+ce1b131af7d35b13dea99153579c86db31fe07d5a2c14d621b77854e48a8df41
+b5798563af489a291e417b6a334c63222627376118c02c53b6e86310f728734f
+fc86ef9d7c8bf56c0c841b24b82b59f51aee4526ba1c4268506d301e4ebc498c
+6aebb6fd5258c876bf900bac8ca4d309dd522f6a6343599a8bc3760f422c10c7
+2d0ad527ce4af1874124ace3d99bb74db8d69d2528db22c3a37644640f95c05f
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x01\x02')
+        self.assertTrue(all(i != 0 for i in dec[2:-12]))
+        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
+
+        plaintext = a2b_hex(remove_whitespace("""
+a1f8c9255c35cfba403ccc
+"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertNotEqual(msg, b'lorem ipsum')
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_byte_long_wrong_type_byte(self):
+        # an otherwise correct plaintext, but with wrong second byte
+        # (0x01 instead of 0x02), generates a random 11 byte long plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+782c2b59a21a511243820acedd567c136f6d3090c115232a82a5efb0b178285f
+55b5ec2d2bac96bf00d6592ea7cdc3341610c8fb07e527e5e2d20cfaf2c7f23e
+375431f45e998929a02f25fd95354c33838090bca838502259e92d86d568bc2c
+db132fab2a399593ca60a015dc2bb1afcd64fef8a3834e17e5358d822980dc44
+6e845b3ab4702b1ee41fe5db716d92348d5091c15d35a110555a35deb4650a5a
+1d2c98025d42d4544f8b32aa6a5e02dc02deaed9a7313b73b49b0d4772a3768b
+0ea0db5846ace6569cae677bf67fb0acf3c255dc01ec8400c963b6e49b106772
+8b4e563d7e1e1515664347b92ee64db7efb5452357a02fff7fcb7437abc2e579
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x00\x01')
+        self.assertTrue(all(i != 0 for i in dec[2:-12]))
+        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
+
+        plaintext = a2b_hex(remove_whitespace("""
+e6d700309ca0ed62452254
+"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertNotEqual(msg, b'lorem ipsum')
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_bytes_long_with_null_padded_ciphertext(self):
+        # an invalid ciphertext, with a zero byte in first byte of
+        # ciphertext, decrypts to a random 11 byte long synthethic
+        # plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+0096136621faf36d5290b16bd26295de27f895d1faa51c800dafce73d001d607
+96cd4e2ac3fa2162131d859cd9da5a0c8a42281d9a63e5f353971b72e36b5722
+e4ac444d77f892a5443deb3dca49fa732fe855727196e23c26eeac55eeced826
+7a209ebc0f92f4656d64a6c13f7f7ce544ebeb0f668fe3a6c0f189e4bcd5ea12
+b73cf63e0c8350ee130dd62f01e5c97a1e13f52fde96a9a1bc9936ce734fdd61
+f27b18216f1d6de87f49cf4f2ea821fb8efd1f92cdad529baf7e31aff9bff407
+4f2cad2b4243dd15a711adcf7de900851fbd6bcb53dac399d7c880531d06f25f
+7002e1aaf1722765865d2c2b902c7736acd27bc6cbd3e38b560e2eecf7d4b576
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertNotEqual(dec[-12:-11], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("""
+ba27b1842e7c21c0e7ef6a
+"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_byte_long_null_byte_at_eight_byte_of_padding(self):
+        # an otherwise correct plaintext, but with a null byte on tenth
+        # position (eight byte of padding), generates a random 11 byte long
+        # plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+a7a340675a82c30e22219a55bc07cdf36d47d01834c1834f917f18b517419ce9
+de2a96460e745024436470ed85e94297b283537d52189c406a3f533cb405cc6a
+9dba46b482ce98b6e3dd52d8fce2237425617e38c11fbc46b61897ef200d01e4
+f25f5f6c4c5b38cd0de38ba11908b86595a8036a08a42a3d05b79600a97ac18b
+a368a08d6cf6ccb624f6e8002afc75599fba4de3d4f3ba7d208391ebe8d21f82
+82b18e2c10869eb2702e68f9176b42b0ddc9d763f0c86ba0ff92c957aaeab76d
+9ab8da52ea297ec11d92d770146faa1b300e0f91ef969b53e7d2907ffc984e9a
+9c9d11fb7d6cba91972059b46506b035efec6575c46d7114a6b935864858445f
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x00\x02')
+        self.assertTrue(all(i != 0 for i in dec[2:9]))
+        self.assertEqual(dec[9:10], b'\x00')
+        self.assertTrue(all(i != 0 for i in dec[10:-12]))
+        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
+
+        plaintext = a2b_hex(remove_whitespace("""
+63cb0bf65fc8255dd29e17
+"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertNotEqual(msg, b"lorem ipsum")
+        self.assertEqual(msg, plaintext)
+
+    def test_negative_11_byte_long_missing_null_separator(self):
+        # an otherwise correct plaintext, but with missing zero separator
+        # decrypts to 11 byte random synthethic plaintext
+        ciphertext = a2b_hex(remove_whitespace("""
+3d1b97e7aa34eaf1f4fc171ceb11dcfffd9a46a5b6961205b10b302818c1fcc9
+f4ec78bf18ea0cee7e9fa5b16fb4c611463b368b3312ac11cf9c06b7cf72b54e
+284848a508d3f02328c62c2999d0fb60929f81783c7a256891bc2ff4d91df2af
+96a24fc5701a1823af939ce6dbdc510608e3d41eec172ad2d51b9fc61b4217c9
+23cadcf5bac321355ef8be5e5f090cdc2bd0c697d9058247db3ad613fdce87d2
+955a6d1c948a5160f93da21f731d74137f5d1f53a1923adb513d2e6e1589d44c
+c079f4c6ddd471d38ac82d20d8b1d21f8d65f3b6907086809f4123e08d86fb38
+729585de026a485d8f0e703fd4772f6668febf67df947b82195fa3867e3a3065
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:2], b'\x00\x02')
+        for val in dec[2:-12]:
+            self.assertNotEqual(val, 0)
+        self.assertEqual(dec[-12:], b'\x01lorem ipsum')
+
+        plaintext = a2b_hex(remove_whitespace("""
+6f09a0b62699337c497b0b
+"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertNotEqual(msg, b'lorem ipsum')
         self.assertEqual(msg, plaintext)
 
     def test_invalid_decrypting_to_length_third_to_last_from_prf(self):
@@ -1894,27 +2149,6 @@ c85d517cda364af620113ae5a3c52a048821731922737307f77a1081"""))
 0624d0581fb126b2ed4f4ed358f0eb8065cf176399ac1a846a31055f9ae8c9c24a1ba050bc20
 842125bc1753158f8065f3adb9cc16bfdf83816bdf38b624f12022c5a6fbfe29bc91542be8c0
 208a770bcd677dc597f5557dc2ce28a11bf3e3857f158717a33f6592"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        plaintext = b'lorem ipsum'
-
-        self.assertEqual(len(plaintext), 11)
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertEqual(msg, plaintext)
-
-    def test_positive_11_byte_long_with_null_padded_ciphertext(self):
-        # ciphertext that starts with a null byte, decrypts to real 11 byte
-        # long plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-00a2e8f114ea8d05d12dc843e3cc3b2edc8229ff2a028bda29ba9d55e3cd02911902fef1f42a
-075bf05e8016e8567213d6f260fa49e360779dd81aeea3e04c2cb567e0d72b98bf754014561b
-7511e083d20e0bfb9cd23f8a0d3c88900c49d2fcd5843ff0765607b2026f28202a87aa94678a
-ed22a0c20724541394cd8f44e373eba1d2bae98f516c1e2ba3d86852d064f856b1daf24795e7
-67a2b90396e50743e3150664afab131fe40ea405dcf572dd1079af1d3f0392ccadcca0a12740
-dbb213b925ca2a06b1bc1383e83a658c82ba2e7427342379084d5f66b544579f07664cb26edd
-4f10fd913fdbc0de05ef887d4d1ec1ac95652397ea7fd4e4759fda8b"""))
         self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
 
         plaintext = b'lorem ipsum'
@@ -2008,82 +2242,6 @@ fd90d415be5f1e9891a0e6c709f4fc0404e8226f8477b4e939b36eb2"""))
         self.assertNotEqual(msg, b'lorem ipsum')
         self.assertEqual(msg, plaintext)
 
-    def test_negative_11_byte_long_wrong_version_byte(self):
-        # an otherwise correct plaintext, but with wrong first byte
-        # (0x01 instead of 0x00), generates a random 11 byte long plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-9b2ec9c0c917c98f1ad3d0119aec6be51ae3106e9af1914d48600ab6a2c0c0c8ae02a2dc3039
-906ff3aac904af32ec798fd65f3ad1afa2e69400e7c1de81f5728f3b3291f38263bc7a90a056
-3e43ce7a0d4ee9c0d8a716621ca5d3d081188769ce1b131af7d35b13dea99153579c86db31fe
-07d5a2c14d621b77854e48a8df41b5798563af489a291e417b6a334c63222627376118c02c53
-b6e86310f728734ffc86ef9d7c8bf56c0c841b24b82b59f51aee4526ba1c4268506d301e4ebc
-498c6aebb6fd5258c876bf900bac8ca4d309dd522f6a6343599a8bc3760f422c10c72d0ad527
-ce4af1874124ace3d99bb74db8d69d2528db22c3a37644640f95c05f"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:2], b'\x01\x02')
-        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
-
-        plaintext = a2b_hex(remove_whitespace("a1f8c9255c35cfba403ccc"))
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertNotEqual(msg, b'lorem ipsum')
-        self.assertEqual(msg, plaintext)
-
-    def test_negative_11_byte_long_wrong_type_byte(self):
-        # an otherwise correct plaintext, but with wrong second byte
-        # (0x01 instead of 0x02), generates a random 11 byte long plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-782c2b59a21a511243820acedd567c136f6d3090c115232a82a5efb0b178285f55b5ec2d2bac
-96bf00d6592ea7cdc3341610c8fb07e527e5e2d20cfaf2c7f23e375431f45e998929a02f25fd
-95354c33838090bca838502259e92d86d568bc2cdb132fab2a399593ca60a015dc2bb1afcd64
-fef8a3834e17e5358d822980dc446e845b3ab4702b1ee41fe5db716d92348d5091c15d35a110
-555a35deb4650a5a1d2c98025d42d4544f8b32aa6a5e02dc02deaed9a7313b73b49b0d4772a3
-768b0ea0db5846ace6569cae677bf67fb0acf3c255dc01ec8400c963b6e49b1067728b4e563d
-7e1e1515664347b92ee64db7efb5452357a02fff7fcb7437abc2e579"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:2], b'\x00\x01')
-        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
-
-        plaintext = a2b_hex(remove_whitespace("e6d700309ca0ed62452254"))
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertNotEqual(msg, b'lorem ipsum')
-        self.assertEqual(msg, plaintext)
-
-    def test_negative_11_bytes_long_with_null_padded_ciphertext(self):
-        # an invalid ciphertext, with a zero byte in first byte of
-        # ciphertext, decrypts to a random 11 byte long synthethic
-        # plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-0096136621faf36d5290b16bd26295de27f895d1faa51c800dafce73d001d60796cd4e2ac3f
-a2162131d859cd9da5a0c8a42281d9a63e5f353971b72e36b5722e4ac444d77f892a5443deb
-3dca49fa732fe855727196e23c26eeac55eeced8267a209ebc0f92f4656d64a6c13f7f7ce54
-4ebeb0f668fe3a6c0f189e4bcd5ea12b73cf63e0c8350ee130dd62f01e5c97a1e13f52fde96
-a9a1bc9936ce734fdd61f27b18216f1d6de87f49cf4f2ea821fb8efd1f92cdad529baf7e31a
-ff9bff4074f2cad2b4243dd15a711adcf7de900851fbd6bcb53dac399d7c880531d06f25f70
-02e1aaf1722765865d2c2b902c7736acd27bc6cbd3e38b560e2eecf7d4b576
-"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:3], b'\x00\x02\x00')
-        self.assertNotEqual(dec[-12:-11], b'\x00')
-
-        plaintext = a2b_hex(remove_whitespace("ba27b1842e7c21c0e7ef6a"))
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertEqual(msg, plaintext)
-
     def test_negative_11_bytes_long_with_null_truncated_ciphertext(self):
         # same as test_negative_11_bytes_long_with_null_padded_ciphertext
         # but with the zero bytes at the beginning removed
@@ -2154,6 +2312,7 @@ b6db86c22a8732241ebf3c6a4f2cf82671d917aba8bc61052b40ccddd743a94ea9b538175106
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:3], b'\x00\x00\x02')
+        self.assertTrue(all(i != 0 for i in dec[3:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex(remove_whitespace("3d4a054d9358209e9cbbb9"))
@@ -2180,6 +2339,7 @@ ac516b0d6412ba44ec6b4f268a55ef1c5ffbf18a2f4e3522bb7b6ed89774b79bffa22f7d3102
         # sanity check that the decrypted ciphertext is invalid
         dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
         self.assertEqual(dec[0:3], b'\x00\x02\x00')
+        self.assertTrue(all(i != 0 for i in dec[3:-12]))
         self.assertEqual(dec[-12:], b'\x00lorem ipsum')
 
         plaintext = a2b_hex("1f037dd717b07d3e7f7359")
@@ -2189,60 +2349,6 @@ ac516b0d6412ba44ec6b4f268a55ef1c5ffbf18a2f4e3522bb7b6ed89774b79bffa22f7d3102
         self.assertNotEqual(msg, b"lorem ipsum")
         self.assertEqual(msg, plaintext)
 
-    def test_negative_11_byte_long_null_byte_at_eight_byte_of_padding(self):
-        # an otherwise correct plaintext, but with a null byte on tenth
-        # position (eight byte of padding), generates a random 11 byte long
-        # plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-a7a340675a82c30e22219a55bc07cdf36d47d01834c1834f917f18b517419ce9de2a96460e74
-5024436470ed85e94297b283537d52189c406a3f533cb405cc6a9dba46b482ce98b6e3dd52d8
-fce2237425617e38c11fbc46b61897ef200d01e4f25f5f6c4c5b38cd0de38ba11908b86595a8
-036a08a42a3d05b79600a97ac18ba368a08d6cf6ccb624f6e8002afc75599fba4de3d4f3ba7d
-208391ebe8d21f8282b18e2c10869eb2702e68f9176b42b0ddc9d763f0c86ba0ff92c957aaea
-b76d9ab8da52ea297ec11d92d770146faa1b300e0f91ef969b53e7d2907ffc984e9a9c9d11fb
-7d6cba91972059b46506b035efec6575c46d7114a6b935864858445f"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:2], b'\x00\x02')
-        self.assertNotEqual(dec[2:3], b'\x00')
-        self.assertEqual(dec[9:10], b'\x00')
-        self.assertEqual(dec[-12:], b'\x00lorem ipsum')
-
-        plaintext = a2b_hex("63cb0bf65fc8255dd29e17")
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertNotEqual(msg, b"lorem ipsum")
-        self.assertEqual(msg, plaintext)
-
-    def test_negative_11_byte_long_missing_null_separator(self):
-        # an otherwise correct plaintext, but with missing zero separator
-        # decrypts to 11 byte random synthethic plaintext
-        ciphertext = a2b_hex(remove_whitespace("""
-3d1b97e7aa34eaf1f4fc171ceb11dcfffd9a46a5b6961205b10b302818c1fcc9f4ec78bf18ea
-0cee7e9fa5b16fb4c611463b368b3312ac11cf9c06b7cf72b54e284848a508d3f02328c62c29
-99d0fb60929f81783c7a256891bc2ff4d91df2af96a24fc5701a1823af939ce6dbdc510608e3
-d41eec172ad2d51b9fc61b4217c923cadcf5bac321355ef8be5e5f090cdc2bd0c697d9058247
-db3ad613fdce87d2955a6d1c948a5160f93da21f731d74137f5d1f53a1923adb513d2e6e1589
-d44cc079f4c6ddd471d38ac82d20d8b1d21f8d65f3b6907086809f4123e08d86fb38729585de
-026a485d8f0e703fd4772f6668febf67df947b82195fa3867e3a3065"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:2], b'\x00\x02')
-        for val in dec[2:-12]:
-            self.assertNotEqual(val, 0)
-        self.assertEqual(dec[-12:], b'\x01lorem ipsum')
-
-        plaintext = a2b_hex(remove_whitespace("6f09a0b62699337c497b0b"))
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertNotEqual(msg, b'lorem ipsum')
-        self.assertEqual(msg, plaintext)
 
 
 class TestRSA2049Decrypt(unittest.TestCase):
@@ -2999,4 +3105,192 @@ d1109ba4"""))
         msg = self.priv_key.decrypt(ciphertext)
 
         self.assertNotEqual(msg, b'forty two')
+        self.assertEqual(msg, plaintext)
+
+
+class TestRSA4096Decrypt(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        priv_key = """
+-----BEGIN PRIVATE KEY-----
+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
+q4gl5hM8H5F0iWcKq25nZYHamz7f
+-----END PRIVATE KEY-----"""
+        cls.priv_key = parsePEMKey(priv_key, private=True)
+
+        pub_key = """
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAj945U+VcSE8cQkquyQPf
+bznTDbFgUpaAGhgtOudGjhkns4b+edH6FhsolPhosaN18xnDBrO72l/LRaETpVcO
+skcxgM/hEZ+gfCXkaIyiVeIVpqxWvBEH7iQzzOhFy29V9ruMMA6cA7NCFXOI1A+n
+pF07DRBVtJo8OwpES3JxlxVBQ14/yfKVb3heXMbRWYuficHBO/TF/vExB/DgFvVt
+dTvbL3Dxbsx1CNIL9QYsXGSL1btKc1XEKTXir+NWWVttDzTqcpyOyYzown+Hmxmc
+dN8uIu4wNi6S85243Jok9RntWvzR0uga4gP//YAo3AL4HTv0sLO6xCSxByUNIJjA
+bkrd8mkKTna3o5lzV9gr8+nsENeouIYqvAK2pnMokSFR47H0CVjHoq2F+2QrKwlU
+bdFhhPTz1MaP5gyGdwqUNCEcDcQsLiTt+QKi7U1GhV4UVuZf1v4W1W2k48gJndlu
+eywhYz4e0uNcxAkZes7n+5Hhm2ndPeE5JvHa/vzeO5gLT/AvkNmASBLMTqmKG1ZQ
+D/0c57KuknFMimoDHSm8t/BHsMm7znDf4OHw2wbO2viXadWOHBU+7oE3rYoPshyZ
+SYI20EGAPLI8AD3mUQK5pzLDgbxBvhfLSyEZk/YiBuwFfHFXUNXNMatnvmyGVepK
+tabLQBHCibNsEt4a96CO3Q0CAwEAAQ==
+-----END PUBLIC KEY-----"""
+        cls.pub_key = parsePEMKey(pub_key, public=True)
+
+
+    def test_sanity(self):
+        self.assertIsNotNone(self.priv_key)
+        self.assertIsNotNone(self.pub_key)
+
+        msg = b"message"
+        self.assertEqual(msg, self.priv_key.decrypt(self.pub_key.encrypt(msg)))
+
+    def test_normal_decrypt(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+041f9bbe8372454ffadce0befc99ad4bd01cdbe016dffb5d0d84ee879e7ff64a25dced4d504f4
+8a14b700a34a1c148e4b4028eecc9158cf5e3469daad1dddb2157b176dcf5716627aebd6072b9
+65cfb67b42b149e88c0a8dc54703ec244637b3039b80c06d1d4968aeb838f3afcd3dc675fc907
+36cf0f0adaba182e27a19a7294cef500ed1fcca324c3ffa6ff02bd749a4a66f18da138d53ff54
+9c4e6b3fff0b9ee2029ea8293fcd72a03e1dee4445629979be7fd65e5dbe5e6e77ec2aa87879a
+01c3e2502af0cc4bc04b637d17b175d92b4dcd70cfe83b6c1d4f91c61e911b81cb6d60b99146f
+17937d127054521b132acb9ca95cbc6f80cd926d709bd7219d48ce7378e4416328a49be6c773d
+bdeb00ce23dc91f25f4807526cf4de8dd3fbb13ae1011eefe3a2aad9982f6c9268883b4633057
+d119c97c1178aae671859af0a488ab7b841c6583572d1261137a4292ba1c1caa4baf808be4207
+5940d7e612efa56ac9a7ffff3e7dbf10b6193ea14c4841fc5c43e031a69ddbd79118ccd92b16a
+6ef66c7404c001ebc6402301a90248eb6562b7a2f549f52c058109dd5f2617877719ad13e81d1
+9425a4cd5cf9e56e8538f5cb09b6f7ab646910b8c2ff6bf8cf17abdb4758bfba80df9f643950a
+6d4a8f60c6872700e5919d36503486667e4328a6b74b774eb483a9922706baa7f456644781cc0
+d78add9024e28da2d5e9d81"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        plaintext = b'lorem ipsum'
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_with_no_version_byte(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+6b11bd1777ac4f1d8f36a3ebd01090a4c2be1e2deb928cef6427c107f8cb
+1d7072c9d37d3b69de959c4d9f24ac92be7f584b0737416fcf9c58268b6e
+ef5c52cfbb3cd4ce241708f71fde98f9181ad5d8db734c61fe4bf2c5d1f1
+1b08d71f84bc448404041522387a67f7a2c7c9e24340343bcbf9b4d68487
+103d925751333cff995d031492542d60e55cdab81dffc882079ed578ba35
+c33d456be27fc1f56f0e2bc68d1bc35a0ce7b8a9a770816c7448013e56a1
+a8a9861885c99cf77b4beac682aa61822ffff61697e5afa566f10565644a
+cd1080bef01ef14b498b329f4e0d56f5c7c97b09398e557513c33354528e
+eccdb3dc167de119b0b9299e56bcc6814cc5edbbf1b49769ec3487be04b1
+0f3efa41e1a76eb9215ded0d2832923dcbc1e6444967c6945d2c975456cc
+5d495f1b02b272d11ed46ddea4fa8d264709beda36b252385ffc11679daa
+3fcdfe31f2980075f281dfbcfec2442092031a89323f5d83caeacbaded97
+26de616fd9b034ac076fc4a72f0331f6b9efff91b79b440af115ea1a352e
+a2a9bfb4e74c0215aff27fd51dce2ac9e90332dbcc1e3de009eee079b4e7
+0d2c0ce870aeca5c329471dc54a9e0c6c5e04275f1a8c0462971c6cda9c4
+b78ed362a8bdbb6f0de87b83cc4c1bcd813fde2741259cd1aad588d48440
+3f63eca6d991b7302be939be2cf9408c6501037eeb56da342710df4b5406
+cba9"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:1], b'\x02')
+        self.assertTrue(all(i != 0 for i in dec[1:507]))
+        self.assertEqual(dec[507:508], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("""
+dd843a3331f5ca2035ac2ae0f87e544ec369e85514e295aba369179ea312
+fa074253d3670842ce05fa5a3f55c6e0dae35e0d81075319604267f513a6
+2b44600f2afe610ffa79ada034ca28682d3a4526f67e4243ad2c6d545690
+4e2aa6401d521e43c0e3753441a9db79a23eeb981c9627d6382145b09e68
+2757213fa4f4466e985e5d4975437c1d56803bc48ee269c99cd1e72c10c7
+8fe4fc6119873d4d5ee55a159ab418ff0c87b8dfe54755cdc9e8997af9ce
+ff432a0913c75a"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_with_wrong_version_byte(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+36e373c18770cdbb666723a84d16af1b97669f056111890863c1fa32af22
+1e2f6ab211643dcfb00a59f5ce241eba6622badcd49ca0889295d09330f6
+619f0d258ac29e1bbe6df83f664834a7c5d5337b3a870f79d2e055fc4067
+4ec959799851d269355cb51b8b42e382d66b20ca898a91afe9944dc23359
+4dd6870ef9848958396e169790751ea5679e48fa3f64da78cb99d6d8cd0e
+651e9d2bcdb6e0a60c92dbdb193cd4a1013ae4d44af6bb9002e34b240ac8
+25f26345a7f5db787e30036d836b991f95e8cb2b1ebe6a722aceeabd98c6
+ebfc4ccd0d832ba4361f381790dc84d18b78814d8174f41a42932626ea80
+73356f2edb8af0cdcb09bdb03244c405f52207791aa95e783ac5bd8d4aa7
+8de41be84be6077e3e312e1775044c57b7befd5f34370fc9238bb8a9d3b8
+e18acfc2783442f121e1f9a47f4f2f688a1aebc4237afde71e070e4097ee
+05fa8bd20a80433d344a1409ad22c6109cd4799d2f3238586519efa37640
+cd615bb90ef55e29bed75f40e9315b8b80a9c9b09251c9cf206cbc8a34ed
+b3be4c7a0a538f4ffa20f76def706660fdd152e89b1b22660371e2a27b0f
+8d046a4f76dd355c5e250264317a5f52da6c438673158e3bc7cdf95880a7
+b93f3a1ddb1841a4b819841ecc22be19bd92acf5b63b395fce376f72fb60
+9a333486a3cc287f710370dcd57179a84d895c51ea6e1def763a0c2ff138
+ceb5"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertNotEqual(dec[0:1], b'\x00')
+        self.assertEqual(dec[1:2], b'\x02')
+        self.assertTrue(all(i != 0 for i in dec[2:507]))
+        self.assertEqual(dec[507:508], b'\x00')
+
+        plaintext = a2b_hex(remove_whitespace("""
+51aa94d54ec9a891d92eb7e69cbfe6fd05a6561ea3f9768cb5224cbb1dc
+b9decc0278361147e6979bc3769b9ae741fc2928e94d7a0f8625e296f20
+39f23dde67ea90adcf1afd52424d02228189fe4c3603134ce07f72994bd
+d929cc5a2a4"""))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
         self.assertEqual(msg, plaintext)
