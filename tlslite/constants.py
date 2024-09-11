@@ -321,6 +321,14 @@ class SignatureScheme(TLSEnum):
         return hName
 
 
+# set of TLS 1.3 specific schemes for Brainpool curves
+TLS_1_3_BRAINPOOL_SIG_SCHEMES = set([
+    SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256,
+    SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384,
+    SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512,
+])
+
+
 class AlgorithmOID(TLSEnum):
     """
     Algorithm OIDs as defined in rfc5758(ecdsa),

@@ -44,7 +44,7 @@ except ImportError:
     from xmlrpc import client as xmlrpclib
 import ssl
 from tlslite import *
-from tlslite.constants import KeyUpdateMessageType
+from tlslite.constants import KeyUpdateMessageType, SignatureScheme
 
 try:
     from tack.structures.Tack import Tack
@@ -340,6 +340,32 @@ def clientTestCmd(argv):
 
         test_no += 1
 
+    for curve, keySize, exp_sig_alg in (
+            ("brainpoolP256r1tls13", 256,
+             SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256),
+            ("brainpoolP384r1tls13", 384,
+             SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384),
+            ("brainpoolP512r1tls13", 512,
+             SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.3".format(test_no, curve))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        settings.eccCurves = [curve]
+        settings.keyShares = []
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert connection.serverSigAlg == exp_sig_alg, \
+            connection.serverSigAlg
+        assert isinstance(connection.session.serverCertChain, X509CertChain)
+        assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
+                == keySize
+        connection.close()
+
+        test_no += 1
+
     print("Test {0} - Two good ECDSA certs - secp256r1, TLSv1.2".format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -431,7 +457,7 @@ def clientTestCmd(argv):
 
     test_no += 1
 
-    print("Test {0} - good X509 RSA and ECDSA, correct RSA and ECDSA sigalgs, RSA, TLSv1.3"
+    print("Test {0} - good X509 RSA and ECDSA, correct RSA and ECDSA sigalgs, ECDSA, TLSv1.3"
           .format(test_no))
     synchro.recv(1)
     connection = connect()
@@ -444,7 +470,7 @@ def clientTestCmd(argv):
     testConnClient(connection)
     assert isinstance(connection.session.serverCertChain, X509CertChain)
     assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
-            == "rsa"
+            == "ecdsa"
     assert connection.version == (3, 4)
     connection.close()
 
@@ -2233,6 +2259,29 @@ def serverTestCmd(argv):
 
         test_no += 1
 
+    for curve, certChain, key in (("brainpoolP256r1tls13", x509ecdsaBrainpoolP256r1Chain, x509ecdsaBrainpoolP256r1Key),
+                                  ("brainpoolP384r1tls13", x509ecdsaBrainpoolP384r1Chain, x509ecdsaBrainpoolP384r1Key),
+                                  ("brainpoolP512r1tls13", x509ecdsaBrainpoolP512r1Chain, x509ecdsaBrainpoolP512r1Key)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.3".format(test_no, curve))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        settings.eccCurves = [curve, "secp256r1"]
+        settings.keyShares = []
+        v_host = VirtualHost()
+        v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
+        settings.virtual_hosts = [v_host]
+        connection.handshakeServer(certChain=certChain,
+                                   privateKey=key, settings=settings)
+        assert connection.extendedMasterSecret
+        #XXX assert connection.session.serverCertChain == certChain
+        testConnServer(connection)
+        connection.close()
+
+        test_no += 1
+
     for curve, exp_chain in (("secp256r1", x509ecdsaChain),
                              ("secp384r1", x509ecdsaP384Chain)):
         print("Test {0} - Two good ECDSA certs - {1}, TLSv1.2"
@@ -2254,10 +2303,14 @@ def serverTestCmd(argv):
 
         test_no += 1
 
-    for tls_ver in ("TLSv1.2", "TLSv1,3"):
+    for tls_ver in ("TLSv1.2", "TLSv1.3"):
 
-        print("Test {0} - good X509 RSA and ECDSA, correct RSA and ECDSA sigalgs, RSA, {1}"
-              .format(test_no, tls_ver))
+        if tls_ver == "TLSv1.2":
+            expected = "RSA"
+        else:
+            expected = "ECDSA"
+        print("Test {0} - good X509 RSA and ECDSA, correct RSA and ECDSA sigalgs, {2}, {1}"
+              .format(test_no, tls_ver, expected))
         synchro.send(b'R')
         connection = connect()
         settings = HandshakeSettings()
@@ -2270,12 +2323,18 @@ def serverTestCmd(argv):
                                    privateKey=x509KeyRSANonCA,
                                    settings=settings)
         assert connection.extendedMasterSecret
-        assert connection.session.serverCertChain == x509ChainRSANonCA
+        if tls_ver == "TLSv1.2":
+            # because in TLS 1.2 we don't send the signature_algorithms_cert
+            # extension, but send sig_algs with PKCS#1v1.5 sigalgs, RSA can be picked
+            # in TLS 1.3 we filter out PKCS#v1.5 so RSA cert will be picked only
+            # as a fallback
+            assert connection.session.serverCertChain == x509ChainRSANonCA, connection.session.serverCertChain.getEndEntityPublicKey().key_type
+        else:
+            assert connection.session.serverCertChain == x509ChainECDSANonCA, connection.session.serverCertChain.getEndEntityPublicKey().key_type
         testConnServer(connection)
         connection.close()
 
         test_no += 1
-
 
         print("Test {0} - good X509 RSA and ECDSA, bad RSA and good ECDSA sigalgs, ECDSA, {1}"
               .format(test_no, tls_ver))

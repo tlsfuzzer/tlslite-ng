@@ -32,7 +32,10 @@ RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
-SIGNATURE_SCHEMES = ["Ed25519", "Ed448"]
+SIGNATURE_SCHEMES = ["Ed25519", "Ed448",
+                     "ecdsa_brainpoolP512r1tls13_sha512",
+                     "ecdsa_brainpoolP384r1tls13_sha384",
+                     "ecdsa_brainpoolP256r1tls13_sha256"]
 RSA_SCHEMES = ["pss", "pkcs1"]
 CURVE_NAMES = []
 if ML_KEM_AVAILABLE:
@@ -41,9 +44,12 @@ if ML_KEM_AVAILABLE:
 # while secp521r1 is the most secure, it's also much slower than the others
 # so place it as the last one
 CURVE_NAMES += ["x25519", "x448", "secp384r1", "secp256r1",
-                "secp521r1"]
-ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1",
-                                 "brainpoolP384r1", "brainpoolP256r1"]
+                "secp521r1", "brainpoolP512r1",
+                "brainpoolP384r1", "brainpoolP256r1",
+                "brainpoolP256r1tls13",
+                "brainpoolP384r1tls13",
+                "brainpoolP512r1tls13"]
+ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1"]
 if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
@@ -62,7 +68,8 @@ TLS13_PERMITTED_GROUPS = ["secp256r1", "secp384r1", "secp521r1",
                           "x25519", "x448", "ffdhe2048",
                           "ffdhe3072", "ffdhe4096", "ffdhe6144",
                           "ffdhe8192", "secp256r1mlkem768", "x25519mlkem768",
-                          "secp384r1mlkem1024"]
+                          "secp384r1mlkem1024", "brainpoolP256r1tls13",
+                          "brainpoolP384r1tls13", "brainpoolP512r1tls13"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
@@ -278,7 +285,10 @@ class HandshakeSettings(object):
     :ivar more_sig_schemes: List of additional signatures schemes (ones
         that don't use RSA-PKCS#1 v1.5, RSA-PSS, DSA, or ECDSA) to advertise
         as supported.
-        Currently supported are: "Ed25519", and "Ed448".
+        Currently supported are: "Ed25519", "Ed448",
+        "ecdsa_brainpoolP256r1tls13_sha256",
+        "ecdsa_brainpoolP384r1tls13_sha384",
+        "ecdsa_brainpoolP512r1tls13_sha512".
 
     :vartype eccCurves: list(str)
     :ivar eccCurves: List of named curves that are to be advertised as
@@ -534,7 +544,7 @@ class HandshakeSettings(object):
                              .format(unknownDHGroup))
 
         # TLS 1.3 limits the allowed groups (RFC 8446,ch. 4.2.7.)
-        if other.maxVersion == (3, 4):
+        if (3, 3) not in other.versions and (3, 4) in other.versions:
             forbiddenGroup = HandshakeSettings._not_matching(other.eccCurves, TLS13_PERMITTED_GROUPS)
             if forbiddenGroup:
                 raise ValueError("The following enabled groups are forbidden in TLS 1.3: {0}"
