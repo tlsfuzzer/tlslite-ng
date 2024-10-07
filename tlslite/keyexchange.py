@@ -21,8 +21,12 @@ from .utils.lists import getFirstMatching
 from .utils import tlshashlib as hashlib
 from .utils.x25519 import x25519, x448, X25519_G, X448_G, X25519_ORDER_SIZE, \
         X448_ORDER_SIZE
-from .utils.compat import int_types
+from .utils.compat import int_types, ML_KEM_AVAILABLE
 from .utils.codec import DecodeError
+
+if ML_KEM_AVAILABLE:
+    from kyber_py.ml_kem import ML_KEM_768, ML_KEM_1024
+
 
 class KeyExchange(object):
     """
@@ -1062,3 +1066,171 @@ class ECDHKeyExchange(RawDHKeyExchange):
         S = ecdhYc * private
 
         return numberToByteArray(S.x(), getPointByteSize(ecdhYc))
+
+
+class KEMKeyExchange(object):
+    """
+    Implementation of the Hybrid KEM key exchange groups.
+
+    Caution, KEMs are not symmetric! While they client calls the
+    same get_random_private_key(), calc_public_value(), and calc_shared_key()
+    as in FFDH or ECDH, the server calls just the encapsulate_key() method.
+    """
+
+    def __init__(self, group, version):
+        if not ML_KEM_AVAILABLE:
+            raise TLSInternalError("kyber-py library not installed!")
+        self.group = group
+        assert version == (3, 4)
+        del version
+
+        if self.group not in GroupName.allKEM:
+            raise TLSInternalError("called with wrong group")
+
+        if self.group == GroupName.secp256r1mlkem768:
+            self._classic_group = GroupName.secp256r1
+        elif self.group == GroupName.x25519mlkem768:
+            self._classic_group = GroupName.x25519
+        else:
+            assert self.group == GroupName.secp384r1mlkem1024
+            self._classic_group = GroupName.secp384r1
+
+    def get_random_private_key(self):
+        """
+        Generates a random value to be used as the private key in KEM.
+
+        To be used only to generate the KeyShare in ClientHello.
+        """
+
+        if self.group not in GroupName.allKEM:
+            raise TLSInternalError("called with wrong group")
+        if self.group in (GroupName.secp256r1mlkem768,
+                          GroupName.x25519mlkem768):
+            pqc_pub_key, pqc_priv_key = ML_KEM_768.keygen()
+        else:
+            pqc_pub_key, pqc_priv_key = ML_KEM_1024.keygen()
+
+        classic_kex = ECDHKeyExchange(self._classic_group, (3, 4))
+        classic_key = classic_kex.get_random_private_key()
+
+        return ((pqc_pub_key, pqc_priv_key), classic_key)
+
+    def calc_public_value(self, private):
+        """
+        Extract public values for the private key.
+
+        To be used only to generate the KeyShare in ClientHello.
+        """
+        classic_kex = ECDHKeyExchange(self._classic_group, (3, 4))
+
+        classic_pub_key_share = classic_kex.calc_public_value(private[1])
+
+        if self.group == GroupName.x25519mlkem768:
+            return private[0][0] + classic_pub_key_share
+        return classic_pub_key_share + private[0][0]
+
+    @staticmethod
+    def _split_key_shares(public, pqc_first, pqc_key_len, classic_key_len):
+        if len(public) != classic_key_len + pqc_key_len:
+            raise TLSIllegalParameterException(
+                "Invalid key size for the selected group. "
+                "Expected: {0}, received: {1}".format(
+                    classic_key_len + pqc_key_len,
+                    len(public)))
+
+        if pqc_first:
+            pqc_key = public[:pqc_key_len]
+            classic_key_share = bytearray(public[pqc_key_len:])
+        else:
+            classic_key_share = bytearray(public[:classic_key_len])
+            pqc_key = public[classic_key_len:]
+
+        return pqc_key, classic_key_share
+
+    def _group_to_params(self):
+        """Returns a tuple:
+        classic_key_len, pqc_ek_key_len, pqc_ciphertext_len, pqc_first, ML_KEM
+        """
+        if self.group == GroupName.secp256r1mlkem768:
+            classic_key_len = 65
+            pqc_key_len = 1184
+            pqc_ciphertext_len = 1088
+            pqc_first = False
+            ml_kem = ML_KEM_768
+        elif self.group == GroupName.x25519mlkem768:
+            classic_key_len = 32
+            pqc_key_len = 1184
+            pqc_ciphertext_len = 1088
+            pqc_first = True
+            ml_kem = ML_KEM_768
+        else:
+            assert self.group == GroupName.secp384r1mlkem1024
+            classic_key_len = 97
+            pqc_key_len = 1568
+            pqc_ciphertext_len = 1568
+            pqc_first = False
+            ml_kem = ML_KEM_1024
+
+        return classic_key_len, pqc_key_len, pqc_ciphertext_len, pqc_first, \
+            ml_kem
+
+    def encapsulate_key(self, public):
+        """
+        Generate a random secret, encapsulate it given the public key,
+        and return both the random secret and encapsulation of it.
+
+        To be used for generation of KeyShare in ServerHello.
+        """
+        classic_key_len, pqc_key_len, _, pqc_first, ml_kem = \
+            self._group_to_params()
+
+        pqc_key, classic_key_share = self._split_key_shares(
+            public, pqc_first, pqc_key_len, classic_key_len)
+
+        classic_kex = ECDHKeyExchange(self._classic_group, (3, 4))
+        classic_key = classic_kex.get_random_private_key()
+        classic_my_key_share = classic_kex.calc_public_value(classic_key)
+        classic_shared_secret = classic_kex.calc_shared_key(
+            classic_key, classic_key_share)
+
+        try:
+            pqc_shared_secret, pqc_encaps = ml_kem.encaps(pqc_key)
+        except ValueError:
+            raise TLSIllegalParameterException(
+                "Invalid PQC key from peer")
+
+        if pqc_first:
+            shared_secret = pqc_shared_secret + classic_shared_secret
+            key_encapsulation = pqc_encaps + classic_my_key_share
+        else:
+            shared_secret = classic_shared_secret + pqc_shared_secret
+            key_encapsulation = classic_my_key_share + pqc_encaps
+
+        return shared_secret, key_encapsulation
+
+    def calc_shared_key(self, private, key_encaps):
+        """
+        Decapsulate the key share received from server.
+        """
+        classic_key_len, _, pqc_key_len, pqc_first, ml_kem = \
+            self._group_to_params()
+
+        pqc_key, classic_key_share = self._split_key_shares(
+            key_encaps, pqc_first, pqc_key_len, classic_key_len)
+
+        classic_kex = ECDHKeyExchange(self._classic_group, (3, 4))
+        classic_shared_secret = classic_kex.calc_shared_key(
+                private[1], classic_key_share)
+
+        try:
+            pqc_shared_secret = ml_kem.decaps(private[0][1], pqc_key)
+        except ValueError:
+            raise TLSIllegalParameterException(
+                "Error in KEM decapsulation")
+
+        if pqc_first:
+            shared_secret = pqc_shared_secret + classic_shared_secret
+        else:
+            shared_secret = classic_shared_secret + pqc_shared_secret
+
+        return shared_secret

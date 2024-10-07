@@ -35,7 +35,7 @@ from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
 from .keyexchange import KeyExchange, RSAKeyExchange, DHE_RSAKeyExchange, \
         ECDHE_RSAKeyExchange, SRPKeyExchange, ADHKeyExchange, \
-        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange
+        AECDHKeyExchange, FFDHKeyExchange, ECDHKeyExchange, KEMKeyExchange
 from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
@@ -1196,6 +1196,8 @@ class TLSConnection(TLSRecordLayer):
     @staticmethod
     def _getKEX(group, version):
         """Get object for performing key exchange."""
+        if group in GroupName.allKEM:
+            return KEMKeyExchange(group, version)
         if group in GroupName.allFF:
             return FFDHKeyExchange(group, version)
         return ECDHKeyExchange(group, version)
@@ -1208,6 +1210,15 @@ class TLSConnection(TLSRecordLayer):
         private = kex.get_random_private_key()
         share = kex.calc_public_value(private)
         return KeyShareEntry().create(group, share, private)
+
+    @classmethod
+    def _KEMEncaps(cls, group, public):
+        """Generate the server's KeyShareEntry object with encapsulated secret.
+        """
+        kex = cls._getKEX(group, (3, 4))
+        shared_sec, key_share_value = kex.encapsulate_key(public)
+        key_share = KeyShareEntry().create(group, key_share_value, None)
+        return shared_sec, key_share
 
     @staticmethod
     def _getPRFParams(cipher_suite):
@@ -2803,16 +2814,27 @@ class TLSConnection(TLSRecordLayer):
                 (psk is None and privateKey):
             self.ecdhCurve = selected_group
             kex = self._getKEX(selected_group, version)
-            key_share = self._genKeyShareEntry(selected_group, version)
+            if selected_group in GroupName.allKEM:
+                try:
+                    shared_sec, key_share = self._KEMEncaps(
+                            selected_group,
+                            cl_key_share.key_exchange)
+                except TLSIllegalParameterException as alert:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            str(alert)):
+                        yield result
+            else:
+                key_share = self._genKeyShareEntry(selected_group, version)
 
-            try:
-                shared_sec = kex.calc_shared_key(key_share.private,
-                                                 cl_key_share.key_exchange)
-            except TLSIllegalParameterException as alert:
-                for result in self._sendError(
-                        AlertDescription.illegal_parameter,
-                        str(alert)):
-                    yield result
+                try:
+                    shared_sec = kex.calc_shared_key(key_share.private,
+                                                     cl_key_share.key_exchange)
+                except TLSIllegalParameterException as alert:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            str(alert)):
+                        yield result
 
             sh_extensions.append(ServerKeyShareExtension().create(key_share))
         elif (psk is not None and
@@ -4915,7 +4937,11 @@ class TLSConnection(TLSRecordLayer):
     @staticmethod
     def _curveNamesToList(settings):
         """Convert list of acceptable curves to array identifiers"""
-        return [getattr(GroupName, val) for val in settings.eccCurves]
+        ret = [getattr(GroupName, val) for val in settings.eccCurves]
+        if settings.maxVersion < (3, 4) and (3, 4) not in settings.versions:
+            # if we don't support TLS 1.3, filter out KEMs
+            ret = [i for i in ret if i not in GroupName.allKEM]
+        return ret
 
     @staticmethod
     def _groupNamesToList(settings):
