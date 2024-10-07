@@ -438,7 +438,13 @@ class GroupName(TLSEnum):
     brainpoolP512r1tls13 = 33
     allEC.extend(list(range(31, 34)))
 
-    all = allEC + allFF
+    # draft-kwiatkowski-tls-ecdhe-mlkem
+    secp256r1mlkem768 = 0x11EB
+    x25519mlkem768 = 0x11EC
+    secp384r1mlkem1024 = 0x11ED
+    allKEM = [0x11EB, 0x11EC, 0x11ED]
+
+    all = allEC + allFF + allKEM
 
     @classmethod
     def toRepr(cls, value, blacklist=None):

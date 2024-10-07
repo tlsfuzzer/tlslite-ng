@@ -180,10 +180,26 @@ jobs:
             os: ubuntu-latest
             python-version: '3.11'
             opt-deps: ['brotli', 'zstd']
-          - name: py3.12with brotli and zstandard
+          - name: py3.12 with brotli and zstandard
             os: ubuntu-latest
             python-version: '3.12'
             opt-deps: ['brotli', 'zstd']
+          - name: py3.9 with kyber-py
+            os: ubuntu-latest
+            python-version: "3.9"
+            opt-deps: ["kyber_py"]
+          - name: py3.10 with kyber-py
+            os: ubuntu-latest
+            python-version: "3.10"
+            opt-deps: ["kyber_py"]
+          - name: py3.11 with kyber-py
+            os: ubuntu-latest
+            python-version: "3.11"
+            opt-deps: ["kyber_py"]
+          - name: py3.12 with kyber-py
+            os: ubuntu-latest
+            python-version: "3.12"
+            opt-deps: ["kyber_py"]
           # finally test with multiple dependencies installed at the same time
           - name: py2.7 with m2crypto, pycrypto, gmpy, gmpy2, and brotli
             os: ubuntu-20.04
@@ -204,22 +220,22 @@ jobs:
           - name: py3.9 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: 3.9
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd', 'kyber_py']
           - name: py3.10 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: '3.10'
-            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd']
+            opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli', 'zstd', 'kyber_py']
           - name: py3.11 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: '3.11'
             # gmpy doesn't build with 3.11
-            opt-deps: ['m2crypto', 'gmpy2', 'brotli', 'zstd']
+            opt-deps: ['m2crypto', 'gmpy2', 'brotli', 'zstd', 'kyber_py']
           - name: py3.12 with m2crypto, gmpy, gmpy2, brotli, and zstandard
             os: ubuntu-latest
             python-version: '3.12'
             # gmpy doesn't build with 3.12
             # coverage to codeclimate can be submitted just once
-            opt-deps: ['m2crypto', 'gmpy2', 'codeclimate', 'brotli', 'zstd']
+            opt-deps: ['m2crypto', 'gmpy2', 'codeclimate', 'brotli', 'zstd', 'kyber_py']
     steps:
       - uses: actions/checkout@v2
         if: ${{ !matrix.container }}
@@ -346,6 +362,9 @@ jobs:
       - name: Install zstandard for py3.8 and after
         if: ${{ contains(matrix.opt-deps, 'zstd') }}
         run: pip install zstandard
+      - name: Install kyber_py
+        if: ${{ contains(matrix.opt-deps, 'kyber_py') }}
+        run: pip install "https://github.com/GiacomoPope/kyber-py/archive/b187189a514b3327578928c1d4c901d34592678e.zip"
       - name: Install build dependencies (2.6)
         if: ${{ matrix.python-version == '2.6' }}
         run: |
