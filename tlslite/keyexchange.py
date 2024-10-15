@@ -907,7 +907,7 @@ class RawDHKeyExchange(object):
         """
         raise NotImplementedError("Abstract class")
 
-    def calc_public_value(self, private):
+    def calc_public_value(self, private, point_format=None):
         """Calculate the public value from the provided private value."""
         raise NotImplementedError("Abstract class")
 
@@ -944,10 +944,11 @@ class FFDHKeyExchange(RawDHKeyExchange):
         needed_bytes = divceil(paramStrength(self.prime) * 2, 8)
         return bytesToNumber(getRandomBytes(needed_bytes))
 
-    def calc_public_value(self, private):
+    def calc_public_value(self, private, point_format=None):
         """
         Calculate the public value for given private value.
 
+        :param point_format: ignored, used for compatibility with ECDH groups
         :rtype: int
         """
         dh_Y = powMod(self.generator, private, self.prime)
@@ -1025,20 +1026,32 @@ class ECDHKeyExchange(RawDHKeyExchange):
         else:
             return x448, bytearray(X448_G), X448_ORDER_SIZE
 
-    def calc_public_value(self, private):
-        """Calculate public value for given private key."""
+    def calc_public_value(self, private, point_format='uncompressed'):
+        """
+        Calculate public value for given private key.
+
+        :param private: Private key for the selected key exchange group.
+        :param str point_format: The point format to use for the
+            ECDH public key. Applies only to NIST curves.
+        """
         if isinstance(private, ecdsa.keys.SigningKey):
-            return private.verifying_key.to_string('uncompressed')
+            return private.verifying_key.to_string(point_format)
         if self.group in self._x_groups:
             fun, generator, _ = self._get_fun_gen_size()
             return fun(private, generator)
         else:
             curve = getCurveByName(GroupName.toStr(self.group))
             point = curve.generator * private
-            return bytearray(point.to_bytes('uncompressed'))
+            return bytearray(point.to_bytes(point_format))
 
-    def calc_shared_key(self, private, peer_share):
-        """Calculate the shared key,"""
+    def calc_shared_key(self, private, peer_share,
+            valid_point_formats=('uncompressed',)):
+        """
+        Calculate the shared key.
+
+        :param set(str) valid_point_formats: list of point formats that
+            the peer share can be in; ["uncompressed"] by default.
+        """
 
         if self.group in self._x_groups:
             fun, _, size = self._get_fun_gen_size()
@@ -1053,7 +1066,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
         curve = getCurveByName(GroupName.toRepr(self.group))
         try:
             abstractPoint = ecdsa.ellipticcurve.AbstractPoint()
-            point = abstractPoint.from_bytes(curve.curve, peer_share)
+            point = abstractPoint.from_bytes(
+                curve.curve, peer_share, valid_encodings=valid_point_formats)
             ecdhYc = ecdsa.ellipticcurve.Point(
                 curve.curve, point[0], point[1])
 
@@ -1115,15 +1129,20 @@ class KEMKeyExchange(object):
 
         return ((pqc_pub_key, pqc_priv_key), classic_key)
 
-    def calc_public_value(self, private):
+    def calc_public_value(self, private, point_format='uncompressed'):
         """
         Extract public values for the private key.
 
         To be used only to generate the KeyShare in ClientHello.
+
+        :param str point_format: Point format of the ECDH portion of the
+            key exchange (effective only for NIST curves, valid is
+            'uncompressed' only)
         """
         classic_kex = ECDHKeyExchange(self._classic_group, (3, 4))
 
-        classic_pub_key_share = classic_kex.calc_public_value(private[1])
+        classic_pub_key_share = classic_kex.calc_public_value(
+            private[1], point_format=point_format)
 
         if self.group == GroupName.x25519mlkem768:
             return private[0][0] + classic_pub_key_share
