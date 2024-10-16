@@ -32,14 +32,19 @@ RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
-SIGNATURE_SCHEMES = ["Ed25519", "Ed448"]
+SIGNATURE_SCHEMES = ["Ed25519", "Ed448", "ecdsa_brainpoolP256r1tls13_sha256",
+                     "ecdsa_brainpoolP384r1tls13_sha384",
+                     "ecdsa_brainpoolP512r1tls13_sha512"]
 RSA_SCHEMES = ["pss", "pkcs1"]
 # while secp521r1 is the most secure, it's also much slower than the others
 # so place it as the last one
 CURVE_NAMES = ["x25519", "x448", "secp384r1", "secp256r1",
                "secp521r1"]
 ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1",
-                                 "brainpoolP384r1", "brainpoolP256r1"]
+                                 "brainpoolP384r1", "brainpoolP256r1",
+                                 "brainpoolP256r1tls13",
+                                 "brainpoolP384r1tls13",
+                                 "brainpoolP512r1tls13"]
 if ecdsaAllCurves:
     ALL_CURVE_NAMES += ["secp224r1", "secp192r1"]
 ALL_DH_GROUP_NAMES = ["ffdhe2048", "ffdhe3072", "ffdhe4096", "ffdhe6144",
@@ -57,7 +62,8 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
 TLS13_PERMITTED_GROUPS = ["secp256r1", "secp384r1", "secp521r1",
                           "x25519", "x448", "ffdhe2048",
                           "ffdhe3072", "ffdhe4096", "ffdhe6144",
-                          "ffdhe8192"]
+                          "ffdhe8192", "brainpoolP256r1tls13",
+                          "brainpoolP384r1tls13", "brainpoolP512r1tls13"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
@@ -273,7 +279,10 @@ class HandshakeSettings(object):
     :ivar more_sig_schemes: List of additional signatures schemes (ones
         that don't use RSA-PKCS#1 v1.5, RSA-PSS, DSA, or ECDSA) to advertise
         as supported.
-        Currently supported are: "Ed25519", and "Ed448".
+        Currently supported are: "Ed25519", "Ed448",
+        "ecdsa_brainpoolP256r1tls13_sha256",
+        "ecdsa_brainpoolP384r1tls13_sha384",
+        "ecdsa_brainpoolP512r1tls13_sha512".
 
     :vartype eccCurves: list(str)
     :ivar eccCurves: List of named curves that are to be advertised as

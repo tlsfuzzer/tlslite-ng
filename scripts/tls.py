@@ -104,7 +104,7 @@ def printUsage(s=None):
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
-    [--request-pha] [--require-pha] [--echo]
+    [--request-pha] [--require-pha] [--echo] [--groups GROUPS]
     HOST:PORT
 
   client
@@ -132,6 +132,8 @@ def printUsage(s=None):
   --require-pha - abort connection if client didn't provide certificate in
                   post-handshake authentication
   --echo - function as an echo server
+  --groups - specify what key exchange groups should be supported
+  GROUPS - comma-separated list of enabled key exchange groups
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
         to configure different certificates (like RSA and ECDSA)
@@ -192,6 +194,7 @@ def handleArgs(argv, argString, flagsList=[]):
     request_pha = False
     require_pha = False
     echo = False
+    groups = None
 
     for opt, arg in opts:
         if opt == "-k":
@@ -265,6 +268,8 @@ def handleArgs(argv, argString, flagsList=[]):
             tickets = int(arg)
         elif opt == "--cipherlist":
             ciphers.append(arg)
+        elif opt == "--groups":
+            groups = arg.split(',')
         elif opt == "--request-pha":
             request_pha = True
         elif opt == "--require-pha":
@@ -339,6 +344,8 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(require_pha)
     if "echo" in flagsList:
         retList.append(echo)
+    if "groups=" in flagsList:
+        retList.append(groups)
     return retList
 
 
@@ -542,12 +549,13 @@ def serverCmd(argv):
     (address, privateKey, cert_chain, virtual_hosts, tacks, verifierDB,
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
-            max_ver, tickets, cipherlist, request_pha, require_pha, echo) = \
+            max_ver, tickets, cipherlist, request_pha, require_pha, echo,
+            groups) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
                     "tickets=", "cipherlist=", "request-pha", "require-pha",
-                    "echo"])
+                    "echo", "groups="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -594,6 +602,17 @@ def serverCmd(argv):
     if cipherlist:
         settings.cipherNames = [item for cipher in cipherlist
                                 for item in cipher.split(',')]
+    if groups:
+        dh_groups = []
+        ecc_groups = []
+        for item in groups:
+            if "ffdh" in item:
+                dh_groups.append(item)
+            else:
+                ecc_groups.append(item)
+        settings.dhGroups = dh_groups
+        settings.eccCurves = ecc_groups
+        settings.keyShares = []
 
     class MySimpleEchoHandler(BaseRequestHandler):
         def handle(self):

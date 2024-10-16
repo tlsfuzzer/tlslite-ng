@@ -44,7 +44,7 @@ except ImportError:
     from xmlrpc import client as xmlrpclib
 import ssl
 from tlslite import *
-from tlslite.constants import KeyUpdateMessageType
+from tlslite.constants import KeyUpdateMessageType, SignatureScheme
 
 try:
     from tack.structures.Tack import Tack
@@ -333,6 +333,32 @@ def clientTestCmd(argv):
         settings.keyShares = []
         connection.handshakeClientCert(settings=settings)
         testConnClient(connection)
+        assert isinstance(connection.session.serverCertChain, X509CertChain)
+        assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
+                == keySize
+        connection.close()
+
+        test_no += 1
+
+    for curve, keySize, exp_sig_alg in (
+            ("brainpoolP256r1tls13", 256,
+             SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256),
+            ("brainpoolP384r1tls13", 384,
+             SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384),
+            ("brainpoolP512r1tls13", 512,
+             SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.3".format(test_no, curve))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        settings.eccCurves = [curve]
+        settings.keyShares = []
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert connection.serverSigAlg == exp_sig_alg, \
+            connection.serverSigAlg
         assert isinstance(connection.session.serverCertChain, X509CertChain)
         assert len(connection.session.serverCertChain.getEndEntityPublicKey()) \
                 == keySize
@@ -2228,6 +2254,29 @@ def serverTestCmd(argv):
                                    privateKey=key, settings=settings)
         assert connection.extendedMasterSecret
         assert connection.session.serverCertChain == certChain
+        testConnServer(connection)
+        connection.close()
+
+        test_no += 1
+
+    for curve, certChain, key in (("brainpoolP256r1tls13", x509ecdsaBrainpoolP256r1Chain, x509ecdsaBrainpoolP256r1Key),
+                                  ("brainpoolP384r1tls13", x509ecdsaBrainpoolP384r1Chain, x509ecdsaBrainpoolP384r1Key),
+                                  ("brainpoolP512r1tls13", x509ecdsaBrainpoolP512r1Chain, x509ecdsaBrainpoolP512r1Key)):
+        print("Test {0} - Two good ECDSA certs - {1}, TLSv1.3".format(test_no, curve))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        settings.eccCurves = [curve, "secp256r1"]
+        settings.keyShares = []
+        v_host = VirtualHost()
+        v_host.keys = [Keypair(x509ecdsaKey, x509ecdsaChain.x509List)]
+        settings.virtual_hosts = [v_host]
+        connection.handshakeServer(certChain=certChain,
+                                   privateKey=key, settings=settings)
+        assert connection.extendedMasterSecret
+        #XXX assert connection.session.serverCertChain == certChain
         testConnServer(connection)
         connection.close()
 
