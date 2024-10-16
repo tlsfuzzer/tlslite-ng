@@ -235,3 +235,14 @@ except AttributeError:
     ecdsaAllCurves = False
 else:
     ecdsaAllCurves = True
+
+
+# kyber-py is an optional dependency
+try:
+    from kyber_py.ml_kem import ML_KEM_768, ML_KEM_1024
+    del ML_KEM_768
+    del ML_KEM_1024
+except ImportError:
+    ML_KEM_AVAILABLE = False
+else:
+    ML_KEM_AVAILABLE = True
