@@ -2554,6 +2554,10 @@ class CompressedCertificate(Certificate):
         self.compression_algo = p.get(2)
         expected_length = p.get(3)
         compressed_msg = p.getVarBytes(3)
+
+        if len(compressed_msg) == 0:
+            raise DecodeError("Empty compress certificate message")
+
         p.stopLengthCheck()
         certificate_msg = self._decompress(compressed_msg, expected_length)
 
