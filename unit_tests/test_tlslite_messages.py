@@ -4062,7 +4062,7 @@ class TestCompressedCertificate(unittest.TestCase):
 
     @unittest.skipIf(PY_VER < (3, ),
         "In Python2 zlib fails to decompress an empty message")
-    def test_parse_empty(self):
+    def test_parse_empty_certificate(self):
         cc = CompressedCertificate(CertificateType.x509)
 
         algos = [CertificateCompressionAlgorithm.zlib]
@@ -4096,6 +4096,23 @@ class TestCompressedCertificate(unittest.TestCase):
             self.assertIsNone(cc.cert_chain)
             self.assertEqual(cc.compression_algo, algo)
             cc.compression_algo = None
+
+    def test_parse_empty_message(self):
+        cc = CompressedCertificate(CertificateType.x509)
+
+        writer = Writer()
+        writer.add(8, 3)
+        writer.add(CertificateCompressionAlgorithm.zlib, 2)
+        writer.bytes += b'\x00\x00\xff'  # length of uncompressed message
+        writer.add(0, 3)
+
+        parser = Parser(writer.bytes)
+
+        with self.assertRaises(DecodeError) as e:
+            cc = cc.parse(parser)
+
+        self.assertIn("Empty compress certificate message",
+                      str(e.exception))
 
     @unittest.skipIf(PY_VER < (3, ),
         "In Python2 zlib fails to decompress an empty message")
