@@ -35,7 +35,7 @@ from tlslite.handshakehashes import HandshakeHashes
 from tlslite import VerifierDB
 from tlslite.extensions import SupportedGroupsExtension, SNIExtension
 from tlslite.utils.ecc import getCurveByName, getPointByteSize
-from tlslite.utils.compat import a2b_hex
+from tlslite.utils.compat import a2b_hex, ML_KEM_AVAILABLE
 import ecdsa
 from operator import mul
 try:
@@ -45,7 +45,7 @@ except ImportError:
 
 from tlslite.keyexchange import KeyExchange, RSAKeyExchange, \
         DHE_RSAKeyExchange, SRPKeyExchange, ECDHE_RSAKeyExchange, \
-        RawDHKeyExchange, FFDHKeyExchange
+        RawDHKeyExchange, FFDHKeyExchange, KEMKeyExchange
 from tlslite.utils.x25519 import x25519, X25519_G, x448, X448_G
 from tlslite.mathtls import RFC7919_GROUPS
 from tlslite.utils.python_key import Python_Key
@@ -2583,3 +2583,156 @@ class TestFFDHKeyExchange(unittest.TestCase):
         key_share = bytearray(b'\x00' * 10 + b'\x04')
         with self.assertRaises(TLSIllegalParameterException):
             kex.calc_shared_key(private, key_share)
+
+
+@unittest.skipIf(not ML_KEM_AVAILABLE, "Kyber-py not installed")
+class TestKEMKeyExchange(unittest.TestCase):
+    def test_init_with_wrong_group(self):
+        with self.assertRaises(TLSInternalError):
+            KEMKeyExchange(GroupName.x25519, (3, 4))
+
+    def test_with_wrong_key_share_size(self):
+        group = GroupName.x25519mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            # one byte too long
+            kex.encapsulate_key(bytearray(32 + 1184 + 1))
+
+        self.assertIn("Invalid key size", str(e.exception))
+
+    def test_with_invalid_classic_key_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+        alice_key_share = kex.calc_public_value(alice_private_key)
+        alice_key_share = bytearray(alice_key_share)
+
+        alice_key_share[1] ^= 0xff
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            kex.encapsulate_key(alice_key_share)
+
+        self.assertIn("Invalid ECC", str(e.exception))
+
+    def test_with_invalid_pqc_key_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+        alice_key_share = kex.calc_public_value(alice_private_key)
+        alice_key_share = bytearray(alice_key_share)
+
+        alice_key_share[67] = 0xff
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            kex.encapsulate_key(alice_key_share)
+
+        self.assertIn("Invalid PQC", str(e.exception))
+
+    def test_with_modified_pqc_key_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+        alice_key_share = kex.calc_public_value(alice_private_key)
+        alice_key_share = bytearray(alice_key_share)
+
+        alice_key_share[67] = 0x01
+        alice_key_share[68] = 0x01
+
+        bob_shared_secret, bob_key_share = kex.encapsulate_key(alice_key_share)
+
+        alice_shared_secret = kex.calc_shared_key(
+                alice_private_key, bob_key_share)
+
+        self.assertNotEqual(alice_shared_secret, bob_shared_secret)
+
+    def test_decaps_with_wrong_size_of_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            kex.calc_shared_key(alice_private_key, bytearray(65 + 1088 + 1))
+
+        self.assertIn("Invalid key size", str(e.exception))
+
+    def test_decaps_with_invalid_classical_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+        alice_key_share = kex.calc_public_value(alice_private_key)
+
+        bob_shared_secret, bob_key_share = kex.encapsulate_key(alice_key_share)
+        bob_key_share = bytearray(bob_key_share)
+
+        bob_key_share[2] ^= 0xff
+
+        with self.assertRaises(TLSIllegalParameterException) as e:
+            kex.calc_shared_key(alice_private_key, bob_key_share)
+
+        self.assertIn("Invalid ECC", str(e.exception))
+
+    def test_decaps_with_invalid_pqc_share(self):
+        group = GroupName.secp256r1mlkem768
+        version = (3, 4)
+
+        kex = KEMKeyExchange(group, version)
+
+        alice_private_key = kex.get_random_private_key()
+        alice_key_share = kex.calc_public_value(alice_private_key)
+
+        bob_shared_secret, bob_key_share = kex.encapsulate_key(alice_key_share)
+        bob_key_share = bytearray(bob_key_share)
+
+        bob_key_share[68] ^= 0xff
+
+        alice_shared_secret = kex.calc_shared_key(
+            alice_private_key, bob_key_share)
+
+        self.assertNotEqual(alice_shared_secret, bob_shared_secret)
+
+    def do_kex(self, group):
+        version = (3, 4)
+
+        alice_kex = KEMKeyExchange(group, version)
+
+        alice_private_key = alice_kex.get_random_private_key()
+        alice_key_share = alice_kex.calc_public_value(alice_private_key)
+
+        bob_kex = KEMKeyExchange(group, version)
+        bob_shared_secret, bob_key_share = \
+            bob_kex.encapsulate_key(alice_key_share)
+
+        alice_shared_secret = alice_kex.calc_shared_key(
+            alice_private_key, bob_key_share)
+
+        self.assertEqual(alice_shared_secret, bob_shared_secret)
+
+    def test_x25519_ml_kem_768(self):
+        group = GroupName.x25519mlkem768
+        self.do_kex(group)
+
+    def test_p256_ml_kem_768(self):
+        group = GroupName.secp256r1mlkem768
+        self.do_kex(group)
+
+    def test_p384_ml_kem_1024(self):
+        group = GroupName.secp384r1mlkem1024
+        self.do_kex(group)

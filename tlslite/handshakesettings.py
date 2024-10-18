@@ -10,7 +10,7 @@
 from .constants import CertificateType
 from .utils import cryptomath
 from .utils import cipherfactory
-from .utils.compat import ecdsaAllCurves, int_types
+from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE
 from .utils.compression import compression_algo_impls
 
 CIPHER_NAMES = ["chacha20-poly1305",
@@ -34,10 +34,14 @@ ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
 SIGNATURE_SCHEMES = ["Ed25519", "Ed448"]
 RSA_SCHEMES = ["pss", "pkcs1"]
+CURVE_NAMES = []
+if ML_KEM_AVAILABLE:
+    CURVE_NAMES += ["secp256r1mlkem768", "x25519mlkem768",
+                    "secp384r1mlkem1024"]
 # while secp521r1 is the most secure, it's also much slower than the others
 # so place it as the last one
-CURVE_NAMES = ["x25519", "x448", "secp384r1", "secp256r1",
-               "secp521r1"]
+CURVE_NAMES += ["x25519", "x448", "secp384r1", "secp256r1",
+                "secp521r1"]
 ALL_CURVE_NAMES = CURVE_NAMES + ["secp256k1", "brainpoolP512r1",
                                  "brainpoolP384r1", "brainpoolP256r1"]
 if ecdsaAllCurves:
@@ -57,7 +61,8 @@ CURVE_ALIASES = {"secp256r1": ('NIST256p', 'prime256v1', 'P-256'),
 TLS13_PERMITTED_GROUPS = ["secp256r1", "secp384r1", "secp521r1",
                           "x25519", "x448", "ffdhe2048",
                           "ffdhe3072", "ffdhe4096", "ffdhe6144",
-                          "ffdhe8192"]
+                          "ffdhe8192", "secp256r1mlkem768", "x25519mlkem768",
+                          "secp384r1mlkem1024"]
 KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
@@ -395,7 +400,11 @@ class HandshakeSettings(object):
         self.dhParams = None
         self.dhGroups = list(ALL_DH_GROUP_NAMES)
         self.defaultCurve = "secp256r1"
-        self.keyShares = ["secp256r1", "x25519"]
+        if ML_KEM_AVAILABLE:
+            self.keyShares = ["x25519mlkem768"]
+        else:
+            self.keyShares = []
+        self.keyShares += ["secp256r1", "x25519"]
         self.padding_cb = None
         self.use_heartbeat_extension = True
         self.heartbeat_response_callback = None

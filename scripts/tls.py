@@ -34,7 +34,8 @@ from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
         GroupName, SignatureScheme
 from tlslite.handshakesettings import Keypair, VirtualHost
 from tlslite import __version__
-from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp
+from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp, \
+        ML_KEM_AVAILABLE
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
 from tlslite.constants import KeyUpdateMessageType
@@ -76,6 +77,10 @@ def printUsage(s=None):
         print("  GMPY2       : Loaded")
     else:
         print("  GMPY2       : Not Loaded")
+    if ML_KEM_AVAILABLE:
+        print("  Kyber-py    : Loaded")
+    else:
+        print("  Kyber-py    : Not Loaded")
 
     print("")
     print("Certificate compression algorithms:")
