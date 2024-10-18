@@ -345,5 +345,7 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #
 # texinfo_no_detailmenu = False
-intersphinx_mapping = {'https://docs.python.org/': None,
-                       'https://ecdsa.readthedocs.io/en/latest/': None}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/', None),
+    'ecdsa': ('https://ecdsa.readthedocs.io/en/latest/', None),
+}
