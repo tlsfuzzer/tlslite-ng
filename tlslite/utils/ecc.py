@@ -15,7 +15,10 @@ def getCurveByName(curveName):
                 'secp256k1':ecdsa.SECP256k1,
                 'brainpoolP256r1': ecdsa.BRAINPOOLP256r1,
                 'brainpoolP384r1': ecdsa.BRAINPOOLP384r1,
-                'brainpoolP512r1': ecdsa.BRAINPOOLP512r1}
+                'brainpoolP512r1': ecdsa.BRAINPOOLP512r1,
+                'brainpoolP256r1tls13': ecdsa.BRAINPOOLP256r1,
+                'brainpoolP384r1tls13': ecdsa.BRAINPOOLP384r1,
+                'brainpoolP512r1tls13': ecdsa.BRAINPOOLP512r1}
     if ecdsaAllCurves:
         curveMap['secp224r1'] = ecdsa.NIST224p
         curveMap['secp192r1'] = ecdsa.NIST192p
