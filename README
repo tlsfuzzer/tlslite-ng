@@ -40,6 +40,7 @@ Functionality implemented include:
  - Heartbeat Extension (RFC 6520)
  - Record Size Limit (RFC 8449)
  - TLS Certificate Compression (RFC 8879)
+ - Hybrid ML-KEM key exchage groups (draft-kwiatkowski-tls-ecdhe-mlkem-02)
 
 
 tlslite-ng aims to be a drop-in replacement for tlslite while providing more

@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-beta4 (2024-10-18)
+tlslite-ng version 0.8.0-beta5 (2024-10-18)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -50,7 +50,7 @@ file.
 Implemented TLS features include:
 
 * SSLv3, TLSv1.0, TLSv1.1, TLSv1.2 and TLSv1.3
-* ciphersuites with DHE, ADH, ECDHE, AECDH, RSA and SRP
+* ciphersuites with DHE, ADH, ECDHE, AECDH, ML-KEM, RSA and SRP
   key exchange together
   with AES (CBC, GCM, CCM and CCM_8), 3DES, RC4 and ChaCha20 (both the official
   standard and the IETF draft) symmetric ciphers and NULL encryption.
@@ -712,6 +712,9 @@ TLSAsyncioDispatcherMixIn.py.
 * Fix int_to_bytes and numberToByteArray encoding of 0 with length not
   specified, and thus also ClientKeyExchange handling for DHE with missing
   key share
+* (Experimental) Support for hybrid KEM key exchange groups from
+  draft-kwiatkowski-tls-ecdhe-mlkem-02. To work, kyber-py v1.0 library must
+  be installed.
 
 0.7.0 - 2017-07-31
 
