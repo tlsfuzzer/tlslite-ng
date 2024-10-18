@@ -11,7 +11,7 @@ with open(os.path.join(here, "README")) as f:
     README = f.read()
 
 setup(name="tlslite-ng",
-      version="0.8.0-beta3",
+      version="0.8.0-beta4",
       author="Alicja Kario",
       author_email="hkario@redhat.com",
       url="https://github.com/tlsfuzzer/tlslite-ng",
