@@ -2441,7 +2441,7 @@ class TLSConnection(TLSRecordLayer):
                                                  dhGroups)
             elif cipherSuite in CipherSuite.ecdheCertSuites or \
                     cipherSuite in CipherSuite.ecdheEcdsaSuites:
-                acceptedCurves = self._curveNamesToList(settings)
+                acceptedCurves = self._curveNamesToList(settings, version)
                 defaultCurve = getattr(GroupName, settings.defaultCurve)
                 keyExchange = ECDHE_RSAKeyExchange(cipherSuite,
                                                    clientHello,
@@ -2468,7 +2468,7 @@ class TLSConnection(TLSRecordLayer):
                                              serverHello, settings.dhParams,
                                              dhGroups)
             else:
-                acceptedCurves = self._curveNamesToList(settings)
+                acceptedCurves = self._curveNamesToList(settings, version)
                 defaultCurve = getattr(GroupName, settings.defaultCurve)
                 keyExchange = AECDHKeyExchange(cipherSuite, clientHello,
                                                serverHello, acceptedCurves,
@@ -3579,7 +3579,7 @@ class TLSConnection(TLSRecordLayer):
                         AlertDescription.decode_error,
                         "Received malformed supported_groups extension"):
                     yield result
-            serverGroups = self._curveNamesToList(settings)
+            serverGroups = self._curveNamesToList(settings, version)
             ecGroupIntersect = getFirstMatching(clientGroups, serverGroups)
             # RFC 7919 groups
             serverGroups = self._groupNamesToList(settings)
@@ -4935,10 +4935,11 @@ class TLSConnection(TLSRecordLayer):
         return sigAlgs
 
     @staticmethod
-    def _curveNamesToList(settings):
+    def _curveNamesToList(settings, version=(3, 4)):
         """Convert list of acceptable curves to array identifiers"""
         ret = [getattr(GroupName, val) for val in settings.eccCurves]
-        if settings.maxVersion < (3, 4) and (3, 4) not in settings.versions:
+        if (settings.maxVersion < (3, 4) and (3, 4) not in settings.versions)\
+                or version < (3, 4):
             # if we don't support TLS 1.3, filter out KEMs
             ret = [i for i in ret if i not in GroupName.allKEM]
         return ret
