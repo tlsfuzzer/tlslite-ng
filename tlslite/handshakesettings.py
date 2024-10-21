@@ -274,7 +274,7 @@ class HandshakeSettings(object):
         The allowed hashes are: "sha1", "sha224", "sha256",
         "sha384" and "sha512".
 
-    "vartype more_sig_schemes: list(str)
+    :vartype more_sig_schemes: list(str)
     :ivar more_sig_schemes: List of additional signatures schemes (ones
         that don't use RSA-PKCS#1 v1.5, RSA-PSS, DSA, or ECDSA) to advertise
         as supported.
