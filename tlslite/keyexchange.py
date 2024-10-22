@@ -1130,10 +1130,10 @@ class ECDHKeyExchange(RawDHKeyExchange):
             ecdhYc = ecdsa.ellipticcurve.Point(
                 curve.curve, point[0], point[1])
 
-        except (AssertionError):
+        except AssertionError:
             raise TLSIllegalParameterException("Invalid ECC point")
-        except DecodeError as err:
-            raise TLSDecodeError(f"Unexpected error {err=}, {type(err)=}") from err
+        except DecodeError:
+            raise TLSDecodeError("Unexpected error")
         if isinstance(private, ecdsa.keys.SigningKey):
             ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
             ecdh.load_received_public_key_bytes(peer_share,
