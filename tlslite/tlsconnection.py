@@ -3264,7 +3264,8 @@ class TLSConnection(TLSRecordLayer):
                        serverName=ticket.server_name.decode("utf-8") if
                        ticket.server_name else "",
                        encryptThenMAC=ticket.encrypt_then_mac,
-                       extendedMasterSecret=ticket.extended_master_secret)
+                       extendedMasterSecret=ticket.extended_master_secret,
+                       ec_point_format=0)
         return session
 
     def _serverGetClientHello(self, settings, private_key, cert_chain,

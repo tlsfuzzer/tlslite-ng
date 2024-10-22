@@ -97,7 +97,7 @@ class Session(object):
         self.resumptionMasterSecret = bytearray(0)
         self.tickets = None
         self.tls_1_0_tickets = None
-        self.ec_point_format = None
+        self.ec_point_format = 0
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
