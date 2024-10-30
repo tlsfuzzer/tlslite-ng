@@ -4409,6 +4409,23 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.insufficient_security,
                     str(alert)):
                 yield result
+        except DecodeError as alert:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    str(alert)):
+                yield result
+        except TLSIllegalParameterException as alert:
+            alert = Alert().create(AlertDescription.illegal_parameter,
+                                           AlertLevel.fatal)
+            for result in self._sendMsg(alert):
+                yield result
+            raise
+        except TLSDecodeError as alert:
+            alert = Alert().create(AlertDescription.decode_error,
+                                           AlertLevel.fatal)
+            for result in self._sendMsg(alert):
+                yield result
+            raise
         if serverKeyExchange is not None:
             msgs.append(serverKeyExchange)
         if reqCert:
