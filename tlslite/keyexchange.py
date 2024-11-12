@@ -714,8 +714,7 @@ class AECDHKeyExchange(KeyExchange):
         ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
         if ext_c:
             if ext_c.formats == []:
-                raise TLSIllegalParameterException("Point formats \
-                                                   extension is empty.")
+                raise TLSDecodeError("Point formats extension is empty.")
             elif ECPointFormat.uncompressed not in ext_c.formats:
                 raise TLSIllegalParameterException(
                     "The client does not advertise "
@@ -1110,7 +1109,8 @@ class ECDHKeyExchange(RawDHKeyExchange):
         :returns: shared key
 
         :raises TLSIllegalParameterException
-            when the paramentrs for point are invalid;
+            when the paramentrs for point are invalid.
+        :raises TLSDecodeError
             when the the valid_point_formats is empty.
 
         """
@@ -1135,7 +1135,7 @@ class ECDHKeyExchange(RawDHKeyExchange):
         except AssertionError:
             raise TLSIllegalParameterException("Invalid ECC point")
         except DecodeError:
-            raise TLSIllegalParameterException("Empty point format extension")
+            raise TLSDecodeError("Empty point formats extension")
         if isinstance(private, ecdsa.keys.SigningKey):
             ecdh = ecdsa.ecdh.ECDH(curve=curve, private_key=private)
             ecdh.load_received_public_key_bytes(peer_share,
