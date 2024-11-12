@@ -4415,6 +4415,12 @@ class TLSConnection(TLSRecordLayer):
             for result in self._sendError(alert):
                 yield result
             raise
+        except TLSDecodeError as alert:
+            alert = Alert().create(AlertDescription.decode_error,
+                                           AlertLevel.fatal)
+            for result in self._sendError(alert):
+                yield result
+            raise
         if serverKeyExchange is not None:
             msgs.append(serverKeyExchange)
         if reqCert:
