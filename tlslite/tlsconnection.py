@@ -730,10 +730,28 @@ class TLSConnection(TLSRecordLayer):
                                                     bytearray(0)))
         # In TLS1.2 advertise support for additional signature types
         if settings.maxVersion >= (3, 3):
-            sigList = self._sigHashesToList(settings, version=settings.maxVersion)
-            assert len(sigList) > 0
+            sig_list = []
+            if settings.maxVersion >= (3, 4) and \
+                    settings.minVersion <= (3, 4):
+                tls13_sig_list = self._sigHashesToList(
+                    settings,
+                    version=(3, 4))
+                sig_list.extend(tls13_sig_list)
+            if settings.maxVersion >= (3, 3) and \
+                    settings.minVersion <= (3, 3):
+                tls12_sig_list = self._sigHashesToList(
+                    settings,
+                    version=(3, 3))
+                # add elements from tls12 signature algorithms set
+                # not yet in the list of algorithms while preserving order
+                sig_list_set = set(sig_list)
+                tls12_sig_list_set = set(tls12_sig_list)
+                not_in_sig_list = tls12_sig_list_set.difference(sig_list_set)
+                sig_list.extend(i for i in tls12_sig_list if i in not_in_sig_list)
+
+            assert sig_list
             extensions.append(SignatureAlgorithmsExtension().\
-                              create(sigList))
+                              create(sig_list))
         # if we know any protocols for ALPN, advertise them
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
