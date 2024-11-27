@@ -730,10 +730,28 @@ class TLSConnection(TLSRecordLayer):
                                                     bytearray(0)))
         # In TLS1.2 advertise support for additional signature types
         if settings.maxVersion >= (3, 3):
-            sigList = self._sigHashesToList(settings)
-            assert len(sigList) > 0
+            sig_list = []
+            if settings.maxVersion >= (3, 4) and \
+                    settings.minVersion <= (3, 4):
+                tls13_sig_list = self._sigHashesToList(
+                    settings,
+                    version=(3, 4))
+                sig_list.extend(tls13_sig_list)
+            if settings.maxVersion >= (3, 3) and \
+                    settings.minVersion <= (3, 3):
+                tls12_sig_list = self._sigHashesToList(
+                    settings,
+                    version=(3, 3))
+                # add elements from tls12 signature algorithms set
+                # not yet in the list of algorithms while preserving order
+                sig_list_set = set(sig_list)
+                tls12_sig_list_set = set(tls12_sig_list)
+                not_in_sig_list = tls12_sig_list_set.difference(sig_list_set)
+                sig_list.extend(i for i in tls12_sig_list if i in not_in_sig_list)
+
+            assert sig_list
             extensions.append(SignatureAlgorithmsExtension().\
-                              create(sigList))
+                              create(sig_list))
         # if we know any protocols for ALPN, advertise them
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
@@ -1432,6 +1450,12 @@ class TLSConnection(TLSRecordLayer):
 
                 salt_len = None
                 method = publicKey.verify
+            elif signature_scheme in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+                scheme = SignatureScheme.toRepr(signature_scheme)
+                pad_type = None
+                hash_name = SignatureScheme.getHash(scheme)
+                salt_len = None
+                method = publicKey.verify
             else:
                 scheme = SignatureScheme.toRepr(signature_scheme)
                 pad_type = SignatureScheme.getPadding(scheme)
@@ -1533,6 +1557,12 @@ class TLSConnection(TLSRecordLayer):
                 elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                     pad_type = None
                     hash_name = HashAlgorithm.toRepr(signature_scheme[0])
+                    salt_len = None
+                    sig_func = privateKey.sign
+                    ver_func = privateKey.verify
+                elif signature_scheme in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+                    pad_type = None
+                    hash_name = SignatureScheme.getHash(scheme)
                     salt_len = None
                     sig_func = privateKey.sign
                     ver_func = privateKey.verify
@@ -1976,7 +2006,9 @@ class TLSConnection(TLSRecordLayer):
                         "advertise support for: {0}".format(curve_name)):
                     yield result
             if self.version >= (3, 4):
-                if curve_name not in ('secp256r1', 'secp384r1', 'secp521r1'):
+                if curve_name not in ('secp256r1', 'secp384r1', 'secp521r1',
+                                      'brainpoolP256r1', 'brainpoolP384r1',
+                                      'brainpoolP512r1'):
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
                             "Peer sent certificate with curve not supported "
@@ -1986,8 +2018,14 @@ class TLSConnection(TLSRecordLayer):
                     sig_alg_for_curve = 'sha256'
                 elif curve_name == 'secp384r1':
                     sig_alg_for_curve = 'sha384'
+                elif curve_name == 'secp521r1':
+                    sig_alg_for_curve = 'sha512'
+                elif curve_name == 'brainpoolP256r1':
+                    sig_alg_for_curve = 'sha256'
+                elif curve_name == 'brainpoolP384r1':
+                    sig_alg_for_curve = 'sha384'
                 else:
-                    assert curve_name == 'secp521r1'
+                    assert curve_name == 'brainpoolP512r1'
                     sig_alg_for_curve = 'sha512'
                 if sig_alg_for_curve not in settings.ecdsaSigHashes:
                     for result in self._sendError(
@@ -2944,7 +2982,9 @@ class TLSConnection(TLSRecordLayer):
                 # DSA is not supported for TLS 1.3
                 cr_settings = settings.validate()
                 cr_settings.dsaSigHashes = []
-                valid_sig_algs = self._sigHashesToList(cr_settings)
+                valid_sig_algs = self._sigHashesToList(
+                    cr_settings,
+                    version=self.version)
                 assert valid_sig_algs
 
                 extensions = []
@@ -2973,6 +3013,7 @@ class TLSConnection(TLSRecordLayer):
             certificate_verify = CertificateVerify(self.version)
 
             signature_scheme = getattr(SignatureScheme, scheme)
+            self.serverSigAlg = signature_scheme
 
             signature_context = \
                 KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
@@ -2988,6 +3029,12 @@ class TLSConnection(TLSRecordLayer):
                 ver_func = privateKey.hashAndVerify
             elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 hashName = HashAlgorithm.toRepr(signature_scheme[0])
+                padType = None
+                saltLen = None
+                sig_func = privateKey.sign
+                ver_func = privateKey.verify
+            elif signature_scheme in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+                hashName = SignatureScheme.getHash(scheme)
                 padType = None
                 saltLen = None
                 sig_func = privateKey.sign
@@ -3112,6 +3159,11 @@ class TLSConnection(TLSRecordLayer):
                 hash_name = HashAlgorithm.toRepr(signature_scheme[0])
                 pad_type = None
                 salt_len = None
+                ver_func = public_key.verify
+            elif signature_scheme in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+                pad_type = None
+                salt_len = None
+                hash_name = SignatureScheme.getHash(scheme)
                 ver_func = public_key.verify
             else:
                 scheme = SignatureScheme.toRepr(signature_scheme)
@@ -3445,11 +3497,13 @@ class TLSConnection(TLSRecordLayer):
                         yield result
 
                 # check supported_groups
-                if TLS_1_3_FORBIDDEN_GROUPS.intersection(sup_groups.groups):
+                if TLS_1_3_FORBIDDEN_GROUPS.intersection(sup_groups.groups) \
+                    and (3, 3) not in ver_ext.versions:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
                             "Client advertised in TLS 1.3 Client Hello a key "
-                            "exchange group forbidden in TLS 1.3"):
+                            "exchange group forbidden in TLS 1.3 without "
+                            "advertising support for TLS 1.2"):
                         yield result
 
                 # Check key_share
@@ -4223,7 +4277,7 @@ class TLSConnection(TLSRecordLayer):
                 last_cert = True
 
             # Mandatory checks. If any one of these checks fail, the certificate
-            # is not usuable.
+            # is not usable.
             try:
                 # Find a suitable ciphersuite based on the certificate
                 ciphers = CipherSuite.filter_for_certificate(cipher_suites, cert)
@@ -4284,10 +4338,14 @@ class TLSConnection(TLSRecordLayer):
 
                     if version >= (3, 4):
                         if GroupName.toRepr(curve) not in \
-                                ('secp256r1', 'secp384r1', 'secp521r1'):
+                                ('secp256r1', 'secp384r1', 'secp521r1',
+                                 'brainpoolP256r1', 'brainpoolP384r1',
+                                 'brainpoolP512r1'):
                             raise TLSIllegalParameterException(
-                                    "Curve in public key is not supported "
-                                    "in TLS1.3")
+                                "Curve in public key ({0}) is not "
+                                "supported "
+                                "in TLS1.3".format(
+                                    GroupName.toRepr(curve)))
 
                 # If all mandatory checks passed add
                 # this as possible certificate we can use.
@@ -4383,8 +4441,8 @@ class TLSConnection(TLSRecordLayer):
             if not reqCAs:
                 reqCAs = []
             cr_settings = settings.validate()
-            valid_sig_algs = self._sigHashesToList(cr_settings)
-
+            valid_sig_algs = self._sigHashesToList(cr_settings,
+                                                   version=self.version)
             cert_types = []
             if cr_settings.rsaSigHashes:
                 cert_types.append(ClientCertificateType.rsa_sign)
@@ -4483,7 +4541,8 @@ class TLSConnection(TLSRecordLayer):
             if self.version == (3, 3):
                 valid_sig_algs = \
                     self._sigHashesToList(settings,
-                                          certList=clientCertChain)
+                                          certList=clientCertChain,
+                                          version=self.version)
                 if certificateVerify.signatureAlgorithm not in valid_sig_algs:
                     for result in self._sendError(
                             AlertDescription.illegal_parameter,
@@ -4839,7 +4898,6 @@ class TLSConnection(TLSRecordLayer):
             supported = TLSConnection._sigHashesToList(settings,
                                                        certList=certs,
                                                        version=version)
-
             for schemeID in supported:
                 if schemeID in hashAndAlgsExt.sigalgs:
                     name = SignatureScheme.toRepr(schemeID)
@@ -4873,24 +4931,47 @@ class TLSConnection(TLSRecordLayer):
                     continue
                 if certType and sig_scheme != certType:
                     continue
-                sigAlgs.append(getattr(SignatureScheme, sig_scheme.lower()))
+                # the special brainpool sig schemes are TLS 1.3 only
+                # in TLS 1.2 we use general "ECDSA" sig schemes
+                if version < (3, 4) and 'brainpool' in sig_scheme:
+                    continue
+                try:
+                    sigAlgs.append(getattr(SignatureScheme, sig_scheme))
+                except AttributeError:
+                    sigAlgs.append(
+                        getattr(SignatureScheme, sig_scheme.lower()))
 
         if not certType or certType == "ecdsa":
-            for hashName in settings.ecdsaSigHashes:
-                # only SHA256, SHA384 and SHA512 are allowed in TLS 1.3
-                if version > (3, 3) and hashName in ("sha1", "sha224"):
-                    continue
-
-                # in TLS 1.3 ECDSA key curve is bound to hash
-                if publicKey and version > (3, 3):
-                    curve = publicKey.curve_name
-                    matching_hash = TLSConnection._curve_name_to_hash_name(
-                        curve)
-                    if hashName != matching_hash:
+            if version > (3, 3) and publicKey and \
+                    "BRAINPOOL" in publicKey.curve_name:
+                # brainpool in TLS 1.3 uses special signature schemes
+                curve = publicKey.curve_name
+                if curve == "BRAINPOOLP256r1":
+                    sigAlgs.append(
+                        SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256)
+                elif curve == "BRAINPOOLP384r1":
+                    sigAlgs.append(
+                        SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384)
+                else:
+                    assert curve == "BRAINPOOLP512r1"
+                    sigAlgs.append(
+                        SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512)
+            else:
+                for hashName in settings.ecdsaSigHashes:
+                    # only SHA256, SHA384 and SHA512 are allowed in TLS 1.3
+                    if version > (3, 3) and hashName in ("sha1", "sha224"):
                         continue
 
-                sigAlgs.append((getattr(HashAlgorithm, hashName),
-                                SignatureAlgorithm.ecdsa))
+                    # in TLS 1.3 ECDSA key curve is bound to hash
+                    if publicKey and version > (3, 3):
+                        curve = publicKey.curve_name
+                        matching_hash = TLSConnection._curve_name_to_hash_name(
+                            curve)
+                        if hashName != matching_hash:
+                            continue
+
+                    sigAlgs.append((getattr(HashAlgorithm, hashName),
+                                    SignatureAlgorithm.ecdsa))
 
         if not certType or certType == "dsa":
             for hashName in settings.dsaSigHashes:
@@ -4960,6 +5041,12 @@ class TLSConnection(TLSRecordLayer):
         if curve_name == "NIST384p":
             return "sha384"
         if curve_name == "NIST521p":
+            return "sha512"
+        if curve_name == "BRAINPOOLP256r1":
+            return "sha256"
+        if curve_name == "BRAINPOOLP384r1":
+            return "sha384"
+        if curve_name == "BRAINPOOLP512r1":
             return "sha512"
         raise TLSIllegalParameterException(
             "Curve {0} is not supported in TLS 1.3".format(curve_name))
