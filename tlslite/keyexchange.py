@@ -712,13 +712,6 @@ class AECDHKeyExchange(KeyExchange):
         ext_negotiated = ECPointFormat.uncompressed
         ext_c = self.clientHello.getExtension(ExtensionType.ec_point_formats)
         ext_s = self.serverHello.getExtension(ExtensionType.ec_point_formats)
-        if ext_c:
-            if ext_c.formats == []:
-                raise TLSDecodeError("Point formats extension is empty.")
-            elif ECPointFormat.uncompressed not in ext_c.formats:
-                raise TLSIllegalParameterException(
-                    "The client does not advertise "
-                    "the uncompressed point format extension.")
         if ext_c and ext_s:
             try:
                 ext_negotiated = next((i for i in ext_c.formats \

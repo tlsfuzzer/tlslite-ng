@@ -3435,6 +3435,21 @@ class TLSConnection(TLSRecordLayer):
                     "Master Secret extension"):
                 yield result
 
+        # sanity check the ec point formats extension
+        ecExt = clientHello.getExtension(ExtensionType.ec_point_formats)
+        if ecExt:
+            if ecExt.formats == []:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Empty ec_point_formats extension"):
+                    yield result
+            if ECPointFormat.uncompressed not in ecExt.formats:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Client sent ec_point_formats extension "
+                        "without uncompressed format"):
+                    yield result
+
         # sanity check the TLS 1.3 extensions
         ver_ext = clientHello.getExtension(ExtensionType.supported_versions)
         if ver_ext and (3, 4) in ver_ext.versions:
