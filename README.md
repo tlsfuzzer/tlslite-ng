@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-beta5 (2024-10-18)
+tlslite-ng version 0.8.0-beta6 (2024-11-27)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -706,7 +706,7 @@ TLSAsyncioDispatcherMixIn.py.
   of shared secrets (Ganna Starovoytova)
 * fix sending of session ticket extension from the server without
   a ticket (George Pantelakis)
-* add Brainpool IDs for TLS 1.3 from RFC 8734
+* add support for Brainpool curves in TLS 1.3 from RFC 8734
 * add support for compress_certificate extension from RFC 8879
   (George Pantelakis)
 * Fix int_to_bytes and numberToByteArray encoding of 0 with length not
@@ -715,6 +715,8 @@ TLSAsyncioDispatcherMixIn.py.
 * (Experimental) Support for hybrid KEM key exchange groups from
   draft-kwiatkowski-tls-ecdhe-mlkem-02. To work, kyber-py v1.0 library must
   be installed.
+* support for setting a list of supported key exchange groups in the
+  `tls.py server`
 
 0.7.0 - 2017-07-31
 
