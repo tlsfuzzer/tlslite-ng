@@ -322,9 +322,12 @@ class TestTLSConnection(unittest.TestCase):
         self.assertEqual(sock.sent[0][5:6], bytearray(
             b'\x01'))
         self.assertEqual(sock.sent[0][5:9], bytearray(
-            b'\x01\x00\x02\x00'))
+            b'\x01\x00\x02\x01'))
         # 5 bytes is record layer header, 4 bytes is handshake protocol header
-        self.assertEqual(len(sock.sent[0]) - 5 - 4, 512)
+        self.assertEqual(len(sock.sent[0]) - 5 - 4, 513)
+        # assert the ec_point_extension is in expected order
+        self.assertEqual(sock.sent[0][196:203], bytearray(
+            b'\x00\x0b\x00\x03\x02\x01\x00'))
 
     def test_keyingMaterialExporter_tls1_3_sha384(self):
         sock = MockSocket(bytearray(0))

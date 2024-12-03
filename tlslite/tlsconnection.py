@@ -508,6 +508,7 @@ class TLSConnection(TLSRecordLayer):
         if password and self.fault == Fault.badPassword:
             password += bytearray(b"GARBAGE")
 
+
         # Tentatively set the client's record version.
         # We'll use this for the ClientHello, and if an error occurs
         # parsing the Server Hello, we'll use this version for the response
@@ -671,6 +672,21 @@ class TLSConnection(TLSRecordLayer):
         if alpnExt:
             alpnProto = alpnExt.protocol_names[0]
 
+        ext_ec_point = ECPointFormat.uncompressed
+        if self.version < (3, 4):
+            ext_c = clientHello.getExtension(ExtensionType.ec_point_formats)
+            ext_s = serverHello.getExtension(ExtensionType.ec_point_formats)
+            if ext_c and ext_s:
+                try:
+                    ext_ec_point = next((i for i in ext_c.formats \
+                                        if i in ext_s.formats))
+
+                except StopIteration as alert:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            str(alert)):
+                        yield result
+
         # Create the session object which is used for resumptions
         self.session = Session()
         self.session.create(masterSecret, serverHello.session_id, cipherSuite,
@@ -682,7 +698,8 @@ class TLSConnection(TLSRecordLayer):
                             appProto=alpnProto,
                             # NOTE it must be a reference not a copy
                             tickets=self.tickets,
-                            tls_1_0_tickets=self.tls_1_0_tickets)
+                            tls_1_0_tickets=self.tls_1_0_tickets,
+                            ec_point_format=ext_ec_point)
         self._handshakeDone(resumed=False)
         self._serverRandom = serverHello.random
         self._clientRandom = clientHello.random
@@ -778,7 +795,6 @@ class TLSConnection(TLSRecordLayer):
             for group_name in settings.keyShares:
                 group_id = getattr(GroupName, group_name)
                 key_share = self._genKeyShareEntry(group_id, (3, 4))
-
                 shares.append(key_share)
             # if TLS 1.3 is enabled, key_share must always be sent
             # (unless only static PSK is used)
@@ -795,8 +811,9 @@ class TLSConnection(TLSRecordLayer):
         if next((cipher for cipher in cipherSuites \
                 if cipher in CipherSuite.ecdhAllSuites), None) is not None:
             groups.extend(self._curveNamesToList(settings))
-            extensions.append(ECPointFormatsExtension().\
-                              create([ECPointFormat.uncompressed]))
+            if settings.ec_point_formats:
+                extensions.append(ECPointFormatsExtension().\
+                                create(settings.ec_point_formats))
         # Advertise FFDHE groups if we have DHE ciphers
         if next((cipher for cipher in cipherSuites
                  if cipher in CipherSuite.dhAllSuites), None) is not None:
@@ -959,6 +976,7 @@ class TLSConnection(TLSRecordLayer):
 
         hello_retry = None
         ext = result.getExtension(ExtensionType.supported_versions)
+
         if result.random == TLS_1_3_HRR and ext and ext.version > (3, 3):
             self.version = ext.version
             hello_retry = result
@@ -1018,7 +1036,6 @@ class TLSConnection(TLSRecordLayer):
                                                   "did sent the key share "
                                                   "for"):
                         yield result
-
                 key_share = self._genKeyShareEntry(group_id, (3, 4))
 
                 # old key shares need to be removed
@@ -1267,7 +1284,6 @@ class TLSConnection(TLSRecordLayer):
                 raise TLSIllegalParameterException("Server selected not "
                                                    "advertised group.")
             kex = self._getKEX(sr_kex.group, self.version)
-
             shared_sec = kex.calc_shared_key(cl_kex.private,
                                              sr_kex.key_exchange)
         else:
@@ -2108,7 +2124,7 @@ class TLSConnection(TLSRecordLayer):
     def handshakeServer(self, verifierDB=None,
                         certChain=None, privateKey=None, reqCert=False,
                         sessionCache=None, settings=None, checker=None,
-                        reqCAs=None,
+                        reqCAs = None,
                         tacks=None, activationFlags=0,
                         nextProtos=None, anon=False, alpn=None, sni=None):
         """Perform a handshake in the role of server.
@@ -2389,8 +2405,9 @@ class TLSConnection(TLSRecordLayer):
         if clientHello.getExtension(ExtensionType.ec_point_formats):
             # even though the selected cipher may not use ECC, client may want
             # to send a CA certificate with ECDSA...
-            extensions.append(ECPointFormatsExtension().create(
-                [ECPointFormat.uncompressed]))
+            if settings.ec_point_formats:
+                extensions.append(ECPointFormatsExtension().
+                                create(settings.ec_point_formats))
 
         # if client sent Heartbeat extension
         if clientHello.getExtension(ExtensionType.heartbeat):
@@ -2534,6 +2551,21 @@ class TLSConnection(TLSRecordLayer):
         if clientHello.server_name:
             serverName = clientHello.server_name.decode("utf-8")
 
+        ext_ec_point = ECPointFormat.uncompressed
+        if version < (3, 4):
+            ext_c = clientHello.getExtension(ExtensionType.ec_point_formats)
+            ext_s = serverHello.getExtension(ExtensionType.ec_point_formats)
+            if ext_c and ext_s:
+                try:
+                    ext_ec_point = next((i for i in ext_c.formats \
+                                        if i in ext_s.formats))
+
+                except StopIteration as alert:
+                    for result in self._sendError(
+                            AlertDescription.illegal_parameter,
+                            str(alert)):
+                        yield result
+
         # We'll update the session master secret once it is calculated
         # in _serverFinished
         self.session.create(b"", serverHello.session_id, cipherSuite,
@@ -2545,7 +2577,8 @@ class TLSConnection(TLSRecordLayer):
                             extendedMasterSecret=self.extendedMasterSecret,
                             appProto=selectedALPN,
                             # NOTE it must be a reference, not a copy!
-                            tickets=self.tickets)
+                            tickets=self.tickets,
+                            ec_point_format=ext_ec_point)
 
         # Exchange Finished messages
         for result in self._serverFinished(premasterSecret,
@@ -3284,7 +3317,8 @@ class TLSConnection(TLSRecordLayer):
                        serverName=ticket.server_name.decode("utf-8") if
                        ticket.server_name else "",
                        encryptThenMAC=ticket.encrypt_then_mac,
-                       extendedMasterSecret=ticket.extended_master_secret)
+                       extendedMasterSecret=ticket.extended_master_secret,
+                       ec_point_format=0)
         return session
 
     def _serverGetClientHello(self, settings, private_key, cert_chain,
@@ -3401,6 +3435,21 @@ class TLSConnection(TLSRecordLayer):
                     "Non empty payload of the Extended "
                     "Master Secret extension"):
                 yield result
+
+        # sanity check the ec point formats extension
+        ecExt = clientHello.getExtension(ExtensionType.ec_point_formats)
+        if ecExt:
+            if not ecExt.formats:
+                for result in self._sendError(
+                        AlertDescription.decode_error,
+                        "Empty ec_point_formats extension"):
+                    yield result
+            if ECPointFormat.uncompressed not in ecExt.formats:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Client sent ec_point_formats extension "
+                        "without uncompressed format"):
+                    yield result
 
         # sanity check the TLS 1.3 extensions
         ver_ext = clientHello.getExtension(ExtensionType.supported_versions)
@@ -4434,6 +4483,18 @@ class TLSConnection(TLSRecordLayer):
                     AlertDescription.insufficient_security,
                     str(alert)):
                 yield result
+        except TLSIllegalParameterException as alert:
+            alert = Alert().create(AlertDescription.illegal_parameter,
+                                           AlertLevel.fatal)
+            for result in self._sendError(alert):
+                yield result
+            raise
+        except TLSDecodeError as alert:
+            alert = Alert().create(AlertDescription.decode_error,
+                                           AlertLevel.fatal)
+            for result in self._sendError(alert):
+                yield result
+            raise
         if serverKeyExchange is not None:
             msgs.append(serverKeyExchange)
         if reqCert:

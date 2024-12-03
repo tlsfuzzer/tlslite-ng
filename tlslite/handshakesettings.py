@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType
+from .constants import CertificateType, ECPointFormat
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE
@@ -74,7 +74,8 @@ KNOWN_VERSIONS = ((3, 0), (3, 1), (3, 2), (3, 3), (3, 4))
 TICKET_CIPHERS = ["chacha20-poly1305", "aes256gcm", "aes128gcm", "aes128ccm",
                   "aes128ccm_8", "aes256ccm", "aes256ccm_8"]
 PSK_MODES = ["psk_dhe_ke", "psk_ke"]
-
+EC_POINT_FORMATS = [ECPointFormat.ansiX962_compressed_prime,
+                    ECPointFormat.uncompressed]
 ALL_COMPRESSION_ALGOS_SEND = ["zlib"]
 if compression_algo_impls["brotli_compress"]:
     ALL_COMPRESSION_ALGOS_SEND.append('brotli')
@@ -395,6 +396,10 @@ class HandshakeSettings(object):
         option is for when a certificate was received/decompressed by this
         peer.
 
+
+    :vartype ec_point_formats: list
+    :ivar ec_point_formats: Enabled point format extension for
+     elliptic curves.
     """
 
     def _init_key_settings(self):
@@ -442,6 +447,7 @@ class HandshakeSettings(object):
         # resumed connections (as tickets are single-use in TLS 1.3
         self.ticket_count = 2
         self.record_size_limit = 2**14 + 1  # TLS 1.3 includes content type
+        self.ec_point_formats = list(EC_POINT_FORMATS)
 
         # Certificate compression
         self.certificate_compression_send = list(ALL_COMPRESSION_ALGOS_SEND)
@@ -652,6 +658,14 @@ class HandshakeSettings(object):
                 not 64 <= other.record_size_limit <= 2**14 + 1:
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
+        bad_ec_ext = [ECPointFormat.toRepr(rep) for rep in other.ec_point_formats if
+                      rep not in EC_POINT_FORMATS]
+        if bad_ec_ext:
+            raise ValueError("Unknown EC point format provided: "
+                             "{0}".format(bad_ec_ext))
+        if ECPointFormat.uncompressed not in other.ec_point_formats:
+            raise ValueError("Uncompressed EC point format is not provided")
+
         HandshakeSettings._sanityCheckEMSExtension(other)
 
         if other.certificate_compression_send:
@@ -746,6 +760,7 @@ class HandshakeSettings(object):
         other.sendFallbackSCSV = self.sendFallbackSCSV
         other.useEncryptThenMAC = self.useEncryptThenMAC
         other.usePaddingExtension = self.usePaddingExtension
+        other.ec_point_formats = self.ec_point_formats
         # session tickets
         other.padding_cb = self.padding_cb
         other.ticketKeys = self.ticketKeys
