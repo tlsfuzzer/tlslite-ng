@@ -658,7 +658,7 @@ class HandshakeSettings(object):
                 not 64 <= other.record_size_limit <= 2**14 + 1:
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
-        bad_ec_ext = [ECPointFormat.toRepr(rep) for rep in other.ec_point_formats if
+        bad_ec_ext = [ECPointFormat.toStr(rep) for rep in other.ec_point_formats if
                       rep not in EC_POINT_FORMATS]
         if bad_ec_ext:
             raise ValueError("Unknown EC point format provided: "
