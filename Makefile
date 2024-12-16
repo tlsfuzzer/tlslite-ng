@@ -10,11 +10,11 @@ COVERAGE3 := $(shell which coverage3 2>/dev/null)
 
 .PHONY : default
 default:
-	@echo To install tlslite run \"./setup.py install\" or \"make install\"
+	@echo To install tlslite run \"python -m pip install .\" or \"make install\"
 
 .PHONY: install
 install:
-	./setup.py install
+	python -m pip install .
 
 .PHONY : clean
 clean:
@@ -36,7 +36,7 @@ docs:
 	$(MAKE) -C docs html
 
 dist: docs
-	./setup.py sdist
+	python -m build
 
 .PHONY : test
 test:
