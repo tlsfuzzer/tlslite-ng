@@ -244,5 +244,9 @@ try:
     del ML_KEM_1024
 except ImportError:
     ML_KEM_AVAILABLE = False
+except SyntaxError:
+    # trying to import it on older Python versions causes it to abort with
+    # SyntaxError not ImportError
+    ML_KEM_AVAILABLE = False
 else:
     ML_KEM_AVAILABLE = True
