@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0-beta6 (2024-11-27)
+tlslite-ng version 0.8.0 (2024-12-17)
 
 [![Build Status](https://github.com/tlsfuzzer/tlslite-ng/workflows/GitHub%20CI/badge.svg?branch=master)](https://github.com/tlsfuzzer/tlslite-ng/actions?query=workflow%3A%22GitHub+CI%22+branch%3Amaster)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -582,7 +582,7 @@ TLSAsyncioDispatcherMixIn.py.
 11 History
 ===========
 
-0.8.0 - wip
+0.8.0 - 2024-12-17
 * DEPRECATION NOTICE: camelCase method and argument names are considered now
   deprecated, ones that use underscore_separator are now the primary ones
   (the procedure to support it is not yet finished, but any new code must
@@ -717,6 +717,7 @@ TLSAsyncioDispatcherMixIn.py.
   be installed.
 * support for setting a list of supported key exchange groups in the
   `tls.py server`
+* support for ec_point_format extension (Ganna Starovoytova)
 
 0.7.0 - 2017-07-31
 
