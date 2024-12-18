@@ -2933,6 +2933,7 @@ class TLSConnection(TLSRecordLayer):
                            clientHello.session_id,
                            cipherSuite, extensions=sh_extensions)
 
+        self.sock.buffer_writes = True
         msgs = []
         msgs.append(serverHello)
         if not self._ccs_sent and clientHello.session_id:
@@ -3106,6 +3107,9 @@ class TLSConnection(TLSRecordLayer):
         self._queue_message(finished)
         for result in self._queue_flush():
             yield result
+
+        self.sock.flush()
+        self.sock.buffer_writes = False
 
         self._changeReadState()
 
