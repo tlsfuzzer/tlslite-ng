@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.0 (2024-12-17)
+tlslite-ng version 0.8.1 (2025-01-02)
 
 [![GitHub CI](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml/badge.svg)](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -581,6 +581,10 @@ TLSAsyncioDispatcherMixIn.py.
 
 11 History
 ===========
+
+0.8.1 - 2025-01-02
+* apply checks to `ec_point_formats` extension only when negotiating TLS 1.2
+  or earlier (Ganna Starovoytova)
 
 0.8.0 - 2024-12-17
 * DEPRECATION NOTICE: camelCase method and argument names are considered now

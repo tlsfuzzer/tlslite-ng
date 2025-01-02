@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = u'tlslite-ng'
-copyright = u'2024, Alicja Kario'
+copyright = u'2025, Alicja Kario'
 author = u'Alicja Kario'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -34,7 +34,7 @@ author = u'Alicja Kario'
 # The short X.Y version.
 version = u'0.8'
 # The full version, including alpha/beta/rc tags.
-release = u'0.8.0'
+release = u'0.8.1'
 
 
 # -- General configuration ---------------------------------------------------
