@@ -4014,7 +4014,10 @@ class TLSConnection(TLSRecordLayer):
                 share_ids = [i.group for i in share.client_shares]
                 acceptable_ids = [getattr(GroupName, i) for i in
                                   chain(settings.keyShares, settings.eccCurves,
-                                        settings.dhGroups)]
+                                        settings.dhGroups)
+                                  if i not in ("brainpoolP512r1",
+                                               "brainpoolP384r1",
+                                               "brainpoolP256r1")]
                 for selected_group in acceptable_ids:
                     if selected_group in share_ids:
                         cl_key_share = next(i for i in share.client_shares
