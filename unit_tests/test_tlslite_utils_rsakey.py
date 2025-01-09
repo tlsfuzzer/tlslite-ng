@@ -2421,31 +2421,6 @@ lwIDAQAB
             msg,
             self.priv_key.decrypt(self.pub_key.encrypt(msg)))
 
-    def test_with_ciphertext_length_from_third_prf_value(self):
-        # malformed plaintext that generates a fake plaintext of length
-        # specified by 3rd length from the end of PRF output
-        ciphertext = a2b_hex(remove_whitespace("""
-00b26f6404b82649629f2704494282443776929122e279a9cf30b0c6fe8122a0a9042870d97c
-c8ef65490fe58f031eb2442352191f5fbc311026b5147d32df914599f38b825ebb824af0d63f
-2d541a245c5775d1c4b78630e4996cc5fe413d38455a776cf4edcc0aa7fccb31c584d60502ed
-2b77398f536e137ff7ba6430e9258e21c2db5b82f5380f566876110ac4c759178900fbad7ab7
-0ea07b1daf7a1639cbb4196543a6cbe8271f35dddb8120304f6eef83059e1c5c5678710f904a
-6d760c4d1d8ad076be17904b9e69910040b47914a0176fb7eea0c06444a6c4b86d674d19a556
-a1de5490373cb01ce31bbd15a5633362d3d2cd7d4af1b4c5121288b894"""))
-        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
-
-        # sanity check that the decrypted ciphertext is invalid
-        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
-        self.assertEqual(dec[0:1], b'\x00')
-        self.assertNotEqual(dec[1:2], b'\x02')
-        self.assertEqual(dec[-2:], b'\xc8\xfa')
-
-        plaintext = b'\x42'
-
-        msg = self.priv_key.decrypt(ciphertext)
-
-        self.assertEqual(msg, plaintext)
-
     def test_positive_11_bytes_long(self):
         # a valid ciphertext that decrypts to 11 byte long message
         ciphertext = a2b_hex(remove_whitespace("""
@@ -2462,6 +2437,21 @@ b15f6b54256872c2903ac708bd43b017b073b5707bc84c2cd9da70e967"""))
         msg = self.priv_key.decrypt(ciphertext)
 
         self.assertEqual(msg, plaintext)
+
+    def test_positive_empty_message(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+00cc52e83755a4526fea5e62450450638430a84a5878fd12c2a571f33c55729cfab6e35c2e17
+03c452cff65731249460919aeb1b40084bdef573407851e48b3c72923e48d5c4f3e80990c462
+bc291a3e635515636ab9ebeb317ca0d75b04b80c17e2f4851f8929f72c9bea4ec4a6a1fbc515
+5837813567062d6b4b2a6b6e40be545d25da39b08c52f3543e2f2cdfa314832dcbf475fcbb8d
+3565a64bb09b55f922e6ec6cd8bb5203a11e2fa0c1b383674c4f0b63acd78f3690e3a16ad1b7
+1f6cfe48c56533e2ae42b1393b2d156c2323272490a574ce4f14055249b6a34c3e08d4a41703
+9450910ec34bd5f08eb06078f51bdd6e50334ee64c9695a5bde52938e3"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        msg = self.priv_key.decrypt(ciphertext)
+
+        self.assertEqual(msg, b"")
 
     def test_positive_11_bytes_long_with_null_padded_ciphertext(self):
         # a valid ciphertext that starts with a null byte, decrypts to 11 byte
@@ -2575,6 +2565,31 @@ c2dc54a6123a1a38d642e23751746597e08d71ac92704adc17803b19e131b4d1927881f43b02
         msg = self.priv_key.decrypt(ciphertext)
 
         self.assertNotEqual(msg, b'lorem ipsum')
+        self.assertEqual(msg, plaintext)
+
+    def test_with_ciphertext_length_from_third_prf_value(self):
+        # malformed plaintext that generates a fake plaintext of length
+        # specified by 3rd length from the end of PRF output
+        ciphertext = a2b_hex(remove_whitespace("""
+00b26f6404b82649629f2704494282443776929122e279a9cf30b0c6fe8122a0a9042870d97c
+c8ef65490fe58f031eb2442352191f5fbc311026b5147d32df914599f38b825ebb824af0d63f
+2d541a245c5775d1c4b78630e4996cc5fe413d38455a776cf4edcc0aa7fccb31c584d60502ed
+2b77398f536e137ff7ba6430e9258e21c2db5b82f5380f566876110ac4c759178900fbad7ab7
+0ea07b1daf7a1639cbb4196543a6cbe8271f35dddb8120304f6eef83059e1c5c5678710f904a
+6d760c4d1d8ad076be17904b9e69910040b47914a0176fb7eea0c06444a6c4b86d674d19a556
+a1de5490373cb01ce31bbd15a5633362d3d2cd7d4af1b4c5121288b894"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(dec[0:1], b'\x00')
+        self.assertNotEqual(dec[1:2], b'\x02')
+        self.assertEqual(dec[-2:], b'\xc8\xfa')
+
+        plaintext = b'\x42'
+
+        msg = self.priv_key.decrypt(ciphertext)
+
         self.assertEqual(msg, plaintext)
 
 
