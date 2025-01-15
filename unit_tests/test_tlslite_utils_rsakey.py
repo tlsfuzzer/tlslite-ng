@@ -1914,6 +1914,33 @@ a3bea5e7e4a1c359772fb6b1c6e6c516661dfe30c3
 
         self.assertEqual(msg, plaintext)
 
+    def test_invalid_with_zero_padded_ciphertext(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+006f89db685c0a132700c6a17f88a37a6635d0ab89de4c45dc09736c891ca5bf
+3401ce34c6e5d51e94ed2f518857ddc12d9f9f9e68e01cdc30d86ae5dd83988c
+0c46a8e39daa1b328a23def551d67fa1964fb15242c83ddd7dd5b1aec720a391
+d0b86cb16cf4d3c466850c3df88a3ed85993900d1287a0c90c4b04d34ba29e59
+967661f3f10e0c998f64e14e777e8e81371eca5318b4e0b53414292130c82147
+7c51e2bff844836ab10dff293d82e4f40d345968ef268c92ed0bc238f31d50f4
+d3f759c23964923e135d15527556410fbd2c451d6a2aa852dc88b01139c6fdd8
+26736d8cd3780601b2977b09c080bd8c0fa471606ad59f053ad33d9eeb905f20
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(
+            dec[0:3],
+            b'\x15\x1c\x6d')
+
+        plaintext = a2b_hex(remove_whitespace("""
+2b5dd72df3cae37f1aef
+"""))
+        self.assertEqual(len(plaintext), 10)
+
+        msg = self.priv_key.decrypt(ciphertext)
+        self.assertEqual(msg, plaintext)
+
     def test_invalid_decrypting_to_length_second_to_last_from_prf(self):
         # the last value from the PRF is 246, which is longer than the max
         # allowed length: 245, so it needs to select second to last: 2
@@ -2566,6 +2593,34 @@ fb77a373a82dabbc8233e585ea5ddfef3d0d872a4a007018005014a887349595
 
         self.assertEqual(msg, plaintext)
 
+    def test_invalid_with_zero_padded_ciphertext(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+000a56cfd7abf21e2c65a28b8145fee663818b6cd218601e9e62bed7de5ac74c
+eb07b435b305c99e3e286152036086b4a13eb26164f6f4bf79ac7d6c3fbcdcd7
+4c6dc324c04949a0c88cbf616626cb171a4e333a0e124524b44f78e2d8100c03
+e231791523b7d76db2d464e6b5e64244e04ad21128a5feb56092b4ceda35ebfb
+84f7fafa8e1c098d9923d66e541b36307574db8912630fcf734af7bcd4118f1f
+700804c5001a5950780188fc7862384fb3fc0708eaf3cb2b119177bb6928758f
+a75e644d258ac02748dcae7a78ec6c8679598fa9deee4663f1efe27efe8bd155
+72ff40676b95469aaa42eab4226d86c1160343255cce4fb7728f7349da27ed09
+6b
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(
+            dec[0:3],
+            b'\x00\x13\xb7')
+
+        plaintext = a2b_hex(remove_whitespace("""
+fc874af235e261083c2c
+"""))
+        self.assertEqual(len(plaintext), 10)
+
+        msg = self.priv_key.decrypt(ciphertext)
+        self.assertEqual(msg, plaintext)
+
     def test_invalid_decrypting_to_length_second_to_last_from_prf(self):
         # the last value from the PRF is 247, which is longer than the max
         # allowed length: 246, so it needs to select second to last: 52
@@ -3120,6 +3175,37 @@ e20a8094b1bb603a74330c537c5c0698c31538bd2e138c1275a1bdf24c5fa8ab
 
         msg = self.priv_key.decrypt(ciphertext)
 
+        self.assertEqual(msg, plaintext)
+
+    def test_invalid_with_zero_padded_ciphertext(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+00128e116c0d348217c1d5756611be833caec3bd19f3d2ed383c4523ef3d8a5c
+d1130bdb3fcd3ba1c0265322fc98c767b3b971054f5e3067a32b4878bbf7e17d
+b80a855427e2e7d2ec26294b79edbb6352c7812270040e3cbaf560de1486171d
+a649af786551ae0e5b6ef1fa1e22196c1c3039a50cfe09620da09716e75e9a9b
+5ad164953c5a7e48f77ef9e0f59e962cf3985dc572ded966e8241632a9a5a420
+3500a50d70491d80846b72019c456bfbdf7f15f740af0c2ef2a46787c54dcd90
+a0e91257642f2c10b21052024b1d28ad14d78c0d9702a14b9ab9552f023bfb71
+6f9c9a1f691959057f52b197086fb9bc24d45e2b063ffb235b54d3ab7575c7f3
+e411398ddb30945c15f3f5d5ebbe302f22f60047d139d402f5b8a959421d1946
+cf748c84065c5d0f0302f7ade6335014ab4467698ad827684d2bdeeb4757d276
+f131340438506473f271c3fe24ca58e1c60dcc17aff8b0373637d897f627ea57
+1da148a81d399ced9d65a4564bb6d23fbf4c14674d7551283a4293de51a1516a
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(
+            dec[0:3],
+            b'\x16\x71\x75')
+
+        plaintext = a2b_hex(remove_whitespace("""
+732f025d1adea74649b4
+"""))
+        self.assertEqual(len(plaintext), 10)
+
+        msg = self.priv_key.decrypt(ciphertext)
         self.assertEqual(msg, plaintext)
 
     def test_negative_with_max_len_plus_one_in_first_value_from_prf(self):
@@ -3727,6 +3813,91 @@ e2e9b49798a9b98aa1c1c233f938937c88ad675e6297f36ba0fb161a8b42e9ee
         msg = self.priv_key.decrypt(ciphertext)
 
         self.assertEqual(len(msg), numBytes(self.pub_key.n) - 1 - 1 - 8 - 1)
+
+        self.assertEqual(msg, plaintext)
+
+    def test_invalid_with_zero_padded_ciphertext(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+00cd3bf408c742514e30ebfd001708e01f42de439a09d0d4b10044628becd8bc
+690c45b967a6a900d6259c7d7d20ad49810c270d2fe1b75ffaa84f50071f64d1
+696bce76e96dbcf2af054d77ded54c742aa38fadba52eebf7a5c8b6dbbf01f28
+b3ebf4e9b3ca453c92ca8b65771c23671b9da85c51e7a2987395de45b125353d
+430820b4c90b0ab9fc29e1c576a0ec35828c99c9880e208ecddf80bdaa9c3474
+561e4c5bf67bf5d144b173f4f28edd1064a9dd8cf5f40b7c35e7e4dbeb370cca
+bf06efb54e243645b902871a804c27904a620f31ef321af4d1589ca359de8895
+24dfb43ddad51ab50617ab79a50a2d20e2325a05c9963602f2a1d7feaffc80d2
+b8b88cbd3673531c399342f0bf1c04521d9a441c06593d9e95771129da942d83
+bb81c627a50c8baafc2a731d97f2e1f638217f9f7b18f2644578fde5073a54a8
+988fda357c64398a95965a7dd35ffdd7eb7495d4d1c9a950a0cd208a68371829
+420633cb25e9da9e22b215e50f6ec2714f94ce6abb9a94fbbf6cd18f2fd5bfb7
+8076034b88186957428fe0ea5e1dec7be31d753f155e2a8f7f4854a726612f43
+ef91f88124011cd32f6841a347dc0411d708db65492ec277b81a335b76a86230
+2acebf7db7cac724144c975ed4d91412eeec4cac3b2409696e3678cffcb7756b
+de795c55f72da44f325b71dd6ac4e3c1ef512ee8ff24ab316507c6ac60031569
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertEqual(
+            dec[0:3],
+            b'\x63\x1b\x0c')
+
+        plaintext = a2b_hex(remove_whitespace("""
+59ccd9c2cfe740e9287b
+"""))
+        self.assertEqual(len(plaintext), 10)
+
+        msg = self.priv_key.decrypt(ciphertext)
+        self.assertEqual(msg, plaintext)
+
+    def test_invalid_decrypting_to_length_second_to_last_from_prf(self):
+        ciphertext = a2b_hex(remove_whitespace("""
+09f010936fd77967dd2aa090be72ecdd8cb2b2a9fb954e644f08a1c1fd545000
+7ece0b4e8e992831534309419c034b1c4b369269b808a890eac31d5bbfe73737
+fd716e117e19638064292539e84dae20ec1d98ecd104e6c88d39d3544d5c43c9
+fd4e9f4361c67116516fc2569f96e5df50a63e949d92009a7c865c7dd70ea89c
+0002dd697dcd0e0304f8fa0738a3681322e672a9748f9d9eb1b7b8c1646a7bf2
+a1967b2aa9793ae0ecdbaa2d601350fd931ea164bc02a33a9c22cee47f2d536d
+92e465180b44e310bf044eec49cc54972d22e735123fbee76496a4c768acef89
+66ae9e0ed46b753ec47e20a89af0ccf78c266aeb63aeb99d80e4c34bc4608e16
+4aeffd93e886accd426e9e1cfee4f912f235940a9b8d4554953bee8753b8fe05
+606fe5f46da70394b10f7e71dba3c10becf85a1f4ee619d421ef69fca837d8b1
+b42598dea0232668b9c42223d77bae7fbe79a9dbf057eeaa51fceac114661a3b
+572130776c36cfff9f134b08907ab2a6f927145806a779bc55bfb4215cb8c85d
+ecaec5b15cd0a4be691b13e068a2381c33fb5adbdb564fd8be0938fdd710590c
+08f95aa4ea90cc2cea195ef7a344e14715beff2186ad7d898e8f904861ab9133
+817a13d8a6af23f83a89e5e1e7f8e163d6190e91a09c11939e3a7d48990b8e3b
+5c0e01b773ba683f7df73b2f88746593c010cd9cab2ea3d9af5ebf30fba1ef0c
+"""))
+        self.assertEqual(len(ciphertext), numBytes(self.pub_key.n))
+
+        kdk = calc_kdk(self.priv_key, ciphertext)
+
+        lengths = calc_lengths(self.priv_key, kdk)
+        max_len = numBytes(self.pub_key.n) - 1 - 1 - 8 -1
+
+        # the last_len is too long
+        self.assertGreater(lengths[-1], max_len)
+        self.assertEqual(lengths[-1], max_len + 1)
+
+        # while second to last is short enough
+        self.assertLessEqual(lengths[-2], max_len)
+        self.assertEqual(10, lengths[-2])
+
+        # sanity check that the decrypted ciphertext is invalid
+        dec = self.priv_key._raw_private_key_op_bytes(ciphertext)
+        self.assertNotEqual(dec[0:1], b'\x00')
+        self.assertNotEqual(dec[1:2], b'\x02')
+        self.assertNotEqual(dec[-3:], b'\x6b\xc6\x86')
+
+        plaintext = a2b_hex(remove_whitespace("""
+0cfdf702efa4dc6bc686
+"""))
+
+        self.assertEqual(len(plaintext), 10)
+
+        msg = self.priv_key.decrypt(ciphertext)
 
         self.assertEqual(msg, plaintext)
 
