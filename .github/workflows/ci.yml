@@ -23,7 +23,7 @@ jobs:
             os: ubuntu-20.04
             python-version: 3.6
           - name: py3.7
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
           - name: py3.8
             os: ubuntu-latest
@@ -58,7 +58,7 @@ jobs:
             python-version: 3.6
             opt-deps: ['m2crypto']
           - name: py3.7 with m2crypto
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
             opt-deps: ['m2crypto']
           - name: py3.8 with m2crypto
@@ -101,7 +101,7 @@ jobs:
             python-version: 3.6
             opt-deps: ['gmpy']
           - name: py3.7 with gmpy
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
             opt-deps: ['gmpy']
           - name: py3.8 with gmpy
@@ -126,7 +126,7 @@ jobs:
             python-version: 3.6
             opt-deps: ['gmpy2']
           - name: py3.7 with gmpy2
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
             opt-deps: ['gmpy2']
           - name: py3.8 with gmpy2
@@ -160,7 +160,7 @@ jobs:
             # zstandard is available for py3.8 and above
             opt-deps: ['brotli']
           - name: py3.7 with brotli
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
             # zstandard is available for py3.8 and above
             opt-deps: ['brotli']
@@ -210,7 +210,7 @@ jobs:
             python-version: 3.6
             opt-deps: ['m2crypto', 'pycrypto', 'gmpy', 'gmpy2', 'brotli']
           - name: py3.7 with m2crypto, gmpy, gmpy2, and brotli
-            os: ubuntu-latest
+            os: ubuntu-22.04
             python-version: 3.7
             opt-deps: ['m2crypto', 'gmpy', 'gmpy2', 'brotli']
           - name: py3.8 with m2crypto, gmpy, gmpy2, and brotli
