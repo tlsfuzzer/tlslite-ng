@@ -1,4 +1,4 @@
-tlslite-ng version 0.8.1 (2025-01-02)
+tlslite-ng version 0.8.2 (2025-01-22)
 
 [![GitHub CI](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml/badge.svg)](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml)
 [![Read the Docs](https://img.shields.io/readthedocs/tlslite-ng)](https://tlslite-ng.readthedocs.io/en/latest/)
@@ -581,6 +581,11 @@ TLSAsyncioDispatcherMixIn.py.
 
 11 History
 ===========
+
+0.8.2 - 2025-01-22
+* additional test vectors for the RSA implicit rejection mechanism
+* fix negotiation of TLS 1.2 Brainpool key exchanges in TLS 1.3, only
+  TLS 1.3 specific groups now can be negotiated in TLS 1.3
 
 0.8.1 - 2025-01-02
 * apply checks to `ec_point_formats` extension only when negotiating TLS 1.2
