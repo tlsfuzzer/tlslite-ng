@@ -98,6 +98,8 @@ class Session(object):
         self.tickets = None
         self.tls_1_0_tickets = None
         self.ec_point_format = 0
+        self.cl_handshake_traffic_secret = None
+        self.sr_handshake_traffic_secret = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
@@ -106,7 +108,9 @@ class Session(object):
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
                resumptionMasterSecret=bytearray(0), tickets=None,
-               tls_1_0_tickets=None, ec_point_format=None):
+               tls_1_0_tickets=None, ec_point_format=None,
+               cl_hs_traffic_secret=bytearray(0),
+               sr_hs_traffic_secret=bytearray(0)):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -124,6 +128,8 @@ class Session(object):
         self.sr_app_secret = sr_app_secret
         self.exporterMasterSecret = exporterMasterSecret
         self.resumptionMasterSecret = resumptionMasterSecret
+        self.cl_handshake_traffic_secret = cl_hs_traffic_secret
+        self.sr_handshake_traffic_secret = sr_hs_traffic_secret
         # NOTE we need a reference copy not a copy of object here!
         self.tickets = tickets
         self.tls_1_0_tickets = tls_1_0_tickets
