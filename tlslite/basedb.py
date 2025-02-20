@@ -39,7 +39,12 @@ class BaseDB(object):
             logger.debug('server %s - create - setting type', time.time())
             self.db["--Reserved--type"] = self.type
             logger.debug('server %s - create - syncing', time.time())
-            self.db.sync()
+            try:
+                self.db.sync()
+            except AttributeError:
+                # some backends, like the py3.13 default sqlite , don't support
+                # sync() method, so ignore it missing
+                pass
             logger.debug('server %s - create - fun exit', time.time())
         else:
             logger.debug('server %s - create - using dict() as DB',
@@ -84,7 +89,10 @@ class BaseDB(object):
         try:
             self.db[username] = valueStr
             if self.filename:
-                self.db.sync()
+                try:
+                    self.db.sync()
+                except AttributeError:
+                    pass
         finally:
             self.lock.release()
 
@@ -96,7 +104,10 @@ class BaseDB(object):
         try:
             del(self.db[username])
             if self.filename:
-                self.db.sync()
+                try:
+                    self.db.sync()
+                except AttributeError:
+                    pass
         finally:
             self.lock.release()
 
