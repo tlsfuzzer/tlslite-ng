@@ -40,6 +40,9 @@ jobs:
           - name: py3.12
             os: ubuntu-latest
             python-version: '3.12'
+          - name: py3.13
+            os: ubuntu-latest
+            python-version: '3.13'
           - name: py2.6
             os: ubuntu-latest
             container: centos:6
@@ -149,6 +152,10 @@ jobs:
             os: ubuntu-latest
             python-version: '3.12'
             opt-deps: ['gmpy2']
+          - name: py3.13 with gmpy2
+            os: ubuntu-latest
+            python-version: '3.13'
+            opt-deps: ['gmpy2']
           - name: py2.7 with brotli
             os: ubuntu-20.04
             python-version: 2.7
@@ -184,6 +191,10 @@ jobs:
             os: ubuntu-latest
             python-version: '3.12'
             opt-deps: ['brotli', 'zstd']
+          - name: py3.13 with brotli and zstandard
+            os: ubuntu-latest
+            python-version: '3.13'
+            opt-deps: ['brotli', 'zstd']
           - name: py3.9 with kyber-py
             os: ubuntu-latest
             python-version: "3.9"
@@ -199,6 +210,10 @@ jobs:
           - name: py3.12 with kyber-py
             os: ubuntu-latest
             python-version: "3.12"
+            opt-deps: ["kyber_py"]
+          - name: py3.13 with kyber-py
+            os: ubuntu-latest
+            python-version: "3.13"
             opt-deps: ["kyber_py"]
           # finally test with multiple dependencies installed at the same time
           - name: py2.7 with m2crypto, pycrypto, gmpy, gmpy2, and brotli
@@ -234,6 +249,11 @@ jobs:
             os: ubuntu-latest
             python-version: '3.12'
             # gmpy doesn't build with 3.12
+            opt-deps: ['m2crypto', 'gmpy2', 'brotli', 'zstd', 'kyber_py']
+          - name: py3.13 with m2crypto, gmpy, gmpy2, brotli, and zstandard
+            os: ubuntu-latest
+            python-version: '3.13'
+            # gmpy doesn't build with 3.13
             # coverage to codeclimate can be submitted just once
             opt-deps: ['m2crypto', 'gmpy2', 'codeclimate', 'brotli', 'zstd', 'kyber_py']
     steps:
