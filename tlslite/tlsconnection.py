@@ -773,6 +773,12 @@ class TLSConnection(TLSRecordLayer):
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
 
+        # In TLS1.3 delegated credentials are supported
+        if settings.maxVersion >= (3, 4) and \
+                settings.minVersion <= (3, 4):
+            if settings.delegated_credential:
+                extensions.append(SignatureSchemeExtension()\
+                                .create(settings.delegated_credential))
         session_id = bytearray()
         # when TLS 1.3 advertised, add key shares, set fake session_id
         shares = None
@@ -1447,6 +1453,25 @@ class TLSConnection(TLSRecordLayer):
                 else:
                     break
             publicKey, serverCertChain, tackExt = result
+            # Check if DelegatedCredential are present
+            cert_entry = certificate.certificate_list[0]
+            if ExtensionType.delegated_credential in cert_entry.extensions:
+                if settings.delegated_credential:
+                    for result in self._sendError(
+                            AlertDescription.unexpected_message,
+                            "The server provided delegated credential, "\
+                            "when client does not support it."):
+                        yield result
+
+                for result in self._check_delegated_credential(
+                                                    cert_entry,
+                                                    settings,
+                                                    certificate_verify):
+                    if result in (0, 1):
+                        yield result
+                    else:
+                        break
+                publicKey, signature_scheme = result
 
             if signature_scheme in (SignatureScheme.ed25519,
                                     SignatureScheme.ed448):
@@ -1997,6 +2022,160 @@ class TLSConnection(TLSRecordLayer):
                                         nextProto=nextProto):
             yield result
         yield masterSecret
+
+    def _check_delegated_credential(self,
+                                    certificate_entry,
+                                    settings,
+                                    cert_verify):
+        """
+        Verify that the delegated credential is valis.
+
+        Checks if the the delegated credential did not expire,
+        the algorithms are of a type advertized by the client,
+        the verify alg matches the scheme in peer's message.
+        """
+        certificate = certificate_entry.certificate
+        ext_list = certificate_entry.extensions[
+                                    ExtensionType.delegated_credential
+                                    ]
+        if not ext_list:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The delegated credential is missing, though the peer "\
+                    "provided extension for delegated credential."):
+                yield result
+        if len(ext_list) > 1:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "Server sent multiple delegated credentials "\
+                    "extensions in a single CertificateEntry"):
+                yield result
+        deleg_cred = ext_list[0]
+        #  The algorithm field MUST be of a type advertised by the client in the
+        # "signature_algorithms" extension of the ClientHello message
+
+        sig_list = self._sigHashesToList(settings=settings, version=(3, 4))
+        if deleg_cred.algorithm not in sig_list:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The algorithm of the delegated credential "\
+                    "algorithm must be a type advertised by the client."):
+                yield result
+
+        if deleg_cred.cred.dc_cert_verify_algorithm not in \
+            settings.delegated_credential:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The dc_cert_verify_algorithm of the delegated "\
+                    "credential algorithm must be a type "\
+                    "advertised by the client in ClientHello extension."):
+                yield result
+
+        curr_time = time.time()
+
+        if curr_time > deleg_cred.cred.valid_time:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The Delegated Credential time validity has expired."):
+                yield result
+
+        seven_days = float(7 * 24 * 60 * 60)
+        if seven_days + curr_time < deleg_cred.cred.valid_time:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The expiry time exceeds the current time "\
+                    "plus the maximum validity period (7 days by default)"):
+                yield result
+
+        if deleg_cred.cred.dc_cert_verify_algorithm != cert_verify.signatureAlgorithm:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter,
+                    "The dc_cert_verify_algorithm does not match "\
+                    "the scheme indicated in the peer's "\
+                    "CertificateVerify message"):
+                yield result
+
+        for result in self._verify_dc_signature(certificate, deleg_cred):
+            if result in (0, 1):
+                yield result
+        pub_key = result
+
+        yield pub_key, deleg_cred.cred.dc_cert_verify_algorithm
+
+    def _verify_dc_signature(self, certificate, deleg_cred):
+        """
+        Verify the delegated credential signature.
+        """
+        sig_context = self._compute_certificate_dc_sig(certificate, deleg_cred)
+        cert_pub_key = certificate.publicKey
+        sig_scheme = deleg_cred.algorithm
+        try:
+            self._pub_key_verify(sig_scheme,
+                                 deleg_cred.signature,
+                                 sig_context,
+                                 cert_pub_key)
+        except (TLSIllegalParameterException, TLSDecryptionFailed) as alert:
+            for result in self._sendError(
+                    AlertDescription.illegal_parameter, str(alert)):
+                yield result
+        yield deleg_cred.cred.pub_key
+
+    def _compute_certificate_dc_sig(self, cert, deleg_cred):
+        """
+        Reconstructs the certificate signature over the delegated credential.
+        """
+        verifyBytes = bytearray(b'\x20' * 64 +
+                                    b'TLS, server delegated credentials' +
+                                    b'\x00' +
+                                    cert.bytes +
+                                    deleg_cred.cred.bytes +
+                                    bytearray(deleg_cred.algorithm))
+        yield verifyBytes
+
+    def _pub_key_verify(self, sig_scheme, sig, sig_context, pub_key):
+        """
+        Verifies the dc'public key.
+        """
+
+        if sig_scheme in (SignatureScheme.ed25519,
+                                    SignatureScheme.ed448):
+            pad_type = None
+            hash_name = "intrinsic"
+            salt_len = None
+            method = pub_key.hashAndVerify
+        elif sig_scheme[1] == SignatureAlgorithm.ecdsa:
+            pad_type = None
+            hash_name = HashAlgorithm.toRepr(sig_scheme[0])
+            matching_hash = self._curve_name_to_hash_name(
+                pub_key.curve_name)
+            if hash_name != matching_hash:
+                raise TLSIllegalParameterException(
+                    "server selected signature method invalid for the "
+                    "certificate it presented (curve mismatch)")
+
+            salt_len = None
+            method = pub_key.verify
+        elif sig_scheme in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+            scheme = SignatureScheme.toRepr(sig_scheme)
+            pad_type = None
+            hash_name = SignatureScheme.getHash(scheme)
+            salt_len = None
+            method = pub_key.verify
+        else:
+            scheme = SignatureScheme.toRepr(sig_scheme)
+            pad_type = SignatureScheme.getPadding(scheme)
+            hash_name = SignatureScheme.getHash(scheme)
+            salt_len = getattr(hashlib, hash_name)().digest_size
+            method = pub_key.verify
+
+        if not method(sig,
+                    sig_context,
+                    pad_type,
+                    hash_name,
+                    salt_len):
+            raise TLSDecryptionFailed("server Delegation Credential "
+                                    "signature "
+                                    "verification failed")
 
     def _check_certchain_with_settings(self, cert_chain, settings):
         """

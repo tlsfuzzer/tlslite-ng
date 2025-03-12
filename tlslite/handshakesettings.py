@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType, ECPointFormat
+from .constants import CertificateType, ECPointFormat, SignatureScheme
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE
@@ -87,6 +87,12 @@ if compression_algo_impls["brotli_decompress"]:
     ALL_COMPRESSION_ALGOS_RECEIVE.append('brotli')
 if compression_algo_impls["zstd_decompress"]:
     ALL_COMPRESSION_ALGOS_RECEIVE.append('zstd')
+
+# in TLS 1.3
+DELEGETED_CREDENTIAL_FORBIDDEN_ALG = [
+    SignatureScheme.rsa_pss_rsae_sha256,
+    SignatureScheme.rsa_pss_rsae_sha384,
+    SignatureScheme.rsa_pss_rsae_sha512]
 
 
 class Keypair(object):
@@ -454,6 +460,9 @@ class HandshakeSettings(object):
         self.certificate_compression_receive = \
             list(ALL_COMPRESSION_ALGOS_RECEIVE)
 
+        # TLS 1.3 // TESTING PURPOSES, CAN BE EXTENDED
+        self.delegated_credential = [SignatureScheme.ed25519]
+
     def __init__(self):
         """Initialise default values for settings."""
         self._init_key_settings()
@@ -658,13 +667,18 @@ class HandshakeSettings(object):
                 not 64 <= other.record_size_limit <= 2**14 + 1:
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
-        bad_ec_ext = [ECPointFormat.toStr(rep) for rep in other.ec_point_formats if
+        bad_ec_ext = [ECPointFormat.toStr(rep) for rep in
+                      other.ec_point_formats if
                       rep not in EC_POINT_FORMATS]
         if bad_ec_ext:
             raise ValueError("Unknown EC point format provided: "
                              "{0}".format(bad_ec_ext))
         if ECPointFormat.uncompressed not in other.ec_point_formats:
             raise ValueError("Uncompressed EC point format is not provided")
+
+        if other.delegated_credential in DELEGETED_CREDENTIAL_FORBIDDEN_ALG:
+            raise ValueError("The usage of the algorithm is forbidden "
+                             "to use with delegated criterias")
 
         HandshakeSettings._sanityCheckEMSExtension(other)
 
@@ -772,6 +786,7 @@ class HandshakeSettings(object):
         other.certificate_compression_send = self.certificate_compression_send
         other.certificate_compression_receive = \
             self.certificate_compression_receive
+        other.delegated_credential = self.delegated_credential
 
     @staticmethod
     def _remove_all_matches(values, needle):

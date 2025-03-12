@@ -181,6 +181,7 @@ class ExtensionType(TLSEnum):
     post_handshake_auth = 49  # TLS 1.3
     signature_algorithms_cert = 50  # TLS 1.3
     key_share = 51  # TLS 1.3
+    delegated_credential = 34 # TLS 1.3, RFC 9345
     supports_npn = 13172
     tack = 0xF300
     renegotiation_info = 0xff01  # RFC 5746
