@@ -14,6 +14,14 @@ import socket
 import struct
 import getopt
 import binascii
+import hashlib
+import time
+
+from tlslite.utils.codec import Parser
+from tlslite.utils.ecdsakey import ECDSAKey
+from tlslite.utils.eddsakey import EdDSAKey
+from tlslite.utils.rsakey import RSAKey
+from tlslite.x509 import Credential, DelegatedCredential
 try:
     import httplib
     from SocketServer import *
@@ -38,8 +46,12 @@ from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp, \
         ML_KEM_AVAILABLE
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
-from tlslite.constants import KeyUpdateMessageType
+from tlslite.constants import KeyUpdateMessageType, TLS_1_3_BRAINPOOL_SIG_SCHEMES
 from tlslite.utils.compression import compression_algo_impls
+from tlslite.utils.pem import dePem
+from tlslite.handshakesettings import DELEGETED_CREDENTIAL_FORBIDDEN_ALG, \
+        DC_VALID_TIME
+from tlslite.utils.cryptomath import numberToByteArray
 
 try:
     from tack.structures.Tack import Tack
@@ -109,7 +121,9 @@ def printUsage(s=None):
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
-    [--request-pha] [--require-pha] [--echo] [--groups GROUPS]
+    [--request-pha] [--require-pha] [--echo] [--groups GROUPS] [--dc-key KEY]
+    [--dc-pub KEY] [--sig-alg-cert SIG] [--dc-sig-scheme SIG]
+    [--d-credential DCFILE] [--dc-output DCFILE]
     HOST:PORT
 
   client
@@ -117,6 +131,10 @@ def printUsage(s=None):
     [--psk PSK] [--psk-ident IDENTITY] [--psk-sha384] [--resumption] [--ssl3]
     [--max-ver VER] [--cipherlist]
     HOST:PORT
+
+  credential
+    [-c CERT] [-k KEY] [--dc-key KEY] [--dc-pub KEY] [--sig-alg-cert SIG]
+    [--dc-sig-scheme SIG] [--d-credential DCFILE] [--dc-output DCFILE]
 
   LABEL - TLS exporter label
   LENGTH - amount of info to export using TLS exporter
@@ -129,6 +147,9 @@ def printUsage(s=None):
   --ssl3 - enable support for SSLv3
   VER - TLS version as a string, "ssl3", "tls1.0", "tls1.1", "tls1.2" or
         "tls1.3"
+  SIG - signature scheme name to be used for signing,
+        e.g. ecdsa_secp256r1_sha256, ed25519, rsa_pss_pss_sha256
+  DCFILE - the file to write/read the delegated credenial
   --tickets COUNT - how many tickets should server send after handshake is
                     finished
   --cipherlist - comma separated ciphers to enable. For ex. aes128ccm,3des
@@ -138,6 +159,12 @@ def printUsage(s=None):
                   post-handshake authentication
   --echo - function as an echo server
   --groups - specify what key exchange groups should be supported
+  --dc-key KEY - the private key of the delegated credential
+  --dc-pub KEY - the public key of the delegated credential
+  --sig-alg-cert SIG - signature scheme for signing the delegated credential
+  --dc-sig-scheme SIG - delegated credential'signature scheme for signing
+  --d-credential DCFILE - the file to write form delegated credential
+  --dc-output DCFILE - the file to read form delegated credential
   GROUPS - comma-separated list of enabled key exchange groups
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
@@ -165,7 +192,7 @@ def printError(s):
     sys.exit(-1)
 
 
-def handleArgs(argv, argString, flagsList=[]):
+def handleArgs(argv, argString, flagsList=[], expect_address=True):
     # Convert to getopt argstring format:
     # Add ":" after each arg, ie "abc" -> "a:b:c:"
     getOptArgString = ":".join(argString) + ":"
@@ -200,6 +227,12 @@ def handleArgs(argv, argString, flagsList=[]):
     require_pha = False
     echo = False
     groups = None
+    dc_key = None
+    dc_pub = None
+    sig_alg_cert = None
+    dc_sig_scheme = None
+    d_credential = None
+    dc_output = None
 
     for opt, arg in opts:
         if opt == "-k":
@@ -231,6 +264,31 @@ def handleArgs(argv, argString, flagsList=[]):
             else:
                 v_host_cert = X509CertChain()
                 v_host_cert.parsePemList(s)
+        elif opt == "--dc-key":
+            s = open(arg, "rb").read()
+            if sys.version_info[0] >= 3:
+                s = str(s, 'utf-8')
+            if not cert_chain:
+                raise ValueError("Certificate is missing (must be listed "
+                                 "before the delegated credentials)")
+            dc_key = parsePEMKey(s, private=True,
+                                      implementations=["python"])
+        elif opt == "--dc-pub":
+            s = open(arg, "rb").read()
+            if sys.version_info[0] >= 3:
+                s = str(s, 'utf-8')
+            dc_pub = dePem(s, "PUBLIC KEY")
+        elif opt == "--sig-alg-cert":
+            sig_alg_cert = getattr(SignatureScheme, arg)
+        elif opt == "--dc-sig-scheme":
+            dc_sig_scheme = getattr(SignatureScheme, arg)
+        elif opt == "--d-credential":
+            with open(arg, "rb") as f:
+                s = f.read()
+                dc_parser = Parser(s)
+                d_credential = DelegatedCredential().parse(dc_parser)
+        elif opt == "--dc-output":
+            dc_output = arg
         elif opt == "-u":
             username = arg
         elif opt == "-p":
@@ -289,19 +347,21 @@ def handleArgs(argv, argString, flagsList=[]):
         alpn = None
     if (psk and not psk_ident) or (not psk and psk_ident):
         printError("PSK and IDENTITY must be set together")
-    if not argv:
+    if not argv and expect_address:
         printError("Missing address")
     if len(argv)>1:
         printError("Too many arguments")
+
     #Split address into hostname/port tuple
-    address = argv[0]
-    address = address.split(":")
-    if len(address) != 2:
-        raise SyntaxError("Must specify <host>:<port>")
-    address = ( address[0], int(address[1]) )
+    if expect_address:
+        address = argv[0]
+        address = address.split(":")
+        if len(address) != 2:
+            raise SyntaxError("Must specify <host>:<port>")
+        address = ( address[0], int(address[1]) )
 
     # Populate the return list
-    retList = [address]
+    retList = [] if not expect_address else [address]
     if "k" in argString:
         retList.append(privateKey)
     if "c" in argString:
@@ -351,6 +411,18 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(echo)
     if "groups=" in flagsList:
         retList.append(groups)
+    if "dc-key=" in flagsList:
+        retList.append(dc_key)
+    if "dc-pub=" in flagsList:
+        retList.append(dc_pub)
+    if "sig-alg-cert=" in flagsList:
+        retList.append(sig_alg_cert)
+    if "dc-sig-scheme=" in flagsList:
+        retList.append(dc_sig_scheme)
+    if "dc-output=" in flagsList:
+        retList.append(dc_output)
+    if "d-credential=" in flagsList:
+        retList.append(d_credential)
     return retList
 
 
@@ -556,16 +628,49 @@ def serverCmd(argv):
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
             max_ver, tickets, cipherlist, request_pha, require_pha, echo,
-            groups) = \
+            groups, dc_key, dc_pub, sig_alg_cert, dc_sig_scheme, dc_output,
+            d_credential) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
                     "tickets=", "cipherlist=", "request-pha", "require-pha",
-                    "echo", "groups="])
+                    "echo", "groups=", "dc-key=", "dc-pub=", "sig-alg-cert=",
+                    "dc-sig-scheme=", "dc-output=", "d-credential="])
 
+    # The authentication of the certificate will rely on the DC
+    if cert_chain and not privateKey:
+        if not d_credential or not dc_key:
+            raise SyntaxError("If certificate is provided without its " \
+                              "private key, a pre-existing delegated " \
+                              "credential must be supplied for server authentication.")
 
-    if (cert_chain and not privateKey) or (not cert_chain and privateKey):
-        raise SyntaxError("Must specify CERT and KEY together")
+    # Creating a delegated credential option
+    if (dc_key and dc_pub) and (not cert_chain or not privateKey):
+        raise SyntaxError("To generate a delegated credential the main " \
+                          "server certificate and its private key must be provided.")
+    if (dc_key and not d_credential and not dc_pub):
+        raise SyntaxError("To create the delegated credential, " \
+                          "both - public and private key - must be provided "
+                          "OR the private key for the provided delegated " \
+                          "credential must be present.")
+    if dc_key and dc_pub and cert_chain and privateKey:
+        d_credential = _create_delegated_credential_object(privateKey,
+                                                            cert_chain,
+                                                            dc_key,
+                                                            dc_pub,
+                                                            sig_alg_cert,
+                                                            dc_sig_scheme)
+        if dc_output:
+            del_cred_bytes = d_credential.write()
+            with open(dc_output, "wb") as dc_file:
+                dc_file.write(del_cred_bytes)
+            print("The delegated credential was successully written " \
+                    "into {0}".format(dc_output))
+
+    # if (cert_chain and not privateKey) or (not cert_chain and privateKey):
+    if (cert_chain and (not privateKey and not d_credential)) or \
+       (not cert_chain and (privateKey or d_credential)):
+        raise SyntaxError("Must specify CERT and KEY together or CERT and DC")
     if tacks and not cert_chain:
         raise SyntaxError("Must specify CERT with Tacks")
 
@@ -585,6 +690,9 @@ def serverCmd(argv):
         print("Using Tacks...")
     if reqCert:
         print("Asking for client certificates...")
+    if (dc_key and d_credential) or \
+       (dc_key and dc_pub and cert_chain and privateKey):
+        print("Usage of delegated credential is available...")
 
     #############
     sessionCache = SessionCache()
@@ -700,7 +808,9 @@ def serverCmd(argv):
                                               nextProtos=[b"http/1.1"],
                                               alpn=[bytearray(b'http/1.1')],
                                               reqCert=reqCert,
-                                              sni=sni)
+                                              sni=sni,
+                                              dc_key=dc_key,
+                                              del_cred=d_credential)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
                 try:
@@ -745,6 +855,156 @@ def serverCmd(argv):
     server.serve_forever()
 
 
+def credential_cmd(argv):
+    """
+    Tool to create delegated credential.
+    The output will be written into the provided file.
+    """
+    (private_key, cert_chain, virtual_hosts, dc_key, dc_pub, sig_alg_cert,
+            dc_sig_scheme, dc_output) = \
+        handleArgs(argv, "kc", ["dc-key=", "dc-pub=", "sig-alg-cert=",
+                                     "dc-sig-scheme=", "dc-output="],
+                                     expect_address=False)
+    if (cert_chain and not private_key) or (not cert_chain and private_key):
+        raise SyntaxError("Must specify CERT and KEY together")
+    if (dc_key and not dc_pub) or (not dc_key and dc_pub):
+        raise SyntaxError("Must specify delegated credential's private and "
+                          "public key")
+    if not dc_output:
+        raise SyntaxError("Must provide the file to write the output to")
+
+
+    delegated_credential = _create_delegated_credential_object(private_key,
+                                                               cert_chain,
+                                                               dc_key,
+                                                               dc_pub,
+                                                               sig_alg_cert,
+                                                               dc_sig_scheme)
+
+    del_cred_bytes = delegated_credential.write()
+    with open(dc_output, "wb") as dc_file:
+        dc_file.write(del_cred_bytes)
+
+    print("The delegated credential was successully written " \
+          "into {0}".format(dc_output))
+
+
+def _create_delegated_credential_object(
+        private_key, cert_chain, dc_key, dc_pub, sig_alg_cert,
+        dc_sig_scheme):
+
+    sig_alg = sig_alg_cert
+    cert_type = cert_chain.x509List[0].certAlg
+    public_key = cert_chain.x509List[0].publicKey
+    # dc_pub_byte = dc_pub
+    # dc_pub = parsePEMKey(dc_pub, public=True,
+    #                      implementations=["python"])
+
+    if not sig_alg_cert:
+        if cert_type == "Ed25519" or cert_type == "Ed448":
+            sig_alg = getattr(SignatureScheme, cert_type)
+        elif cert_type == "ecdsa":
+            if "BRAINPOOL" in dc_key.curve_name:
+                # brainpool in TLS 1.3 uses special signature schemes
+                curve = dc_key.curve_name
+                if curve == "BRAINPOOLP256r1":
+                    sig_alg = SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256
+                elif curve == "BRAINPOOLP384r1":
+                    sig_alg = SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384
+                else:
+                    assert curve == "BRAINPOOLP512r1"
+                    sig_alg = SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512
+            else:
+                sig_alg = SignatureScheme.ecdsa_secp256r1_sha256
+        elif cert_type == "dsa":
+            sig_alg = SignatureScheme.dsa_sha256
+        elif cert_type in ("rsa", "rsa-pss"):
+            sig_alg = SignatureScheme.rsa_pss_pss_sha256
+
+    scheme = SignatureScheme.toRepr(sig_alg)
+
+    if dc_sig_scheme in DELEGETED_CREDENTIAL_FORBIDDEN_ALG:
+        raise ValueError("When using RSA, the public key MUST NOT" \
+                         " use the rsaEncryption OID.")
+    if not dc_sig_scheme:
+        if isinstance(dc_key, RSAKey):
+            dc_sig_scheme = SignatureScheme.rsa_pss_pss_sha256
+        elif isinstance(dc_key, ECDSAKey):
+            curve = dc_key.curve_name
+            if "BRAINPOOL" in curve:
+                if curve == "BRAINPOOLP256r1":
+                    dc_sig_scheme = SignatureScheme.ecdsa_brainpoolP256r1tls13_sha256
+                elif curve == "BRAINPOOLP384r1":
+                    dc_sig_scheme = SignatureScheme.ecdsa_brainpoolP384r1tls13_sha384
+                else:
+                    assert curve == "BRAINPOOLP512r1"
+                    dc_sig_scheme = SignatureScheme.ecdsa_brainpoolP512r1tls13_sha512
+            else:
+                dc_sig_scheme = SignatureScheme.ecdsa_secp256r1_sha256
+
+        elif isinstance(dc_key, EdDSAKey):
+            curve = (dc_key.curve_name).lower()
+            dc_sig_scheme = getattr(SignatureScheme, curve)
+
+    cert_bytes = cert_chain.x509List[0].bytes
+    valid_time = int(time.time()) + DC_VALID_TIME
+    cred_bytes = bytearray(numberToByteArray(valid_time) +
+                           numberToByteArray(dc_sig_scheme[0]) +
+                           numberToByteArray(dc_sig_scheme[1]) +
+                           dc_pub)
+    cred = Credential(valid_time=valid_time,
+                      dc_cert_verify_algorithm=dc_sig_scheme,
+                      subject_public_key_info=dc_pub,
+                      bytes=cred_bytes)
+
+    bytes_to_sign = DelegatedCredential.compute_certificate_dc_sig_context(
+        cert_bytes,
+        cred_bytes,
+        sig_alg)
+    print(sig_alg)
+
+    if sig_alg in (SignatureScheme.ed25519,
+                SignatureScheme.ed448):
+        hashName = "intrinsic"
+        padType = None
+        saltLen = None
+        sig_func = private_key.hashAndSign
+        ver_func = private_key.hashAndVerify
+    elif sig_alg[1] == SignatureAlgorithm.ecdsa:
+        hashName = HashAlgorithm.toRepr(sig_alg[0])
+        padType = None
+        saltLen = None
+        sig_func = private_key.hashAndSign
+        ver_func = private_key.hashAndVerify
+    elif sig_alg in TLS_1_3_BRAINPOOL_SIG_SCHEMES:
+        hashName = SignatureScheme.getHash(scheme)
+        padType = None
+        saltLen = None
+        sig_func = private_key.hashAndSign
+        ver_func = private_key.hashAndVerify
+    else:
+        padType = SignatureScheme.getPadding(scheme)
+        hashName = SignatureScheme.getHash(scheme)
+        saltLen = getattr(hashlib, hashName)().digest_size
+        sig_func = private_key.hashAndSign
+        ver_func = private_key.hashAndVerify
+
+    signature = sig_func(bytes_to_sign,
+                        padType,
+                        hashName,
+                        saltLen)
+    if not ver_func(signature, bytes_to_sign,
+                    padType,
+                    hashName,
+                    saltLen):
+        raise ValueError("Delegated Credential signature failed")
+
+    delegated_credential = DelegatedCredential(cred=cred,
+                                                algorithm=sig_alg,
+                                                signature=signature)
+    return delegated_credential
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         printUsage("Missing command")
@@ -752,6 +1012,7 @@ if __name__ == '__main__':
         clientCmd(sys.argv[2:])
     elif sys.argv[1] == "server"[:len(sys.argv[1])]:
         serverCmd(sys.argv[2:])
+    elif sys.argv[1] == "credential"[:len(sys.argv[1])]:
+        credential_cmd(sys.argv[2:])
     else:
         printUsage("Unknown command: %s" % sys.argv[1])
-
