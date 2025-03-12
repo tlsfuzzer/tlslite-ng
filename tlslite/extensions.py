@@ -14,6 +14,7 @@ from .constants import NameType, ExtensionType, CertificateStatusType, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
         HeartbeatMode, CertificateCompressionAlgorithm
 from .errors import TLSInternalError
+from .x509 import DelegatedCredential
 
 
 class TLSExtension(object):
@@ -1350,6 +1351,36 @@ class TACKExtension(TLSExtension):
         return self
 
 
+class DelegatedCredentialCertExtension(TLSExtension):
+    """
+    Extension of CertificateEntry consisting delegated credential.
+
+    See RFC9345.
+
+    Creates, parses and returns the Delegated Credential class.
+    """
+    def __init__(self):
+        """Create instance of DelegatedCredentialCertExtension."""
+        super(DelegatedCredentialCertExtension, self).__init__(
+            extType=ExtensionType.delegated_credential)
+        self.delegated_credential = None
+
+    def create(self, delegated_credential):
+        """Set values of the extension."""
+        self.delegated_credential = delegated_credential
+        return self
+
+    def parse(self, p):
+        """Deserialise the data from on the wire representation."""
+        self.delegated_credential = DelegatedCredential().parse(p)
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the object."""
+        return self.delegated_credential.write()
+
+
 class SupportedGroupsExtension(VarListExtension):
     """
     Client side list of supported groups of (EC)DHE key exchage.
@@ -1370,7 +1401,7 @@ class SupportedGroupsExtension(VarListExtension):
 
 class ECPointFormatsExtension(VarListExtension):
     """
-    Client side list of supported ECC point formats.
+    List of supported ECC point formats.
 
     See RFC4492.
 
@@ -1410,6 +1441,27 @@ class _SigListExt(VarSeqListExtension):
             values.append(name)
 
         return "[{0}]".format(", ".join(values))
+
+
+class DelegatedCredentialExtension(_SigListExt):
+    """
+    Client side list of supported signature algorithms
+    for use of delegated credentials.
+    SignatureSchemeList.
+
+    See RFC8446 / RFC9345.
+
+    :vartype sigalgs: list of tuples
+    :ivar sigalgs: list of signature schemes supported by peer
+    """
+
+    def __init__(self):
+        """Create instance of class"""
+        super(DelegatedCredentialExtension, self).__init__(
+            1, 2, 2,
+            'sigalgs',
+            ExtensionType.delegated_credential,
+            SignatureScheme)
 
 
 class SignatureAlgorithmsExtension(_SigListExt):
@@ -2190,7 +2242,8 @@ TLSExtension._universalExtensions = {
     ExtensionType.cookie: CookieExtension,
     ExtensionType.record_size_limit: RecordSizeLimitExtension,
     ExtensionType.session_ticket: SessionTicketExtension,
-    ExtensionType.compress_certificate: CompressedCertificateExtension
+    ExtensionType.compress_certificate: CompressedCertificateExtension,
+    ExtensionType.delegated_credential: DelegatedCredentialExtension
 }
 
 TLSExtension._serverExtensions = {
@@ -2202,7 +2255,9 @@ TLSExtension._serverExtensions = {
 }
 
 TLSExtension._certificateExtensions = {
-    ExtensionType.status_request: CertificateStatusExtension
+    ExtensionType.status_request: CertificateStatusExtension,
+    ExtensionType.delegated_credential: DelegatedCredentialCertExtension
+
 }
 
 TLSExtension._hrrExtensions = {

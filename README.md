@@ -72,6 +72,7 @@ Implemented TLS features include:
 * (experimental) TACK extension
 * heartbeat extension and protocol
 * Record Size Limit extension
+* Delegated Credential for TLS
 
 2 Licenses/Acknowledgements
 ============================
@@ -579,7 +580,46 @@ as said above, asyncore is deprecated in Python 3.12, and asyncio should be used
 Implementation is similar to TLSAsyncDispatcherMixIn.py, but instead, use the class
 TLSAsyncioDispatcherMixIn.py.
 
-11 History
+11 Using the ```credential``` tool
+=================================
+
+The credential tool is a command-line utility used to generate a [Delegated Credential](https://datatracker.ietf.org/doc/rfc9345/) for a TLS 1.3 server.
+
+To generate the Delegated Credential:
+
+```
+tls.py credential [-c CERT] [-k KEY] [--dc-pub KEY] [--dc-sig-scheme SIG] [--dc-file DCFILE]
+```
+
+To generate the DC the following MUST be provided: the certificate, the certificate's private key, the public key of the Delegated Credential and the output file. Providing signature scheme is optional.
+
+The content is saved into the output file in ```.pem``` format.
+
+The following command provides an illustrative example using RSA keys for both the main server certificate and the delegated credential's public key to create Delegated Credential. Go to the tests directory and run:
+
+```
+tls.py credential -k serverX509Key.pem -c serverX509Cert.pem --dc-pub serverDelCredRSAPSSPub.pem --dc-file  serverRSAPSSDC.pem
+```
+
+After that the server can be run without the certificate's private key, but with the Delegated Credential:
+```
+tls.py server -c serverX509Cert.pem --dc-key serverDelCredRSAPSSKey.pem --dc-file serverRSAPSSDC.pem localhost:4433
+```
+
+The client must indicate the support of Delegated Credential by provideng the signature algorithm it supports in the Delegated Credential's extesion in Client Hello.
+
+In case creating the file with saved Delegated Credential is not an option, the server can create the Delegated Credential on the fly before the handshake.
+To do so, run:
+```
+tls.py server -k serverX509Key.pem -c serverX509Cert.pem --dc-key serverDelCredRSAPSSKey.pem --dc-pub serverDelCredRSAPSSPub.pem localhost:4433
+```
+### Important Note
+
+According to RFC 5280, [Section 4.2.1.3](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.3) and specifically [RFC 9260](https://datatracker.ietf.org/doc/rfc9345/) (Delegated Credentials), Section 4, the X.509 certificate used by the server to sign a delegated credential MUST contain the ```digitalSignature``` Key Usage extension. The ```credential``` tool and the delegated credential generation feature within the ```server``` tool are designed primarily for **testing and development purposes**. Hence, these tools do not perform strict validation to ensure that the provided main server certificate actually possesses the ```digitalSignature``` Key Usage extension.
+Similarly, while delegated credentials have a valid time option, it is not enforced. The current certificate implementation lacks time validation, a requirement that is also omitted for delegated credentials.
+
+
+12 History
 ===========
 
 0.8.2 - 2025-01-22

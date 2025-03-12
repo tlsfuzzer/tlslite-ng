@@ -1084,7 +1084,6 @@ class CertificateEntry(object):
         else:
             raise ValueError("Set certificate type ({0}) unsupported"
                              .format(self.certificateType))
-
         if self.extensions is not None:
             writer2 = Writer()
             for ext in self.extensions:
@@ -1141,20 +1140,24 @@ class Certificate(HandshakeMsg):
     @cert_chain.setter
     def cert_chain(self, cert_chain):
         """Setter for the cert_chain property."""
+        cert_chain, ext = cert_chain
         if isinstance(cert_chain, X509CertChain):
+            if ext is None:
+                ext = [[] for i in range(len(cert_chain.x509List))]
             self._cert_chain = cert_chain
             self.certificate_list = [CertificateEntry(self.certificateType)
-                                     .create(i, []) for i
-                                     in cert_chain.x509List]
+                                     .create(i, e) for i, e
+                                     in zip(cert_chain.x509List, ext)]
         elif cert_chain is None:
             self.certificate_list = []
         else:
             self.certificate_list = cert_chain
 
     @deprecated_params({"cert_chain": "certChain"})
-    def create(self, cert_chain, context=b''):
+    def create(self, cert_chain, context=b'', ext=None):
         """Initialise fields of the class."""
-        self.cert_chain = cert_chain
+        self.cert_chain = (cert_chain, ext)
+        #separate param
         self.certificate_request_context = context
         return self
 
@@ -2538,9 +2541,9 @@ class CompressedCertificate(Certificate):
 
         return decompressed_msg
 
-    def create(self, compression_algo, cert_chain, context=b''):
+    def create(self, compression_algo, cert_chain, context=b'', ext=None):
         """Create CompressedCertificate message."""
-        super(CompressedCertificate, self).create(cert_chain, context)
+        super(CompressedCertificate, self).create(cert_chain, context, ext)
         self.compression_algo = compression_algo
         certificate_msg = super(CompressedCertificate, self).write()
         certificate_msg = certificate_msg[4:]

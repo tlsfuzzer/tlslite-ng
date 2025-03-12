@@ -4,6 +4,8 @@
 """Methods for dealing with ECC points"""
 
 import ecdsa
+
+from tlslite.errors import TLSIllegalParameterException
 from .compat import ecdsaAllCurves
 
 
@@ -47,3 +49,23 @@ def getPointByteSize(point):
         else:
             return curveMap[point.curve]
     raise ValueError("Parameter must be a curve or point on curve")
+
+def curve_name_to_hash_name(curve_name):
+    """Returns the matching hash for a given curve name, for TLS 1.3
+
+    expects the python-ecdsa curve names as parameter
+    """
+    if curve_name == "NIST256p":
+        return "sha256"
+    if curve_name == "NIST384p":
+        return "sha384"
+    if curve_name == "NIST521p":
+        return "sha512"
+    if curve_name == "BRAINPOOLP256r1":
+        return "sha256"
+    if curve_name == "BRAINPOOLP384r1":
+        return "sha384"
+    if curve_name == "BRAINPOOLP512r1":
+        return "sha512"
+    raise TLSIllegalParameterException(
+        "Curve {0} is not supported in TLS 1.3".format(curve_name))
