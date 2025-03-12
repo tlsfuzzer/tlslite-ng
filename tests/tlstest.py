@@ -21,6 +21,8 @@ import time
 import timeit
 import getopt
 from tempfile import mkstemp
+
+from tlslite.x509 import DelegatedCredential
 try:
     from BaseHTTPServer import HTTPServer
     from SimpleHTTPServer import SimpleHTTPRequestHandler
@@ -45,6 +47,7 @@ except ImportError:
 import ssl
 from tlslite import *
 from tlslite.constants import KeyUpdateMessageType, ECPointFormat, SignatureScheme
+from tlslite.utils.pem import dePem
 
 try:
     from tack.structures.Tack import Tack
@@ -1910,6 +1913,21 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    print("Test {0} - Delegated Credential test".format(test_no))
+    synchro.recv(1)
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    settings.dc_sig_algs = [SignatureScheme.rsa_pkcs1_sha256]
+    connection.handshakeClientCert(settings=settings)
+    assert connection.session.delegated_credential is not None
+    assert isinstance(connection.session.delegated_credential,
+                      DelegatedCredential)
+    testConnClient(connection)
+    connection.close()
+
+    test_no += 1
+
     print('Test {0} - good standard XMLRPC https client'.format(test_no))
     address = address[0], address[1]+1
     synchro.recv(1)
@@ -1966,6 +1984,8 @@ def clientTestCmd(argv):
     except (socket.error, socket.timeout) as e:
         print("Non-critical error: socket error trying to reach internet "
               "server: ", e)
+
+
 
     synchro.close()
 
@@ -2119,6 +2139,13 @@ def serverTestCmd(argv):
     with open(os.path.join(dir, "serverEd448Key.pem")) as f:
         x509Ed448Key = parsePEMKey(f.read(), private=True,
                                    implementations=["python"])
+    with open(os.path.join(dir, "serverX509DCKey.pem")) as f:
+        s = f.read()
+        x509DelegatedCredPrivKey = parsePEMKey(s, private=True,
+                                               implementations=["python"])
+    with open(os.path.join(dir, "serverX509DCPub.pem")) as f:
+        s = f.read()
+        x509DelegatedCredPubKey = dePem(s, "PUBLIC KEY")
 
     test_no = 0
 
@@ -3654,6 +3681,25 @@ def serverTestCmd(argv):
     connection.close()
 
     test_no +=1
+
+    print("Test {0} - Delegated Credential test".format(test_no))
+    synchro.send(b'R')
+    connection = connect()
+    settings = HandshakeSettings()
+    settings.maxVersion = (3, 4)
+    settings.dc_sig_algs = [SignatureScheme.rsa_pkcs1_sha256]
+    connection.handshakeServer(certChain=x509Chain,
+                               privateKey=x509Key,
+                               dc_key=x509DelegatedCredPrivKey,
+                               dc_pub=x509DelegatedCredPubKey,
+                               settings=settings)
+    assert connection.session.delegated_credential is not None
+    assert isinstance(connection.session.delegated_credential,
+                      DelegatedCredential)
+    testConnServer(connection)
+    connection.close()
+
+    test_no += 1
 
     print("Tests {0}-{1} - XMLRPXC server".format(test_no, test_no + 2))
 
