@@ -975,8 +975,8 @@ class TLSRecordLayer(object):
                 yield result
             if len(msg.write()) == 0:
                 return
-
         buf = msg.write()
+
         contentType = msg.contentType
         #Update handshake hashes
         if update_hashes and contentType == ContentType.handshake:
@@ -1540,7 +1540,7 @@ class TLSRecordLayer(object):
 
     def _create_cert_msg(self, peer, request_msg, valid_compression_algos,
                          cert_chain, cert_type, cert_context=b'',
-                         version=(3, 2)):
+                         version=(3, 2), ext=None):
         """
         Creates either a Certificate or a CompressedCertificate message
         depending if the compress_certificate extension is present.
@@ -1564,9 +1564,9 @@ class TLSRecordLayer(object):
 
             certificate_msg = CompressedCertificate(cert_type, version)
             certificate_msg.create(
-                chosen_compression_algo, cert_chain, cert_context)
+                chosen_compression_algo, cert_chain, cert_context, ext)
         else:
             certificate_msg = Certificate(cert_type, version)
-            certificate_msg.create(cert_chain, cert_context)
+            certificate_msg.create(cert_chain, cert_context, ext)
 
         return certificate_msg
