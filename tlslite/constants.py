@@ -243,6 +243,11 @@ class SignatureScheme(TLSEnum):
     rsa_pss_sha384 = (8, 5)
     rsa_pss_sha512 = (8, 6)
 
+    # draft-tls-westerbaan-mldsa-00
+    mldsa44 = (9, 4)
+    mldsa65 = (9, 5)
+    mldsa87 = (9, 6)
+
     # RFC 8734
     # the names are from RFC, so we don't care that they don't follow naming
     # pattern
@@ -277,6 +282,8 @@ class SignatureScheme(TLSEnum):
         """
         if scheme in ("ed25519", "ed448"):
             return "eddsa"
+        if "mldsa" in scheme:
+            return "mldsa"
         try:
             getattr(SignatureScheme, scheme)
         except AttributeError:
