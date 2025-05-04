@@ -153,7 +153,7 @@ class KeyExchange(object):
                 salt_len):
             raise TLSInternalError("Server Key Exchange signature invalid")
 
-    def _tls12_signSKE(self, serverKeyExchange, sigHash=None):
+    def _tls12_signSKE(self, serverKeyExchange, sigHash=None, skipVerify=False):
         """Sign a TLSv1.2 SKE message."""
         try:
             serverKeyExchange.hashAlg, serverKeyExchange.signAlg = \
@@ -184,14 +184,14 @@ class KeyExchange(object):
         if not serverKeyExchange.signature:
             raise TLSInternalError("Empty signature")
 
-        if not self.privateKey.verify(serverKeyExchange.signature,
+        if not skipVerify and not self.privateKey.verify(serverKeyExchange.signature,
                                       hashBytes,
                                       padding=padType,
                                       hashAlg=hashName,
                                       saltLen=saltLen):
             raise TLSInternalError("Server Key Exchange signature invalid")
 
-    def signServerKeyExchange(self, serverKeyExchange, sigHash=None):
+    def signServerKeyExchange(self, serverKeyExchange, sigHash=None, skipVerify=False):
         """
         Sign a server key exchange using default or specified algorithm
 
@@ -222,7 +222,7 @@ class KeyExchange(object):
             elif self.privateKey.key_type in ("Ed25519", "Ed448"):
                 self._tls12_sign_eddsa_ske(serverKeyExchange, sigHash)
             else:
-                self._tls12_signSKE(serverKeyExchange, sigHash)
+                self._tls12_signSKE(serverKeyExchange, sigHash, skipVerify)
 
     @staticmethod
     def _tls12_verify_ecdsa_SKE(serverKeyExchange, publicKey, clientRandom,
@@ -503,10 +503,10 @@ class AuthenticatedKeyExchange(KeyExchange):
     Methods for signing Server Key Exchange message
     """
 
-    def makeServerKeyExchange(self, sigHash=None):
+    def makeServerKeyExchange(self, sigHash=None, skipVerify=False):
         """Prepare server side of key exchange with selected parameters"""
         ske = super(AuthenticatedKeyExchange, self).makeServerKeyExchange()
-        self.signServerKeyExchange(ske, sigHash)
+        self.signServerKeyExchange(ske, sigHash, skipVerify)
         return ske
 
 

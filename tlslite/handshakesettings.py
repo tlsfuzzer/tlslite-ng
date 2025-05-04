@@ -410,6 +410,8 @@ class HandshakeSettings(object):
         self.rsaSchemes = list(RSA_SCHEMES)
         self.dsaSigHashes = list(DSA_SIGNATURE_HASHES)
         self.virtual_hosts = []
+        self.sni_callback = None
+        self.skipVerify = False
         # DH key settings
         self.eccCurves = list(CURVE_NAMES)
         self.dhParams = None
@@ -808,6 +810,8 @@ class HandshakeSettings(object):
         other.ecdsaSigHashes = self.ecdsaSigHashes
         other.more_sig_schemes = self.more_sig_schemes
         other.virtual_hosts = self.virtual_hosts
+        other.sni_callback = self.sni_callback
+        other.skipVerify = self.skipVerify
         # DH key params
         other.eccCurves = self.eccCurves
         other.dhParams = self.dhParams

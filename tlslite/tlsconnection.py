@@ -2263,7 +2263,7 @@ class TLSConnection(TLSRecordLayer):
             settings = HandshakeSettings()
         settings = settings.validate()
 
-        if (not verifierDB) and (not cert_chain) and not anon and \
+        if (not verifierDB) and (not cert_chain and not settings.sni_callback) and not anon and \
                 not settings.pskConfigs and not settings.virtual_hosts:
             raise ValueError("Caller passed no authentication credentials")
         if cert_chain and not privateKey:
@@ -2301,6 +2301,7 @@ class TLSConnection(TLSRecordLayer):
             else: break
         (clientHello, version, cipherSuite, sig_scheme, privateKey,
             cert_chain) = result
+        self.clientHello = clientHello
 
         # in TLS 1.3 the handshake is completely different
         # (extensions go into different messages, format of messages is
@@ -3747,6 +3748,12 @@ class TLSConnection(TLSRecordLayer):
                     self._peer_record_size_limit = min(
                         2**14, size_limit_ext.record_size_limit)
 
+        # If sni_callback was supplied, find the cert/key based on the sni
+        if settings.sni_callback:
+            sniExt = clientHello.getExtension(ExtensionType.server_name)
+            sniName = sniExt.hostNames[0].decode('ascii', 'strict')
+            [cert_chain, private_key] = settings.sni_callback(sniName)
+
         #Now that the version is known, limit to only the ciphers available to
         #that version and client capabilities.
         cipherSuites = []
@@ -4476,7 +4483,7 @@ class TLSConnection(TLSRecordLayer):
 
         msgs.append(certificate)
         try:
-            serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg)
+            serverKeyExchange = keyExchange.makeServerKeyExchange(sigHashAlg, settings.skipVerify)
         except TLSInternalError as alert:
             for result in self._sendError(
                     AlertDescription.internal_error,

@@ -4,7 +4,7 @@
 #
 # See the LICENSE file for legal information regarding use of this file.
 
-__version__ = "0.8.2"
+__version__ = "0.8.2.1"
 # the whole module is about importing most commonly used methods, for use
 # by other applications
 # pylint: disable=unused-import

@@ -3,7 +3,11 @@
 # Author: Trevor Perrin
 # See the LICENSE file for legal information regarding use of this file.
 
-from distutils.core import setup
+import sys
+if sys.version_info >= (3, 9):
+    from setuptools import setup
+else:
+    from distutils.core import setup
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -11,7 +15,7 @@ with open(os.path.join(here, "README")) as f:
     README = f.read()
 
 setup(name="tlslite-ng",
-      version="0.8.2",
+      version="0.8.2.1",
       author="Alicja Kario",
       author_email="hkario@redhat.com",
       url="https://github.com/tlsfuzzer/tlslite-ng",
@@ -28,7 +32,7 @@ setup(name="tlslite-ng",
       classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Developers',
-            'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
+            'LGPL-2.0' if sys.version_info >= (3, 9) else 'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
             'Programming Language :: Python :: 2',
