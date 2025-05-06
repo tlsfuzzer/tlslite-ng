@@ -311,14 +311,14 @@ jobs:
       - name: Ensure python 2.7
         if: matrix.python-version == '2.7'
         run: |
-          sudo apt update
+          sudo apt-get update
           sudo add-apt-repository universe
-          sudo apt install -y \
+          sudo apt-get install -y \
             python2.7 python2.7-dev
           curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
           sudo python get-pip.py
           sudo ln -sf python2.7 /usr/bin/python
-          sudo pip2 install setuptools wheel
+          sudo pip install setuptools wheel
           sudo chown -R $USER /usr/local/lib/python2.7
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
