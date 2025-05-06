@@ -94,6 +94,8 @@ DELEGETED_CREDENTIAL_FORBIDDEN_ALG = [
     SignatureScheme.rsa_pss_rsae_sha384,
     SignatureScheme.rsa_pss_rsae_sha512]
 
+# if the value not set manualy, 7 days (in seconds) will be used as default
+DC_VALID_TIME = 604800
 
 class Keypair(object):
     """
@@ -402,7 +404,6 @@ class HandshakeSettings(object):
         option is for when a certificate was received/decompressed by this
         peer.
 
-
     :vartype ec_point_formats: list
     :ivar ec_point_formats: Enabled point format extension for
      elliptic curves.
@@ -460,8 +461,9 @@ class HandshakeSettings(object):
         self.certificate_compression_receive = \
             list(ALL_COMPRESSION_ALGOS_RECEIVE)
 
-        # TLS 1.3 // TESTING PURPOSES, CAN BE EXTENDED
-        self.delegated_credential = [SignatureScheme.ed25519]
+        # TLS 1.3 RFC9345
+        self.delegated_credential = []
+        self.dc_valid_time = DC_VALID_TIME
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -679,6 +681,9 @@ class HandshakeSettings(object):
         if other.delegated_credential in DELEGETED_CREDENTIAL_FORBIDDEN_ALG:
             raise ValueError("The usage of the algorithm is forbidden "
                              "to use with delegated criterias")
+        if other.dc_valid_time > DC_VALID_TIME:
+            raise ValueError("Delegated credentials cannot be valid for more "
+                             "than 7 days.")
 
         HandshakeSettings._sanityCheckEMSExtension(other)
 
@@ -787,6 +792,7 @@ class HandshakeSettings(object):
         other.certificate_compression_receive = \
             self.certificate_compression_receive
         other.delegated_credential = self.delegated_credential
+        other.dc_valid_time = self.dc_valid_time
 
     @staticmethod
     def _remove_all_matches(values, needle):

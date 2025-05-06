@@ -395,19 +395,21 @@ class DelegatedCredential(object):
       the end-entity certificate's public key.
     """
 
-    def __init__(self):
+    def __init__(self, cred=None, algorithm=None,
+                 signature=None):
         """Create empty credential object."""
-        self.cred = None
-        self.algorithm = None
-        self.signature = None
+        self.cred = cred
+        self.algorithm = algorithm
+        self.signature = signature
 
     def parse(self, parser):
         """Parsing Delegating Credendial."""
         valid_time = parser.get(4)
         dc_cert_verify_algorithm = (parser.get(1), parser.get(1))
         subject_public_key_info = parser.getVarBytes(3)
-        cred_bytes = bytearray(numberToByteArray(valid_time)+
-                               bytearray(dc_cert_verify_algorithm) +
+        cred_bytes = bytearray(numberToByteArray(valid_time) +
+                               numberToByteArray(dc_cert_verify_algorithm[0]) +
+                               numberToByteArray(dc_cert_verify_algorithm[1]) +
                                subject_public_key_info)
 
         self.cred = Credential(
@@ -422,3 +424,14 @@ class DelegatedCredential(object):
         self.algorithm = (parser.get(1), parser.get(1))
         self.signature = parser.getVarBytes(2)
         return self
+
+    def write(self):
+        writer = Writer()
+        writer.addFour(self.cred.valid_time)
+        writer.addOne(self.cred.dc_cert_verify_algorithm[0])
+        writer.addOne(self.cred.dc_cert_verify_algorithm[1])
+        writer.add_var_bytes(self.cred.subject_public_key_info, 3)
+        writer.addOne(self.algorithm[0])
+        writer.addOne(self.algorithm[1])
+        writer.add_var_bytes(self.signature, 2)
+        return writer.bytes
