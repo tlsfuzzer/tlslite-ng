@@ -40,6 +40,7 @@ from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
 from tlslite.constants import KeyUpdateMessageType
 from tlslite.utils.compression import compression_algo_impls
+from tlslite.utils.pem import dePem
 
 try:
     from tack.structures.Tack import Tack
@@ -109,7 +110,8 @@ def printUsage(s=None):
     [-c CERT] [-k KEY] [-t TACK] [-v VERIFIERDB] [-d DIR] [-l LABEL] [-L LENGTH]
     [--reqcert] [--param DHFILE] [--psk PSK] [--psk-ident IDENTITY]
     [--psk-sha384] [--ssl3] [--max-ver VER] [--tickets COUNT] [--cipherlist]
-    [--request-pha] [--require-pha] [--echo] [--groups GROUPS]
+    [--request-pha] [--require-pha] [--echo] [--groups GROUPS] [--dc KEY]
+    [--dcpub KEY]
     HOST:PORT
 
   client
@@ -138,6 +140,8 @@ def printUsage(s=None):
                   post-handshake authentication
   --echo - function as an echo server
   --groups - specify what key exchange groups should be supported
+  --dc KEY - the private key of the delegated credential
+  --dcpub KEY - the public key of the delegated credential
   GROUPS - comma-separated list of enabled key exchange groups
   CERT, KEY - the file with key and certificates that will be used by client or
         server. The server can accept multiple pairs of `-c` and `-k` options
@@ -200,6 +204,8 @@ def handleArgs(argv, argString, flagsList=[]):
     require_pha = False
     echo = False
     groups = None
+    dc = None
+    dcpub = None
 
     for opt, arg in opts:
         if opt == "-k":
@@ -231,6 +237,20 @@ def handleArgs(argv, argString, flagsList=[]):
             else:
                 v_host_cert = X509CertChain()
                 v_host_cert.parsePemList(s)
+        elif opt == "--dc":
+            s = open(arg, "rb").read()
+            if sys.version_info[0] >= 3:
+                s = str(s, 'utf-8')
+            if not cert_chain:
+                raise ValueError("Certificate is missing (must be listed "
+                                 "before the delegated credentials)")
+            dc = parsePEMKey(s, private=True,
+                                      implementations=["python"])
+        elif opt == "--dcpub":
+            s = open(arg, "rb").read()
+            if sys.version_info[0] >= 3:
+                s = str(s, 'utf-8')
+            dcpub = dePem(s, "PUBLIC KEY")
         elif opt == "-u":
             username = arg
         elif opt == "-p":
@@ -351,6 +371,10 @@ def handleArgs(argv, argString, flagsList=[]):
         retList.append(echo)
     if "groups=" in flagsList:
         retList.append(groups)
+    if "dc=" in flagsList:
+        retList.append(dc)
+    if "dcpub=" in flagsList:
+        retList.append(dcpub)
     return retList
 
 
@@ -556,12 +580,12 @@ def serverCmd(argv):
             directory, reqCert,
             expLabel, expLength, dhparam, psk, psk_ident, psk_hash, ssl3,
             max_ver, tickets, cipherlist, request_pha, require_pha, echo,
-            groups) = \
+            groups, dc, dcpub) = \
         handleArgs(argv, "kctbvdlL",
                    ["reqcert", "param=", "psk=",
                     "psk-ident=", "psk-sha384", "ssl3", "max-ver=",
                     "tickets=", "cipherlist=", "request-pha", "require-pha",
-                    "echo", "groups="])
+                    "echo", "groups=", "dc=", "dcpub="])
 
 
     if (cert_chain and not privateKey) or (not cert_chain and privateKey):
@@ -585,6 +609,8 @@ def serverCmd(argv):
         print("Using Tacks...")
     if reqCert:
         print("Asking for client certificates...")
+    if dc and dcpub:
+        print("Usage of delegated credential is available...")
 
     #############
     sessionCache = SessionCache()
@@ -700,7 +726,9 @@ def serverCmd(argv):
                                               nextProtos=[b"http/1.1"],
                                               alpn=[bytearray(b'http/1.1')],
                                               reqCert=reqCert,
-                                              sni=sni)
+                                              sni=sni,
+                                              dc_key=dc,
+                                              dc_pub=dcpub)
                                               # As an example (does not work here):
                                               #nextProtos=[b"spdy/3", b"spdy/2", b"http/1.1"])
                 try:
@@ -754,4 +782,3 @@ if __name__ == '__main__':
         serverCmd(sys.argv[2:])
     else:
         printUsage("Unknown command: %s" % sys.argv[1])
-
