@@ -41,6 +41,11 @@ from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
 from .utils.compression import choose_compression_send_algo
 
+# Simon's 
+from .extensions import AttestationTokenExtension
+from .constants import ExtensionType
+from .messages import Certificate
+
 class TLSConnection(TLSRecordLayer):
     """
     This class wraps a socket and provides TLS handshaking and data transfer.
@@ -1226,6 +1231,7 @@ class TLSConnection(TLSRecordLayer):
                         "record_size_limit extension"):
                     yield result
             self._peer_record_size_limit = size_limit_ext.record_size_limit
+        self._server_hello = serverHello  # Simon's insertion 
         yield serverHello
 
     @staticmethod
@@ -1419,6 +1425,7 @@ class TLSConnection(TLSRecordLayer):
                         result.compression_algo)
 
             certificate = result
+            self._server_certificate = certificate
             assert isinstance(certificate, Certificate)
 
             srv_cert_verify_hh = self._handshake_hash.copy()
@@ -2126,7 +2133,8 @@ class TLSConnection(TLSRecordLayer):
                         sessionCache=None, settings=None, checker=None,
                         reqCAs = None,
                         tacks=None, activationFlags=0,
-                        nextProtos=None, anon=False, alpn=None, sni=None):
+                        nextProtos=None, anon=False, alpn=None, sni=None,
+                        attestation_token=None):
         """Perform a handshake in the role of server.
 
         This function performs an SSL or TLS handshake.  Depending on
@@ -2206,6 +2214,10 @@ class TLSConnection(TLSRecordLayer):
         :type sni: bytearray
         :param sni: expected virtual name hostname. Deprecated, use the
             `virtual_hosts` in HandshakeSettings.
+            
+        :type attestation_token: bytearray
+        :param attestation_token: The RA-TLS attestation token to be sent in the
+        Certificate message as an AttestationTokenExtension.    
 
         :raises socket.error: If a socket error occurs.
         :raises tlslite.errors.TLSAbruptCloseError: If the socket is closed
@@ -2218,7 +2230,7 @@ class TLSConnection(TLSRecordLayer):
                 certChain, privateKey, reqCert, sessionCache, settings,
                 checker, reqCAs,
                 tacks=tacks, activationFlags=activationFlags,
-                nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni):
+                nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni, attestation_token=attestation_token):
             pass
 
 
@@ -2227,8 +2239,8 @@ class TLSConnection(TLSRecordLayer):
                              sessionCache=None, settings=None, checker=None,
                              reqCAs=None,
                              tacks=None, activationFlags=0,
-                             nextProtos=None, anon=False, alpn=None, sni=None
-                             ):
+                             nextProtos=None, anon=False, alpn=None, sni=None,
+                             attestation_token=None):
         """Start a server handshake operation on the TLS connection.
 
         This function returns a generator which behaves similarly to
@@ -2246,7 +2258,7 @@ class TLSConnection(TLSRecordLayer):
             sessionCache=sessionCache, settings=settings,
             reqCAs=reqCAs,
             tacks=tacks, activationFlags=activationFlags,
-            nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni)
+            nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni, attestation_token=attestation_token)
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
 
@@ -2255,7 +2267,7 @@ class TLSConnection(TLSRecordLayer):
                                     cert_chain, privateKey, reqCert,
                                     sessionCache, settings, reqCAs, tacks,
                                     activationFlags, nextProtos, anon, alpn,
-                                    sni):
+                                    sni, attestation_token):
 
         self._handshakeStart(client=False)
 
@@ -2310,7 +2322,7 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      privateKey, cert_chain,
                                                      version, sig_scheme,
-                                                     alpn, reqCert):
+                                                     alpn, reqCert, attestation_token):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2794,7 +2806,7 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version, scheme,
-                              srv_alpns, reqCert):
+                              srv_alpns, reqCert, attestation_token=None):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
         cert_req_comp_cert_ext = None
@@ -3036,10 +3048,18 @@ class TLSConnection(TLSRecordLayer):
                     extensions=extensions)
                 self._queue_message(certificate_request)
 
+            # Create attestation extension if token is provided
+            certificate_extensions = []
+            if attestation_token:
+                certificate_extensions.append(
+                    AttestationTokenExtension().create(attestation_token)
+                )
+
+            #print(f"_serverTLS13Handshake - Custom cert chain contains attestation token: {any(isinstance(ext, AttestationTokenExtension) for ext in serverCertChain.certificate_entries[0].extensions)}")
             certificate = self._create_cert_msg(
                 "server", clientHello, settings.certificate_compression_send,
                 serverCertChain, CertificateType.x509, bytearray(),
-                self.version)
+                self.version, extensions=certificate_extensions)
 
             self._queue_message(certificate)
 

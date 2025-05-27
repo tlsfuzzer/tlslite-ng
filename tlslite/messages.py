@@ -23,6 +23,13 @@ from .extensions import *
 from .utils.format_output import none_as_unknown
 from .utils.compression import compression_algo_impls
 
+from tlslite.utils.codec import Writer, Parser
+from tlslite.constants import CertificateType, HandshakeType, ExtensionType
+from tlslite.extensions import TLSExtension
+from tlslite.x509 import X509
+from tlslite.x509certchain import X509CertChain
+from tlslite.errors import   TLSIllegalParameterException
+from .utils.codec import  DecodeError, BadCertificateError
 
 class RecordHeader(object):
     """Generic interface to SSLv2 and SSLv3 (and later) record headers."""
@@ -1056,16 +1063,10 @@ class ServerHello2(HandshakeMsg):
         return self
 
 
-class CertificateEntry(object):
-    """
-    Object storing a single certificate from TLS 1.3.
 
-    Stores a certificate (or possibly a raw public key) together with
-    associated extensions
-    """
 
+class CertificateEntry:
     def __init__(self, certificateType):
-        """Initialise the object for given certificate type."""
         self.certificateType = certificateType
         self.certificate = None
         self.extensions = None
@@ -1073,49 +1074,87 @@ class CertificateEntry(object):
     def create(self, certificate, extensions):
         """Set all values of the certificate entry."""
         self.certificate = certificate
-        self.extensions = extensions
+        self.extensions = extensions or []
         return self
 
     def write(self):
         """Serialise the object."""
+        print("Before writing certificate")
         writer = Writer()
         if self.certificateType == CertificateType.x509:
-            writer.addVarSeq(self.certificate.writeBytes(), 1, 3)
+            cert_bytes = self.certificate.writeBytes()
+            if len(cert_bytes) > 2**24 - 1:
+                raise TLSIllegalParameterException(f"Certificate too large: {len(cert_bytes)} bytes")
+            writer.addVarSeq(cert_bytes, 1, 3)
         else:
-            raise ValueError("Set certificate type ({0}) unsupported"
-                             .format(self.certificateType))
+            raise ValueError(f"Set certificate type ({self.certificateType}) unsupported")
 
-        if self.extensions is not None:
-            writer2 = Writer()
+        print("Before writing extensions")
+        writer2 = Writer()
+        if self.extensions:
             for ext in self.extensions:
-                writer2.bytes += ext.write()
-            writer.addVarSeq(writer2.bytes, 1, 2)
+                ext_bytes = ext.write()
+                print(f"Writing extension type={ext.extType}, size={len(ext_bytes)}")
+                writer2.bytes += ext_bytes
+            if len(writer2.bytes) > 2**16 - 1:
+                raise TLSIllegalParameterException(f"Extensions too large: {len(writer2.bytes)} bytes")
+        print("Before weriter.addVarSeq")
+        writer.addVarSeq(writer2.bytes, 1, 2)
 
+        print(f"Writing CertificateEntry: size={len(writer.bytes)}")
         return writer.bytes
 
     def parse(self, parser):
-        """Deserialise the object from on the wire data."""
-        if self.certificateType == CertificateType.x509:
-            certBytes = parser.getVarBytes(3)
-            x509 = X509()
-            x509.parseBinary(certBytes)
-            self.certificate = x509
-        else:
-            raise ValueError("Set certificate type ({0}) unsupported"
-                             .format(self.certificateType))
-
-        self.extensions = []
-        parser.startLengthCheck(2)
-        while not parser.atLengthCheck():
-            ext = TLSExtension(cert=True).parse(parser)
-            self.extensions.append(ext)
-        parser.stopLengthCheck()
-        return self
+        try:
+            print("Parsing CertificateEntry")
+            cert_length = parser.get(3)
+            print(f"Certificate data length: {cert_length}")
+            if cert_length > parser.getRemainingLength():
+                raise TLSDecodeError(f"Certificate length {cert_length} exceeds buffer {parser.getRemainingLength()}")
+            cert_bytes = parser.getFixBytes(cert_length)
+            # Parse certificate bytes into X509 object
+            if self.certificateType == CertificateType.x509:
+                x509 = X509()
+                try:
+                    x509.parseBinary(cert_bytes)
+                except SyntaxError:
+                    raise BadCertificateError("Certificate could not be parsed")
+                self.certificate = x509
+            else:
+                raise ValueError(f"Unsupported certificate type: {self.certificateType}")
+            print(f"Remaining buffer before extensions: {parser.getRemainingLength()} bytes")
+            if parser.getRemainingLength() < 2:
+                raise TLSDecodeError(f"Not enough bytes for extensions length field: {parser.getRemainingLength()}")
+            parser.startLengthCheck(2)
+            print(f"Extensions length: {parser.lengthCheck}")
+            if parser.lengthCheck > parser.getRemainingLength():
+                raise TLSDecodeError(f"Extensions length {parser.lengthCheck} exceeds buffer {parser.getRemainingLength()}")
+            if parser.lengthCheck > 0:
+                ext_parser = Parser(parser.getFixBytes(parser.lengthCheck))
+                self.extensions = [] 
+                while ext_parser.getRemainingLength() > 0:
+                    ext_type = ext_parser.get(2)
+                    print(f"Parsing extension type: {ext_type}")
+                    ext_data_length = ext_parser.get(2)
+                    print(f"Extension data length: {ext_data_length}")
+                    if ext_data_length > ext_parser.getRemainingLength():
+                        raise TLSDecodeError(f"Extension data length {ext_data_length} exceeds buffer {ext_parser.getRemainingLength()}")
+                    ext_data = ext_parser.getFixBytes(ext_data_length)
+                    ext_parser_inner = Parser(ext_data)
+                    if ext_type == 65280:
+                        ext = AttestationTokenExtension().parse(ext_parser_inner)
+                        print(f"Parsed AttestationTokenExtension: {len(ext.token)} bytes")
+                    else:
+                        ext = TLSExtension(extType=ext_type).parse(ext_parser_inner)
+                    self.extensions.append(ext)
+            parser.stopLengthCheck()
+            return self
+        except Exception as e:
+            print(f"CertificateEntry parse failed: {str(e)}")
+            raise TLSDecodeError(f"CertificateEntry parse failed: {str(e)}")
 
     def __repr__(self):
-        return "CertificateEntry(certificate={0!r}, extensions={1!r})".format(
-                self.certificate, self.extensions)
-
+        return f"CertificateEntry(certificate={self.certificate!r}, extensions={self.extensions!r})"
 
 @deprecated_attrs({"cert_chain": "certChain"})
 class Certificate(HandshakeMsg):
@@ -1126,6 +1165,7 @@ class Certificate(HandshakeMsg):
         self.version = version
         self.certificate_list = []
         self.certificate_request_context = None
+        self._extensions = None
 
     @property
     def cert_chain(self):
@@ -1133,8 +1173,7 @@ class Certificate(HandshakeMsg):
         if self._cert_chain:
             return self._cert_chain
         elif self.certificate_list:
-            return X509CertChain([i.certificate
-                                  for i in self.certificate_list])
+            return X509CertChain([entry.certificate for entry in self.certificate_list])
         else:
             return None
 
@@ -1143,32 +1182,46 @@ class Certificate(HandshakeMsg):
         """Setter for the cert_chain property."""
         if isinstance(cert_chain, X509CertChain):
             self._cert_chain = cert_chain
-            self.certificate_list = [CertificateEntry(self.certificateType)
-                                     .create(i, []) for i
-                                     in cert_chain.x509List]
+            self.certificate_list = [
+                CertificateEntry(self.certificateType).create(
+                    cert, self._extensions if i == 0 else []
+                )
+                for i, cert in enumerate(cert_chain.x509List)
+            ]
         elif cert_chain is None:
             self.certificate_list = []
+            self._cert_chain = None
         else:
             self.certificate_list = cert_chain
+            self._cert_chain = None
 
     @deprecated_params({"cert_chain": "certChain"})
-    def create(self, cert_chain, context=b''):
+    def create(self, cert_chain, context=b'', extensions=None):
         """Initialise fields of the class."""
+        self._extensions = extensions
         self.cert_chain = cert_chain
         self.certificate_request_context = context
         return self
 
     def _parse_certificate_list(self, parser):
         self.certificate_list = []
+        parser = Parser(parser.getVarBytes(3))
         while parser.getRemainingLength():
             entry = CertificateEntry(self.certificateType)
-            self.certificate_list.append(entry.parse(parser))
+            try:
+                self.certificate_list.append(entry.parse(parser))
+            except Exception as e:
+                raise DecodeError(f"Failed to parse CertificateEntry: {str(e)}")
 
     def _parse_tls13(self, parser):
-        parser.startLengthCheck(3)
-        self.certificate_request_context = parser.getVarBytes(1)
-        self._parse_certificate_list(Parser(parser.getVarBytes(3)))
-        parser.stopLengthCheck()
+        try:
+            parser.startLengthCheck(3)
+            self.certificate_request_context = parser.getVarBytes(1)
+            print(f"Parsing Certificate context: {self.certificate_request_context.hex()}")
+            self._parse_certificate_list(parser)
+            parser.stopLengthCheck()
+        except Exception as e:
+            raise DecodeError(f"Certificate parse failed: {str(e)}")
         return self
 
     def _parse_tls12(self, p):
@@ -1187,12 +1240,15 @@ class Certificate(HandshakeMsg):
                 except SyntaxError:
                     raise BadCertificateError("Certificate could not be parsed")
                 certificate_list.append(x509)
-                index += len(certBytes)+3
+                index += len(certBytes) + 3
             if certificate_list:
                 self._cert_chain = X509CertChain(certificate_list)
+                self.certificate_list = [
+                    CertificateEntry(self.certificateType).create(cert, [])
+                    for cert in certificate_list
+                ]
         else:
             raise AssertionError()
-
         p.stopLengthCheck()
         return self
 
@@ -1207,23 +1263,22 @@ class Certificate(HandshakeMsg):
         w.addVarSeq(self.certificate_request_context, 1, 1)
         w2 = Writer()
         for entry in self.certificate_list:
-            w2.bytes += entry.write()
+            entry_bytes = entry.write()
+            w2.bytes += entry_bytes
+        if len(w2.bytes) > 2**24 - 1:
+            raise TLSIllegalParameterException(f"Certificate list too large: {len(w2.bytes)} bytes")
         w.addVarSeq(w2.bytes, 1, 3)
+        print(f"Writing Certificate: size={len(w.bytes)}")
         return w
 
     def _write_tls12(self):
         w = Writer()
         if self.certificateType == CertificateType.x509:
             chainLength = 0
-            if self._cert_chain:
-                certificate_list = self._cert_chain.x509List
-            else:
-                certificate_list = []
-            # determine length
+            certificate_list = self.cert_chain.x509List if self._cert_chain else []
             for cert in certificate_list:
                 bytes = cert.writeBytes()
-                chainLength += len(bytes)+3
-            # add bytes
+                chainLength += len(bytes) + 3
             w.add(chainLength, 3)
             for cert in certificate_list:
                 bytes = cert.writeBytes()
@@ -1241,12 +1296,8 @@ class Certificate(HandshakeMsg):
 
     def __repr__(self):
         if self.version <= (3, 3):
-            return "Certificate(cert_chain={0!r})"\
-                   .format(self.cert_chain.x509List)
-        return "Certificate(request_context={0!r}, "\
-               "certificate_list={1!r})"\
-               .format(self.certificate_request_context,
-                       self.certificate_list)
+            return f"Certificate(cert_chain={self.cert_chain.x509List!r})"
+        return f"Certificate(request_context={self.certificate_request_context!r}, certificate_list={self.certificate_list!r})"
 
 
 class CertificateRequest(HelloMessage):
@@ -2455,8 +2506,8 @@ class KeyUpdate(HandshakeMsg):
         return self.postWrite(writer)
 
 
-class CompressedCertificate(Certificate):
 
+class CompressedCertificate(Certificate):
     def __init__(self, certificateType, version=(3, 4)):
         super(CompressedCertificate, self).__init__(certificateType, version)
         self.handshakeType = HandshakeType.compressed_certificate
@@ -2534,16 +2585,22 @@ class CompressedCertificate(Certificate):
 
         if len(decompressed_msg) != expected_length:
             raise BadCertificateError(
-                "Decompressed message doesn't much length.")
+                "Decompressed message doesn't match length.")
 
         return decompressed_msg
 
-    def create(self, compression_algo, cert_chain, context=b''):
-        """Create CompressedCertificate message."""
-        super(CompressedCertificate, self).create(cert_chain, context)
+    def create(self, compression_algo, cert_chain, context=b'', extensions=None):
+        """Create CompressedCertificate message.
+
+        :param compression_algo: The compression algorithm ID.
+        :param cert_chain: The certificate chain (e.g., X509CertChain).
+        :param context: The certificate request context (bytearray).
+        :param extensions: List of TLSExtension objects for the first CertificateEntry.
+        """
+        super(CompressedCertificate, self).create(cert_chain, context, extensions)
         self.compression_algo = compression_algo
         certificate_msg = super(CompressedCertificate, self).write()
-        certificate_msg = certificate_msg[4:]
+        certificate_msg = certificate_msg[4:]  # Strip handshake header
         self._uncompressed_msg_len = len(certificate_msg)
         self._compressed_msg = self._compress(certificate_msg)
         return self

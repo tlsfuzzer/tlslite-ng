@@ -405,7 +405,57 @@ class VarBytesExtension(CustomNameExtension):
         return "{0}({1}=None)".format(self.__class__.__name__,
                                       self._field_name)
 
+# Simon's addition (CustomeExtensionType, ExensionType.att...., AttestationTokenExtension)
 
+# Define a custom extension type ID (private-use range: 65280-65535)
+class CustomExtensionType:
+    attestation_token = 65280  # Unique ID for attestation token extension
+
+# Add to ExtensionType for name mapping
+ExtensionType.attestation_token = CustomExtensionType.attestation_token
+
+class AttestationTokenExtension(VarBytesExtension):
+    """
+    Custom TLS extension for carrying an attestation token in ServerHello.
+
+    :vartype extType: int
+    :ivar extType: numeric type of AttestationTokenExtension, i.e., 65280
+
+    :vartype token: bytearray
+    :ivar token: the attestation token as a bytearray
+    """
+    def __init__(self):
+        super(AttestationTokenExtension, self).__init__(
+            field_name='token',
+            length_length=2,  # 2 bytes for length field (up to 2^16-1 bytes)
+            ext_type=CustomExtensionType.attestation_token
+        )
+        self.serverType = True  # Primarily for ServerHello
+
+    def create(self, token):
+        """
+        Initialize the extension with an attestation token.
+
+        :param bytearray token: the attestation token to include
+        :rtype: AttestationTokenExtension
+        """
+        self.token = token
+        return self
+
+    def __repr__(self):
+        """
+        Return human-readable representation of the extension.
+
+        :rtype: str
+        """
+        return f"AttestationTokenExtension(token={self.token!r})"
+    
+# Register the extension for ServerHello and ClientHello
+TLSExtension._serverExtensions[CustomExtensionType.attestation_token] = AttestationTokenExtension
+TLSExtension._universalExtensions[CustomExtensionType.attestation_token] = AttestationTokenExtension
+
+# End of Simon's addition    
+    
 class ListExtension(CustomNameExtension):
     """
     Abstract class for extensions that deal with single list in payload.
