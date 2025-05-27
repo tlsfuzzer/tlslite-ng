@@ -1562,7 +1562,7 @@ class TLSRecordLayer(object):
             valid_compression_algos)
 
         cert_extensions = extensions if version >= (3, 4) and extensions else None
-        print(f"_create_cert_msg - Attestation token present: {any(isinstance(ext, AttestationTokenExtension) for ext in (cert_extensions or []))}")
+        #print(f"_create_cert_msg - Attestation token present: {any(isinstance(ext, AttestationTokenExtension) for ext in (cert_extensions or []))}")
         if cert_extensions:
             for ext in cert_extensions:
                 ext_size = len(ext.write())
@@ -1570,7 +1570,7 @@ class TLSRecordLayer(object):
                     raise TLSIllegalParameterException(
                         f"Extension type={ext.extType} too large: {ext_size} bytes"
                     )
-                print(f"Creating cert msg with extension type={ext.extType}, size={ext_size}")
+                #print(f"Creating cert msg with extension type={ext.extType}, size={ext_size}")
 
         if chosen_compression_algo and not extensions:
             if peer == "server":
@@ -1590,5 +1590,5 @@ class TLSRecordLayer(object):
         msg_size = len(certificate_msg.write())
         if msg_size > 2**14:  # 16,384 bytes
             print(f"Warning: Certificate message size ({msg_size}) exceeds default record layer limit")
-        print(f"Certificate msg created: type={type(certificate_msg).__name__}, size={msg_size}")
+        #print(f"Certificate msg created: type={type(certificate_msg).__name__}, size={msg_size}")
         return certificate_msg

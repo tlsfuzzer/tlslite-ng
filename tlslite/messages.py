@@ -1079,7 +1079,6 @@ class CertificateEntry:
 
     def write(self):
         """Serialise the object."""
-        print("Before writing certificate")
         writer = Writer()
         if self.certificateType == CertificateType.x509:
             cert_bytes = self.certificate.writeBytes()
@@ -1089,26 +1088,23 @@ class CertificateEntry:
         else:
             raise ValueError(f"Set certificate type ({self.certificateType}) unsupported")
 
-        print("Before writing extensions")
         writer2 = Writer()
         if self.extensions:
             for ext in self.extensions:
                 ext_bytes = ext.write()
-                print(f"Writing extension type={ext.extType}, size={len(ext_bytes)}")
+                #print(f"Writing extension type={ext.extType}, size={len(ext_bytes)}")
                 writer2.bytes += ext_bytes
             if len(writer2.bytes) > 2**16 - 1:
                 raise TLSIllegalParameterException(f"Extensions too large: {len(writer2.bytes)} bytes")
-        print("Before weriter.addVarSeq")
         writer.addVarSeq(writer2.bytes, 1, 2)
 
-        print(f"Writing CertificateEntry: size={len(writer.bytes)}")
+        #print(f"Writing CertificateEntry: size={len(writer.bytes)}")
         return writer.bytes
 
     def parse(self, parser):
         try:
-            print("Parsing CertificateEntry")
             cert_length = parser.get(3)
-            print(f"Certificate data length: {cert_length}")
+            #print(f"Certificate data length: {cert_length}")
             if cert_length > parser.getRemainingLength():
                 raise TLSDecodeError(f"Certificate length {cert_length} exceeds buffer {parser.getRemainingLength()}")
             cert_bytes = parser.getFixBytes(cert_length)
@@ -1122,11 +1118,11 @@ class CertificateEntry:
                 self.certificate = x509
             else:
                 raise ValueError(f"Unsupported certificate type: {self.certificateType}")
-            print(f"Remaining buffer before extensions: {parser.getRemainingLength()} bytes")
+            #print(f"Remaining buffer before extensions: {parser.getRemainingLength()} bytes")
             if parser.getRemainingLength() < 2:
                 raise TLSDecodeError(f"Not enough bytes for extensions length field: {parser.getRemainingLength()}")
             parser.startLengthCheck(2)
-            print(f"Extensions length: {parser.lengthCheck}")
+            #print(f"Extensions length: {parser.lengthCheck}")
             if parser.lengthCheck > parser.getRemainingLength():
                 raise TLSDecodeError(f"Extensions length {parser.lengthCheck} exceeds buffer {parser.getRemainingLength()}")
             if parser.lengthCheck > 0:
@@ -1134,16 +1130,16 @@ class CertificateEntry:
                 self.extensions = [] 
                 while ext_parser.getRemainingLength() > 0:
                     ext_type = ext_parser.get(2)
-                    print(f"Parsing extension type: {ext_type}")
+                    #print(f"Parsing extension type: {ext_type}")
                     ext_data_length = ext_parser.get(2)
-                    print(f"Extension data length: {ext_data_length}")
+                    #print(f"Extension data length: {ext_data_length}")
                     if ext_data_length > ext_parser.getRemainingLength():
                         raise TLSDecodeError(f"Extension data length {ext_data_length} exceeds buffer {ext_parser.getRemainingLength()}")
                     ext_data = ext_parser.getFixBytes(ext_data_length)
                     ext_parser_inner = Parser(ext_data)
                     if ext_type == 65280:
                         ext = AttestationTokenExtension().parse(ext_parser_inner)
-                        print(f"Parsed AttestationTokenExtension: {len(ext.token)} bytes")
+                        #print(f"Parsed AttestationTokenExtension: {len(ext.token)} bytes")
                     else:
                         ext = TLSExtension(extType=ext_type).parse(ext_parser_inner)
                     self.extensions.append(ext)
@@ -1217,7 +1213,7 @@ class Certificate(HandshakeMsg):
         try:
             parser.startLengthCheck(3)
             self.certificate_request_context = parser.getVarBytes(1)
-            print(f"Parsing Certificate context: {self.certificate_request_context.hex()}")
+            #print(f"Parsing Certificate context: {self.certificate_request_context.hex()}")
             self._parse_certificate_list(parser)
             parser.stopLengthCheck()
         except Exception as e:
@@ -1268,7 +1264,7 @@ class Certificate(HandshakeMsg):
         if len(w2.bytes) > 2**24 - 1:
             raise TLSIllegalParameterException(f"Certificate list too large: {len(w2.bytes)} bytes")
         w.addVarSeq(w2.bytes, 1, 3)
-        print(f"Writing Certificate: size={len(w.bytes)}")
+        #print(f"Writing Certificate: size={len(w.bytes)}")
         return w
 
     def _write_tls12(self):
