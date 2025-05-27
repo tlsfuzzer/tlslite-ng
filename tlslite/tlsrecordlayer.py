@@ -32,6 +32,9 @@ from .bufferedsocket import BufferedSocket
 from .handshakesettings import HandshakeSettings
 from .keyexchange import KeyExchange
 
+from tlslite.constants import CertificateType, ExtensionType, CertificateCompressionAlgorithm
+from tlslite.errors import TLSIllegalParameterException
+
 class TLSRecordLayer(object):
     """
     This class handles data transmission for a TLS connection.
@@ -1538,35 +1541,54 @@ class TLSRecordLayer(object):
                     self.session.cl_app_secret,
                     self.session.sr_app_secret)
 
+
+
+
     def _create_cert_msg(self, peer, request_msg, valid_compression_algos,
-                         cert_chain, cert_type, cert_context=b'',
-                         version=(3, 2)):
+                        cert_chain, cert_type, cert_context=b'',
+                        version=(3, 2), extensions=None):
         """
         Creates either a Certificate or a CompressedCertificate message
         depending if the compress_certificate extension is present.
-        """
+        Uses Certificate if extensions are provided (e.g., for RA-TLS).
 
+        :param extensions: List of extensions to include in the Certificate
+            message (TLS 1.3 only).
+        """
         cert_req_comp_cert_ext = request_msg.getExtension(
             ExtensionType.compress_certificate)
         chosen_compression_algo = choose_compression_send_algo(
             version, cert_req_comp_cert_ext,
             valid_compression_algos)
 
-        if chosen_compression_algo:
+        cert_extensions = extensions if version >= (3, 4) and extensions else None
+        #print(f"_create_cert_msg - Attestation token present: {any(isinstance(ext, AttestationTokenExtension) for ext in (cert_extensions or []))}")
+        if cert_extensions:
+            for ext in cert_extensions:
+                ext_size = len(ext.write())
+                if ext_size > 2**16 - 1:
+                    raise TLSIllegalParameterException(
+                        f"Extension type={ext.extType} too large: {ext_size} bytes"
+                    )
+                #print(f"Creating cert msg with extension type={ext.extType}, size={ext_size}")
+
+        if chosen_compression_algo and not extensions:
             if peer == "server":
                 self.server_cert_compression_algo = \
-                    CertificateCompressionAlgorithm.toStr(
-                        chosen_compression_algo)
+                    CertificateCompressionAlgorithm.toStr(chosen_compression_algo)
             else:
                 self.client_cert_compression_algo = \
-                    CertificateCompressionAlgorithm.toStr(
-                        chosen_compression_algo)
+                    CertificateCompressionAlgorithm.toStr(chosen_compression_algo)
 
             certificate_msg = CompressedCertificate(cert_type, version)
             certificate_msg.create(
-                chosen_compression_algo, cert_chain, cert_context)
+                chosen_compression_algo, cert_chain, cert_context, cert_extensions)
         else:
             certificate_msg = Certificate(cert_type, version)
-            certificate_msg.create(cert_chain, cert_context)
+            certificate_msg.create(cert_chain, cert_context, extensions=cert_extensions)
 
+        msg_size = len(certificate_msg.write())
+        if msg_size > 2**14:  # 16,384 bytes
+            print(f"Warning: Certificate message size ({msg_size}) exceeds default record layer limit")
+        #print(f"Certificate msg created: type={type(certificate_msg).__name__}, size={msg_size}")
         return certificate_msg

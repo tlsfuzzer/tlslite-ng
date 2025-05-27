@@ -1,3 +1,15 @@
+# Fork README
+
+This fork implements ra-tls for TLS1.3.
+
+It includes an example in the `ra-tls-example` directory. Just run `tls_server.py` first, and then `tls_client.py`.
+
+A mock attestation token is taken from `sim_token.txt` and appended in the tls handshake in the Certificate message. More specifically, in the first CertificateEntry object.
+
+When the handshake has been successfully completed, the `tls_client.py` script outputs the attestation token to `received_token.bin`.
+
+# Original README
+
 tlslite-ng version 0.8.2 (2025-01-22)
 
 [![GitHub CI](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml/badge.svg)](https://github.com/tlsfuzzer/tlslite-ng/actions/workflows/ci.yml)
