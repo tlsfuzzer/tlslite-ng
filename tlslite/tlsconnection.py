@@ -40,6 +40,7 @@ from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
 from .utils.compression import choose_compression_send_algo
+from .sslkeylogging import SSLKeyLogger
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -76,7 +77,7 @@ class TLSConnection(TLSRecordLayer):
         compression wasn't used then it is set to None.
     """
 
-    def __init__(self, sock):
+    def __init__(self, sock, logging_enabled=False):
         """Create a new TLSConnection instance.
 
         :param sock: The socket data will be transmitted on.  The
@@ -84,6 +85,9 @@ class TLSConnection(TLSRecordLayer):
             non-blocking mode.
 
         :type sock: socket.socket
+
+        :param logging_enabled: Enable logging session secrets to the SSLKEYLOGFILE env variable.
+        :type logging_enabled: bool
         """
         TLSRecordLayer.__init__(self, sock)
         self.serverSigAlg = None
@@ -101,6 +105,7 @@ class TLSConnection(TLSRecordLayer):
         self._pha_supported = False
         self.client_cert_compression_algo = None
         self.server_cert_compression_algo = None
+        self.ssl_key_logger = SSLKeyLogger(logging_enabled)
 
     def keyingMaterialExporter(self, label, length=20):
         """Return keying material as described in RFC 5705
@@ -414,7 +419,6 @@ class TLSConnection(TLSRecordLayer):
                               session=None, settings=None, checker=None,
                               nextProtos=None, serverName=None, reqTack=True,
                               alpn=None):
-
         handshaker = self._handshakeClientAsyncHelper(srpParams=srpParams,
                 certParams=certParams,
                 anonParams=anonParams,
@@ -426,6 +430,10 @@ class TLSConnection(TLSRecordLayer):
                 alpn=alpn)
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
+
+        # Log client random and master secret for version < TLS1.3
+        if self.version < (3, 4):
+            self.ssl_key_logger.log_session_keys(('CLIENT_RANDOM', self._clientRandom, self.session.masterSecret))
 
 
     def _handshakeClientAsyncHelper(self, srpParams, certParams, anonParams,
@@ -1323,6 +1331,14 @@ class TLSConnection(TLSRecordLayer):
                                                     self._handshake_hash,
                                                     prfName)
 
+        # TLS1.3 log Client and Server traffic secrets for SSLKEYLOGFILE
+        self.ssl_key_logger.log_session_keys([
+            ('CLIENT_HANDSHAKE_TRAFFIC_SECRET',
+             clientHello.random, cl_handshake_traffic_secret),
+            ('SERVER_HANDSHAKE_TRAFFIC_SECRET',
+             clientHello.random, sr_handshake_traffic_secret)
+        ])
+
         # prepare for reading encrypted messages
         self._recordLayer.calcTLS1_3PendingState(
             serverHello.cipher_suite,
@@ -1613,6 +1629,15 @@ class TLSConnection(TLSRecordLayer):
                                                bytearray(b'exp master'),
                                                self._handshake_hash, prfName)
 
+
+        # Now that we have all the TLS1.3 secrets during the handshake,
+        # log them if necessary
+        self.ssl_key_logger.log_session_keys([
+            ('EXPORTER_SECRET', clientHello.random, exporter_master_secret),
+            ('CLIENT_TRAFFIC_SECRET_0', clientHello.random, cl_app_traffic),
+            ('SERVER_TRAFFIC_SECRET_0', clientHello.random, sr_app_traffic)
+        ])
+
         self._recordLayer.calcTLS1_3PendingState(
             serverHello.cipher_suite,
             cl_app_traffic,
@@ -1708,7 +1733,9 @@ class TLSConnection(TLSRecordLayer):
                             exporterMasterSecret=exporter_master_secret,
                             resumptionMasterSecret=resumption_master_secret,
                             # NOTE it must be a reference, not a copy!
-                            tickets=self.tickets)
+                            tickets=self.tickets,
+                            cl_hs_traffic_secret=cl_handshake_traffic_secret,
+                            sr_hs_traffic_secret=sr_handshake_traffic_secret)
 
         yield "finished" if not resuming else "resumed_and_finished"
 
@@ -2249,6 +2276,12 @@ class TLSConnection(TLSRecordLayer):
             nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni)
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
+
+        # Log client random and master secret for version < TLS1.3
+        if self.version < (3, 4):
+            self.ssl_key_logger.log_session_keys(('CLIENT_RANDOM',
+                                                  self._clientRandom,
+                                                  self.session.masterSecret))
 
 
     def _handshakeServerAsyncHelper(self, verifierDB,
@@ -2956,6 +2989,15 @@ class TLSConnection(TLSRecordLayer):
                                                     bytearray(b'c hs traffic'),
                                                     self._handshake_hash,
                                                     prf_name)
+
+        # TLS1.3 log Client and Server traffic secrets for SSLKEYLOGFILE
+        self.ssl_key_logger.log_session_keys([
+            ('CLIENT_HANDSHAKE_TRAFFIC_SECRET',
+             clientHello.random, cl_handshake_traffic_secret),
+            ('SERVER_HANDSHAKE_TRAFFIC_SECRET',
+             clientHello.random, sr_handshake_traffic_secret)
+        ])
+
         self.version = version
         self._recordLayer.calcTLS1_3PendingState(
             cipherSuite,
@@ -3222,6 +3264,19 @@ class TLSConnection(TLSRecordLayer):
                                                self._handshake_hash,
                                                prf_name)
 
+
+        # Now that we have all the TLS1.3 secrets during the handshake,
+        # log them if necessary
+        self.ssl_key_logger.log_session_keys([
+            ('EXPORTER_SECRET',
+             clientHello.random, exporter_master_secret),
+            ('CLIENT_TRAFFIC_SECRET_0',
+             clientHello.random, cl_app_traffic),
+            ('SERVER_TRAFFIC_SECRET_0',
+             clientHello.random, sr_app_traffic)
+        ])
+
+
         # verify Finished of client
         cl_finished_key = HKDF_expand_label(cl_handshake_traffic_secret,
                                             b"finished", b'',
@@ -3285,7 +3340,9 @@ class TLSConnection(TLSRecordLayer):
                             exporterMasterSecret=exporter_master_secret,
                             resumptionMasterSecret=resumption_master_secret,
                             # NOTE it must be a reference, not a copy
-                            tickets=self.tickets)
+                            tickets=self.tickets,
+                            cl_hs_traffic_secret=cl_handshake_traffic_secret,
+                            sr_hs_traffic_secret=sr_handshake_traffic_secret)
 
         # switch to application_traffic_secret for client packets
         self._changeReadState()
@@ -4933,6 +4990,7 @@ class TLSConnection(TLSRecordLayer):
                               server_random=server_random,
                               output_length=48)
         return secret
+
 
     @staticmethod
     def _pickServerKeyExchangeSig(settings, clientHello, certList=None,
