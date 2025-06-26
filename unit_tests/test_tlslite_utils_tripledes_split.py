@@ -10,8 +10,6 @@ except ImportError:
     import unittest
 
 import sys
-if sys.version_info[:2] > (3, 8):
-    import pytest
 
 from hypothesis import given, assume, settings
 from hypothesis.strategies import binary, integers, tuples
