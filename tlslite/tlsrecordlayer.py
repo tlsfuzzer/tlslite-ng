@@ -952,14 +952,11 @@ class TLSRecordLayer(object):
 
     def _sendMsgs(self, msgs):
         # send messages together in a single TCP write
-        self.sock.buffer_writes = True
         randomizeFirstBlock = True
         for msg in msgs:
             for result in self._sendMsg(msg, randomizeFirstBlock):
                 yield result
             randomizeFirstBlock = True
-        self.sock.flush()
-        self.sock.buffer_writes = False
 
     def _sendMsg(self, msg, randomizeFirstBlock=True, update_hashes=True):
         """Fragment and send message through socket"""
