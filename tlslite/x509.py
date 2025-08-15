@@ -17,6 +17,7 @@ from .utils.keyfactory import (
     _create_public_ecdsa_key,
     _create_public_dsa_key,
     _create_public_eddsa_key,
+    _create_public_mldsa_key,
 )
 from .utils.pem import *
 from .utils.compat import compatHMAC, b2a_hex
@@ -164,6 +165,11 @@ class X509(object):
                 tbs_certificate.getChildBytes(subject_public_key_info_index)
             )
             return
+        elif self.certAlg in ("mldsa44", "mldsa65", "mldsa87"):
+            self.publicKey = _mldsa_pubkey_parsing(
+                tbs_certificate.getChildBytes(subject_public_key_info_index)
+            )
+            return
         else:  # rsa-pss
             pass  # ignore parameters, if any - don't apply key restrictions
 
@@ -187,7 +193,7 @@ class X509(object):
 
 def get_algorithm(alg_identifier):
     """
-    Rethrive the algoritm from the AlgorithmIdentifier
+    Retrive the algoritm from the AlgorithmIdentifier
     """
     # first item of AlgorithmIdentifier is the algorithm
     alg = alg_identifier.getChild(0)
@@ -204,6 +210,12 @@ def get_algorithm(alg_identifier):
         return "Ed25519"
     elif list(alg_oid) == [43, 101, 113]:
         return "Ed448"
+    elif list(alg_oid) == [96, 134, 72, 1, 101, 3, 4, 3, 17]:
+        return "mldsa44"
+    elif list(alg_oid) == [96, 134, 72, 1, 101, 3, 4, 3, 18]:
+        return "mldsa65"
+    elif list(alg_oid) == [96, 134, 72, 1, 101, 3, 4, 3, 19]:
+        return "mldsa87"
     else:
         raise SyntaxError("Unrecognized AlgorithmIdentifier")
 
@@ -222,6 +234,24 @@ def _eddsa_pubkey_parsing(subject_public_key_info):
         raise SyntaxError("Malformed or unsupported public key in "
                           "certificate")
     return _create_public_eddsa_key(public_key)
+
+
+def _mldsa_pubkey_parsing(subject_public_key_info):
+    """
+    Convert the raw DER encoded ML-DSA parameters into a public key object.
+
+    :param subject_public_key_info: bytes like object with the DER encoded
+        public key in it
+    """
+    from dilithium_py.ml_dsa.pkcs import pk_from_der
+    try:
+        # dilithium py can do parsing of SPKI on its own so use it
+        public_key = pk_from_der(subject_public_key_info)
+    except Exception:
+        raise SyntaxError("Malformed or unsupported public key in certificate")
+
+    return _create_public_mldsa_key(public_key)
+
 
 def _rsa_pubkey_parsing(subject_public_key_info, cert_alg):
     """

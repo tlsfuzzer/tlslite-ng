@@ -250,3 +250,20 @@ except SyntaxError:
     ML_KEM_AVAILABLE = False
 else:
     ML_KEM_AVAILABLE = True
+
+
+# dilithium-py is an optional dependency
+try:
+    from dilithium_py.ml_dsa.ml_dsa import ML_DSA
+    from dilithium_py.ml_dsa.default_parameters import ML_DSA_44, ML_DSA_65, \
+            ML_DSA_87
+    del ML_DSA
+    del ML_DSA_44
+    del ML_DSA_65
+    del ML_DSA_87
+except ImportError:
+    ML_DSA_AVAILABLE = False
+except SyntaxError:
+    ML_DSA_AVAILABLE = False
+else:
+    ML_DSA_AVAILABLE = True
