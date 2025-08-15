@@ -10,6 +10,7 @@ from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
 from .python_dsakey import Python_DSAKey
 from .python_eddsakey import Python_EdDSAKey
+from .python_mldsakey import Python_MLDSAKey
 from tlslite.utils import cryptomath
 
 if cryptomath.m2cryptoLoaded:
@@ -249,6 +250,18 @@ def _create_public_eddsa_key(public_key,
     for impl in implementations:
         if impl == "python":
             return Python_EdDSAKey(public_key)
+    raise ValueError("No acceptable implementation")
+
+
+def _create_public_mldsa_key(public_key,
+                             implementations=("python",)):
+    """
+    Convert the dilithium-py public key into concrete implementation of
+    verifier.
+    """
+    for impl in implementations:
+        if impl == "python":
+            return Python_MLDSAKey(public_key)
     raise ValueError("No acceptable implementation")
 
 

@@ -1492,7 +1492,10 @@ class TLSConnection(TLSRecordLayer):
                 signature_scheme = delegated_credential.cred.dc_cert_verify_algorithm
 
             if signature_scheme in (SignatureScheme.ed25519,
-                                    SignatureScheme.ed448):
+                                    SignatureScheme.ed448,
+                                    SignatureScheme.mldsa44,
+                                    SignatureScheme.mldsa65,
+                                    SignatureScheme.mldsa87):
                 pad_type = None
                 hash_name = "intrinsic"
                 salt_len = None
@@ -2107,7 +2110,19 @@ class TLSConnection(TLSRecordLayer):
                         "Peer sent certificate we did not advertise support "
                         "for: {0}".format(cert_type)):
                     yield result
-
+        elif cert_type in ("mldsa44", "mldsa65", "mldsa87"):
+            if self.version < (3, 4):
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Peer sent certificate incompatible with negotiated "
+                        "TLS version"):
+                    yield result
+            if cert_type not in settings.more_sig_schemes:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Peer sent certificate we did not advertise support "
+                        "for: {0}".format(cert_type)):
+                    yield result
         else:
             # for RSA and DSA keys
             if len(publicKey) < settings.minKeySize:

@@ -32,7 +32,7 @@ RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
-SIGNATURE_SCHEMES = ["Ed25519", "Ed448",
+SIGNATURE_SCHEMES = ["mldsa87", "mldsa65", "mldsa44", "Ed25519", "Ed448",
                      "ecdsa_brainpoolP512r1tls13_sha512",
                      "ecdsa_brainpoolP384r1tls13_sha384",
                      "ecdsa_brainpoolP256r1tls13_sha256"]
