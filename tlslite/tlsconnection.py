@@ -19,6 +19,7 @@ from __future__ import division
 import time
 import socket
 from itertools import chain
+from tlslite.x509 import Credential
 from .utils.compat import formatExceptionTrace
 from .tlsrecordlayer import TLSRecordLayer
 from .session import Session, Ticket
@@ -29,7 +30,9 @@ from .utils.lists import getFirstMatching
 from .errors import *
 from .messages import *
 from .mathtls import *
-from .handshakesettings import HandshakeSettings, KNOWN_VERSIONS, CURVE_ALIASES
+from .utils.ecc import curve_name_to_hash_name
+from .handshakesettings import HandshakeSettings, KNOWN_VERSIONS, \
+        CURVE_ALIASES, DC_VALID_TIME
 from .handshakehashes import HandshakeHashes
 from .utils.tackwrapper import *
 from .utils.deprecations import deprecated_params
@@ -40,6 +43,7 @@ from .handshakehelpers import HandshakeHelpers
 from .utils.cipherfactory import createAESCCM, createAESCCM_8, \
         createAESGCM, createCHACHA20
 from .utils.compression import choose_compression_send_algo
+
 
 class TLSConnection(TLSRecordLayer):
     """
@@ -488,26 +492,25 @@ class TLSConnection(TLSRecordLayer):
             if not isinstance(clientCertChain, X509CertChain):
                 raise ValueError("Unrecognized certificate type")
             if "x509" not in settings.certificateTypes:
-                raise ValueError("Client certificate doesn't match "\
+                raise ValueError("Client certificate doesn't match "
                                  "Handshake Settings")
 
         if session:
             # session.valid() ensures session is resumable and has
             # non-empty sessionID
             if not session.valid():
-                session = None #ignore non-resumable sessions...
+                session = None  #ignore non-resumable sessions...
             elif session.resumable:
                 if session.srpUsername != srpUsername:
                     raise ValueError("Session username doesn't match")
                 if session.serverName != serverName:
                     raise ValueError("Session servername doesn't match")
 
-        #Add Faults to parameters
+        # Add Faults to parameters
         if srpUsername and self.fault == Fault.badUsername:
             srpUsername += bytearray(b"GARBAGE")
         if password and self.fault == Fault.badPassword:
             password += bytearray(b"GARBAGE")
-
 
         # Tentatively set the client's record version.
         # We'll use this for the ClientHello, and if an error occurs
@@ -524,14 +527,14 @@ class TLSConnection(TLSRecordLayer):
                                         srpUsername, srpParams, certParams,
                                         anonParams, serverName, nextProtos,
                                         reqTack, alpn):
-            if result in (0,1): yield result
+            if result in (0, 1): yield result
             else: break
         clientHello = result
 
-        #Get the ServerHello.
+        # Get the ServerHello.
         for result in self._clientGetServerHello(settings, session,
                                                  clientHello):
-            if result in (0,1): yield result
+            if result in (0, 1): yield result
             else: break
         serverHello = result
         cipherSuite = serverHello.cipher_suite
@@ -588,11 +591,11 @@ class TLSConnection(TLSRecordLayer):
         if serverHello.getExtension(ExtensionType.extended_master_secret):
             self.extendedMasterSecret = True
 
-        #If the server elected to resume the session, it is handled here.
+        # If the server elected to resume the session, it is handled here.
         for result in self._clientResume(session, serverHello,
                         clientHello.random,
                         nextProto, settings):
-            if result in (0,1): yield result
+            if result in (0, 1): yield result
             else: break
 
         if result == "resumed_and_finished":
@@ -606,9 +609,9 @@ class TLSConnection(TLSRecordLayer):
                 session.appProto = alpnExt.protocol_names[0]
             return
 
-        #If the server selected an SRP ciphersuite, the client finishes
-        #reading the post-ServerHello messages, then derives a
-        #premasterSecret and sends a corresponding ClientKeyExchange.
+        # If the server selected an SRP ciphersuite, the client finishes
+        # reading the post-ServerHello messages, then derives a
+        # premasterSecret and sends a corresponding ClientKeyExchange.
         if cipherSuite in CipherSuite.srpAllSuites:
             keyExchange = SRPKeyExchange(cipherSuite, clientHello,
                                          serverHello, None, None,
@@ -616,8 +619,8 @@ class TLSConnection(TLSRecordLayer):
                                          password=password,
                                          settings=settings)
 
-        #If the server selected an anonymous ciphersuite, the client
-        #finishes reading the post-ServerHello messages.
+        # If the server selected an anonymous ciphersuite, the client
+        # finishes reading the post-ServerHello messages.
         elif cipherSuite in CipherSuite.dhAllSuites:
             keyExchange = DHE_RSAKeyExchange(cipherSuite, clientHello,
                                              serverHello, None)
@@ -628,12 +631,12 @@ class TLSConnection(TLSRecordLayer):
                                                serverHello, None,
                                                acceptedCurves)
 
-        #If the server selected a certificate-based RSA ciphersuite,
-        #the client finishes reading the post-ServerHello messages. If
-        #a CertificateRequest message was sent, the client responds with
-        #a Certificate message containing its certificate chain (if any),
-        #and also produces a CertificateVerify message that signs the
-        #ClientKeyExchange.
+        # If the server selected a certificate-based RSA ciphersuite,
+        # the client finishes reading the post-ServerHello messages. If
+        # a CertificateRequest message was sent, the client responds with
+        # a Certificate message containing its certificate chain (if any),
+        # and also produces a CertificateVerify message that signs the
+        # ClientKeyExchange.
         else:
             keyExchange = RSAKeyExchange(cipherSuite, clientHello,
                                          serverHello, None)
@@ -654,15 +657,15 @@ class TLSConnection(TLSRecordLayer):
         (premasterSecret, serverCertChain, clientCertChain,
          tackExt) = result
 
-        #After having previously sent a ClientKeyExchange, the client now
-        #initiates an exchange of Finished messages.
+        # After having previously sent a ClientKeyExchange, the client now
+        # initiates an exchange of Finished messages.
         # socket buffering is turned off in _clientFinished
         for result in self._clientFinished(premasterSecret,
                             clientHello.random,
                             serverHello.random,
                             cipherSuite, settings.cipherImplementations,
                             nextProto, settings):
-                if result in (0,1): yield result
+                if result in (0, 1): yield result
                 else: break
         masterSecret = result
 
@@ -678,7 +681,7 @@ class TLSConnection(TLSRecordLayer):
             ext_s = serverHello.getExtension(ExtensionType.ec_point_formats)
             if ext_c and ext_s:
                 try:
-                    ext_ec_point = next((i for i in ext_c.formats \
+                    ext_ec_point = next((i for i in ext_c.formats
                                         if i in ext_s.formats))
 
                 except StopIteration as alert:
@@ -708,7 +711,7 @@ class TLSConnection(TLSRecordLayer):
     def _clientSendClientHello(self, settings, session, srpUsername,
                                 srpParams, certParams, anonParams,
                                 serverName, nextProtos, reqTack, alpn):
-        #Initialize acceptable ciphersuites
+        # Initialize acceptable ciphersuites
         cipherSuites = [CipherSuite.TLS_EMPTY_RENEGOTIATION_INFO_SCSV]
         if srpParams:
             cipherSuites += CipherSuite.getSrpAllSuites(settings)
@@ -725,18 +728,18 @@ class TLSConnection(TLSRecordLayer):
         else:
             assert False
 
-        #Add any SCSVs. These are not real cipher suites, but signaling
-        #values which reuse the cipher suite field in the ClientHello.
+        # Add any SCSVs. These are not real cipher suites, but signaling
+        # values which reuse the cipher suite field in the ClientHello.
         wireCipherSuites = list(cipherSuites)
         if settings.sendFallbackSCSV:
             wireCipherSuites.append(CipherSuite.TLS_FALLBACK_SCSV)
 
-        #Initialize acceptable certificate types
+        # Initialize acceptable certificate types
         certificateTypes = settings.getCertificateTypes()
 
         extensions = []
 
-        #Initialize TLS extensions
+        # Initialize TLS extensions
         if settings.useEncryptThenMAC:
             extensions.append(TLSExtension().\
                               create(ExtensionType.encrypt_then_mac,
@@ -773,6 +776,12 @@ class TLSConnection(TLSRecordLayer):
         if alpn:
             extensions.append(ALPNExtension().create(alpn))
 
+        # In TLS1.3 delegated credentials are supported
+        if settings.maxVersion >= (3, 4) and \
+                settings.minVersion <= (3, 4):
+            if settings.dc_sig_algs:
+                extensions.append(DelegatedCredentialExtension()\
+                                       .create(settings.dc_sig_algs))
         session_id = bytearray()
         # when TLS 1.3 advertised, add key shares, set fake session_id
         shares = None
@@ -807,7 +816,7 @@ class TLSConnection(TLSRecordLayer):
             extensions.append(ext)
 
         groups = []
-        #Send the ECC extensions only if we advertise ECC ciphers
+        # Send the ECC extensions only if we advertise ECC ciphers
         if next((cipher for cipher in cipherSuites \
                 if cipher in CipherSuite.ecdhAllSuites), None) is not None:
             groups.extend(self._curveNamesToList(settings))
@@ -875,10 +884,10 @@ class TLSConnection(TLSRecordLayer):
 
         sent_version = min(settings.maxVersion, (3, 3))
 
-        #Either send ClientHello (with a resumable session)...
+        # Either send ClientHello (with a resumable session)...
         if session and session.sessionID:
-            #If it's resumable, then its
-            #ciphersuite must be one of the acceptable ciphersuites
+            # If it's resumable, then its
+            # ciphersuite must be one of the acceptable ciphersuites
             if session.cipherSuite not in cipherSuites:
                 raise ValueError("Session's cipher suite not consistent "\
                                  "with parameters")
@@ -892,7 +901,7 @@ class TLSConnection(TLSRecordLayer):
                                    session.serverName,
                                    extensions=extensions)
 
-        #Or send ClientHello (without)
+        # Or send ClientHello (without)
         else:
             clientHello = ClientHello()
             clientHello.create(sent_version, getRandomBytes(32),
@@ -1090,8 +1099,8 @@ class TLSConnection(TLSRecordLayer):
 
         serverHello = result
 
-        #Get the server version.  Do this before anything else, so any
-        #error alerts will use the server's version
+        # Get the server version.  Do this before anything else, so any
+        # error alerts will use the server's version
         real_version = serverHello.server_version
         if serverHello.server_version >= (3, 3):
             ext = serverHello.getExtension(ExtensionType.supported_versions)
@@ -1099,7 +1108,7 @@ class TLSConnection(TLSRecordLayer):
                 real_version = ext.version
         self.version = real_version
 
-        #Check ServerHello
+        # Check ServerHello
         if hello_retry and \
                 hello_retry.cipher_suite != serverHello.cipher_suite:
             for result in self._sendError(AlertDescription.illegal_parameter,
@@ -1386,6 +1395,8 @@ class TLSConnection(TLSRecordLayer):
         else:
             expected_msg = (HandshakeType.certificate_request,
                             HandshakeType.certificate)
+        # for dc to be in session
+        delegated_credential = None
 
         if not sr_psk:
             for result in self._getMsg(ContentType.handshake, expected_msg,
@@ -1448,6 +1459,38 @@ class TLSConnection(TLSRecordLayer):
                     break
             publicKey, serverCertChain, tackExt = result
 
+            cert_entry = certificate.certificate_list[0]
+            cert_ext = None
+            del_cred_list = []
+            for ext in cert_entry.extensions:
+                if isinstance(ext, DelegatedCredentialCertExtension):
+                    del_cred_list.append(ext)
+                    cert_ext = ext
+            if len(del_cred_list) > 1:
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "The server sent multiple delegated credentials "\
+                        "extensions in a single CertificateEntry."):
+                    yield result
+
+            if cert_ext:
+                if not settings.dc_sig_algs:
+                    for result in self._sendError(
+                            AlertDescription.unexpected_message,
+                            "The server provided delegated credential, "\
+                            "when client does not support it."):
+                        yield result
+
+                if not cert_ext.delegated_credential.verify(
+                        cert_entry,
+                        clientHello,
+                        certificate_verify):
+                    raise TLSDecryptionFailed("server Delegated Credential " \
+                                              "verification failed.")
+                delegated_credential = cert_ext.delegated_credential
+                publicKey = delegated_credential.cred.pub_key
+                signature_scheme = delegated_credential.cred.dc_cert_verify_algorithm
+
             if signature_scheme in (SignatureScheme.ed25519,
                                     SignatureScheme.ed448):
                 pad_type = None
@@ -1457,11 +1500,11 @@ class TLSConnection(TLSRecordLayer):
             elif signature_scheme[1] == SignatureAlgorithm.ecdsa:
                 pad_type = None
                 hash_name = HashAlgorithm.toRepr(signature_scheme[0])
-                matching_hash = self._curve_name_to_hash_name(
+                matching_hash = curve_name_to_hash_name(
                     publicKey.curve_name)
                 if hash_name != matching_hash:
                     raise TLSIllegalParameterException(
-                        "server selected signature method invalid for the "
+                        "server selected signature method invalid for the "\
                         "certificate it presented (curve mismatch)")
 
                 salt_len = None
@@ -1708,7 +1751,8 @@ class TLSConnection(TLSRecordLayer):
                             exporterMasterSecret=exporter_master_secret,
                             resumptionMasterSecret=resumption_master_secret,
                             # NOTE it must be a reference, not a copy!
-                            tickets=self.tickets)
+                            tickets=self.tickets,
+                            delegated_credential=delegated_credential)
 
         yield "finished" if not resuming else "resumed_and_finished"
 
@@ -1941,7 +1985,7 @@ class TLSConnection(TLSRecordLayer):
 
         clientKeyExchange = keyExchange.makeClientKeyExchange()
 
-        #Send ClientKeyExchange
+        # Send ClientKeyExchange
         for result in self._sendMsg(clientKeyExchange):
             yield result
 
@@ -1950,8 +1994,8 @@ class TLSConnection(TLSRecordLayer):
         # make a copy of it
         self._certificate_verify_handshake_hash = self._handshake_hash.copy()
 
-        #if client auth was requested and we have a private key, send a
-        #CertificateVerify
+        # if client auth was requested and we have a private key, send a
+        # CertificateVerify
         if certificateRequest and privateKey:
             valid_sig_algs = self._sigHashesToList(settings, privateKey,
                                                    clientCertChain)
@@ -1986,7 +2030,7 @@ class TLSConnection(TLSRecordLayer):
                                 clientRandom, serverRandom,
                                 cipherImplementations)
 
-        #Exchange ChangeCipherSpec and Finished messages
+        # Exchange ChangeCipherSpec and Finished messages
         for result in self._sendFinished(masterSecret, cipherSuite, nextProto,
                 settings=settings):
             yield result
@@ -2005,7 +2049,7 @@ class TLSConnection(TLSRecordLayer):
         Checks if the certificate key size matches the minimum and maximum
         sizes set or that it uses curves enabled in settings
         """
-        #Get and check public key from the cert chain
+        # Get and check public key from the cert chain
         publicKey = cert_chain.getEndEntityPublicKey()
         cert_type = cert_chain.x509List[0].certAlg
         if cert_type == "ecdsa":
@@ -2081,7 +2125,7 @@ class TLSConnection(TLSRecordLayer):
         yield publicKey
 
     def _clientGetKeyFromChain(self, certificate, settings, tack_ext=None):
-        #Get and check cert chain from the Certificate message
+        # Get and check cert chain from the Certificate message
         cert_chain = certificate.cert_chain
         if not cert_chain or cert_chain.getNumCerts() == 0:
             for result in self._sendError(
@@ -2126,7 +2170,8 @@ class TLSConnection(TLSRecordLayer):
                         sessionCache=None, settings=None, checker=None,
                         reqCAs = None,
                         tacks=None, activationFlags=0,
-                        nextProtos=None, anon=False, alpn=None, sni=None):
+                        nextProtos=None, anon=False, alpn=None, sni=None,
+                        dc_key=None, del_cred=None):
         """Perform a handshake in the role of server.
 
         This function performs an SSL or TLS handshake.  Depending on
@@ -2207,6 +2252,13 @@ class TLSConnection(TLSRecordLayer):
         :param sni: expected virtual name hostname. Deprecated, use the
             `virtual_hosts` in HandshakeSettings.
 
+        :type dc_key: ~tlslite.utils.rsakey.RSAKey
+        :param dc_key: The delegated credential's private key to be used
+            if the client supports DC.
+
+        :type del_cred: bytearray
+        :param del_cred: The delegated credential
+
         :raises socket.error: If a socket error occurs.
         :raises tlslite.errors.TLSAbruptCloseError: If the socket is closed
             without a preceding alert.
@@ -2218,7 +2270,8 @@ class TLSConnection(TLSRecordLayer):
                 certChain, privateKey, reqCert, sessionCache, settings,
                 checker, reqCAs,
                 tacks=tacks, activationFlags=activationFlags,
-                nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni):
+                nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni,
+                dc_key=dc_key, del_cred=del_cred):
             pass
 
 
@@ -2227,7 +2280,8 @@ class TLSConnection(TLSRecordLayer):
                              sessionCache=None, settings=None, checker=None,
                              reqCAs=None,
                              tacks=None, activationFlags=0,
-                             nextProtos=None, anon=False, alpn=None, sni=None
+                             nextProtos=None, anon=False, alpn=None, sni=None,
+                             dc_key=None, del_cred=None
                              ):
         """Start a server handshake operation on the TLS connection.
 
@@ -2246,7 +2300,8 @@ class TLSConnection(TLSRecordLayer):
             sessionCache=sessionCache, settings=settings,
             reqCAs=reqCAs,
             tacks=tacks, activationFlags=activationFlags,
-            nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni)
+            nextProtos=nextProtos, anon=anon, alpn=alpn, sni=sni,
+            dc_key=dc_key, del_cred=del_cred)
         for result in self._handshakeWrapperAsync(handshaker, checker):
             yield result
 
@@ -2255,7 +2310,7 @@ class TLSConnection(TLSRecordLayer):
                                     cert_chain, privateKey, reqCert,
                                     sessionCache, settings, reqCAs, tacks,
                                     activationFlags, nextProtos, anon, alpn,
-                                    sni):
+                                    sni, dc_key, del_cred):
 
         self._handshakeStart(client=False)
 
@@ -2266,7 +2321,7 @@ class TLSConnection(TLSRecordLayer):
         if (not verifierDB) and (not cert_chain) and not anon and \
                 not settings.pskConfigs and not settings.virtual_hosts:
             raise ValueError("Caller passed no authentication credentials")
-        if cert_chain and not privateKey:
+        if cert_chain and not privateKey and not (dc_key or del_cred):
             raise ValueError("Caller passed a cert_chain but no privateKey")
         if privateKey and not cert_chain:
             raise ValueError("Caller passed a privateKey but no cert_chain")
@@ -2310,7 +2365,8 @@ class TLSConnection(TLSRecordLayer):
                                                      cipherSuite,
                                                      privateKey, cert_chain,
                                                      version, sig_scheme,
-                                                     alpn, reqCert):
+                                                     alpn, reqCert, dc_key,
+                                                     del_cred):
                 if result in (0, 1):
                     yield result
                 else:
@@ -2589,7 +2645,7 @@ class TLSConnection(TLSRecordLayer):
                 if result in (0,1): yield result
                 else: break
 
-        #Add the session object to the session cache
+        # Add the session object to the session cache
         if sessionCache and sessionID:
             sessionCache[sessionID] = self.session
 
@@ -2794,7 +2850,7 @@ class TLSConnection(TLSRecordLayer):
 
     def _serverTLS13Handshake(self, settings, clientHello, cipherSuite,
                               privateKey, serverCertChain, version, scheme,
-                              srv_alpns, reqCert):
+                              srv_alpns, reqCert, dc_key, del_cred):
         """Perform a TLS 1.3 handshake"""
         prf_name, prf_size = self._getPRFParams(cipherSuite)
         cert_req_comp_cert_ext = None
@@ -2879,10 +2935,29 @@ class TLSConnection(TLSRecordLayer):
 
         # we need to gen key share either when we selected psk_dhe_ke or
         # regular certificate authenticated key exchange (the default)
+        # or usage of delegated credential
+        delegated_credential = None
+        dc_sig_scheme = None
+        dc_client_ext = clientHello.getExtension(
+            ExtensionType.delegated_credential)
+        dc_server_ext = None
+        if del_cred:
+            dc_server_ext = [del_cred.cred.dc_cert_verify_algorithm]
+
+        if dc_server_ext and dc_client_ext is not None and del_cred and dc_key:
+            try:
+                dc_sig_scheme = next((i for i in dc_client_ext.sigalgs \
+                                                     if i in dc_server_ext))
+                # If no sig algs were found, the server does not support
+                # requested dc sig algs
+            except StopIteration:
+                dc_sig_scheme = None
+
         if (psk and
                 PskKeyExchangeMode.psk_dhe_ke in psk_types.modes and
                 "psk_dhe_ke" in settings.psk_modes) or\
-                (psk is None and privateKey):
+                (psk is None and privateKey) or\
+                (psk is None and privateKey is None and dc_sig_scheme):
             self.ecdhCurve = selected_group
             kex = self._getKEX(selected_group, version)
             if selected_group in GroupName.allKEM:
@@ -2915,7 +2990,8 @@ class TLSConnection(TLSRecordLayer):
         else:
             for result in self._sendError(
                     AlertDescription.handshake_failure,
-                    "Could not find acceptable PSK identity nor certificate"):
+                    "Could not find acceptable PSK identity nor certificate," \
+                    " nor delegated credential."):
                 yield result
 
         if psk is None:
@@ -3003,6 +3079,9 @@ class TLSConnection(TLSRecordLayer):
         encryptedExtensions = EncryptedExtensions().create(ee_extensions)
         self._queue_message(encryptedExtensions)
 
+        # for session
+        delegated_credential = None
+
         if selected_psk is None:
 
             # optionally send the client a certificate request
@@ -3036,23 +3115,32 @@ class TLSConnection(TLSRecordLayer):
                     extensions=extensions)
                 self._queue_message(certificate_request)
 
+            extensions = [[] for i in range(len(serverCertChain.x509List))]
+            delegated_credential = del_cred
+            if delegated_credential and dc_sig_scheme:
+                del_cred_ext = DelegatedCredentialCertExtension().create(
+                    delegated_credential)
+                extensions[0].append(del_cred_ext)
+
             certificate = self._create_cert_msg(
                 "server", clientHello, settings.certificate_compression_send,
                 serverCertChain, CertificateType.x509, bytearray(),
-                self.version)
-
+                self.version, extensions)
             self._queue_message(certificate)
 
             certificate_verify = CertificateVerify(self.version)
 
+            if delegated_credential and dc_sig_scheme:
+                privateKey = dc_key
+                signature_scheme = dc_sig_scheme
+                scheme = SignatureScheme.toRepr(signature_scheme)
+
             signature_scheme = getattr(SignatureScheme, scheme)
             self.serverSigAlg = signature_scheme
-
             signature_context = \
                 KeyExchange.calcVerifyBytes((3, 4), self._handshake_hash,
                                             signature_scheme, None, None, None,
                                             prf_name, b'server')
-
             if signature_scheme in (SignatureScheme.ed25519,
                     SignatureScheme.ed448):
                 hashName = "intrinsic"
@@ -3285,7 +3373,8 @@ class TLSConnection(TLSRecordLayer):
                             exporterMasterSecret=exporter_master_secret,
                             resumptionMasterSecret=resumption_master_secret,
                             # NOTE it must be a reference, not a copy
-                            tickets=self.tickets)
+                            tickets=self.tickets,
+                            delegated_credential=delegated_credential)
 
         # switch to application_traffic_secret for client packets
         self._changeReadState()
@@ -3320,6 +3409,7 @@ class TLSConnection(TLSRecordLayer):
                        extendedMasterSecret=ticket.extended_master_secret,
                        ec_point_format=0)
         return session
+
 
     def _serverGetClientHello(self, settings, private_key, cert_chain,
                               verifierDB,
@@ -4809,7 +4899,7 @@ class TLSConnection(TLSRecordLayer):
         for result in self._getMsg(
                 (ContentType.handshake, ContentType.change_cipher_spec),
                 HandshakeType.new_session_ticket):
-            if result in (0,1):
+            if result in (0, 1):
                 yield result
             else: break
 
@@ -4834,7 +4924,7 @@ class TLSConnection(TLSRecordLayer):
 
         if expect_ccs_message:
             for result in self._getMsg(ContentType.change_cipher_spec):
-                if result in (0,1):
+                if result in (0, 1):
                     yield result
             changeCipherSpec = result
 
@@ -4843,13 +4933,13 @@ class TLSConnection(TLSRecordLayer):
                                              "ChangeCipherSpec type incorrect"):
                     yield result
 
-        #Switch to pending read state
+        # Switch to pending read state
         self._changeReadState()
 
-        #Server Finish - Are we waiting for a next protocol echo?
+        # Server Finish - Are we waiting for a next protocol echo?
         if expect_next_protocol:
             for result in self._getMsg(ContentType.handshake, HandshakeType.next_protocol):
-                if result in (0,1):
+                if result in (0, 1):
                     yield result
             if result is None:
                 for result in self._sendError(AlertDescription.unexpected_message,
@@ -4860,26 +4950,26 @@ class TLSConnection(TLSRecordLayer):
         else:
             self.next_proto = None
 
-        #Client Finish - Only set the next_protocol selected in the connection
+        # Client Finish - Only set the next_protocol selected in the connection
         if nextProto:
             self.next_proto = nextProto
 
-        #Figure out which label to use.
+        # Figure out which label to use.
         if self._client:
             label = b"server finished"
         else:
             label = b"client finished"
 
-        #Calculate verification data
+        # Calculate verification data
         verifyData = calc_key(self.version, masterSecret,
                               cipherSuite, label,
                               handshake_hashes=self._handshake_hash,
                               output_length=12)
 
-        #Get and check Finished message under new state
+        # Get and check Finished message under new state
         for result in self._getMsg(ContentType.handshake,
                                   HandshakeType.finished):
-            if result in (0,1):
+            if result in (0, 1):
                 yield result
         finished = result
         if finished.verify_data != verifyData:
@@ -5030,8 +5120,7 @@ class TLSConnection(TLSRecordLayer):
                     # in TLS 1.3 ECDSA key curve is bound to hash
                     if publicKey and version > (3, 3):
                         curve = publicKey.curve_name
-                        matching_hash = TLSConnection._curve_name_to_hash_name(
-                            curve)
+                        matching_hash = curve_name_to_hash_name(curve)
                         if hashName != matching_hash:
                             continue
 
@@ -5094,24 +5183,3 @@ class TLSConnection(TLSRecordLayer):
     def _groupNamesToList(settings):
         """Convert list of acceptable ff groups to TLS identifiers."""
         return [getattr(GroupName, val) for val in settings.dhGroups]
-
-    @staticmethod
-    def _curve_name_to_hash_name(curve_name):
-        """Returns the matching hash for a given curve name, for TLS 1.3
-
-        expects the python-ecdsa curve names as parameter
-        """
-        if curve_name == "NIST256p":
-            return "sha256"
-        if curve_name == "NIST384p":
-            return "sha384"
-        if curve_name == "NIST521p":
-            return "sha512"
-        if curve_name == "BRAINPOOLP256r1":
-            return "sha256"
-        if curve_name == "BRAINPOOLP384r1":
-            return "sha384"
-        if curve_name == "BRAINPOOLP512r1":
-            return "sha512"
-        raise TLSIllegalParameterException(
-            "Curve {0} is not supported in TLS 1.3".format(curve_name))

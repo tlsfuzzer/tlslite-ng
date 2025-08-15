@@ -7,7 +7,7 @@
 
 """Class for setting handshake parameters."""
 
-from .constants import CertificateType, ECPointFormat
+from .constants import CertificateType, ECPointFormat, SignatureScheme
 from .utils import cryptomath
 from .utils import cipherfactory
 from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE
@@ -87,6 +87,19 @@ if compression_algo_impls["brotli_decompress"]:
     ALL_COMPRESSION_ALGOS_RECEIVE.append('brotli')
 if compression_algo_impls["zstd_decompress"]:
     ALL_COMPRESSION_ALGOS_RECEIVE.append('zstd')
+
+# in TLS 1.3
+# When using RSA in delegated credential,
+# the public key MUST NOT use the rsaEncryption OID.
+# As a result, the following algorithms are not allowed for use with
+# delegated credentials. RFC 9345
+DELEGETED_CREDENTIAL_FORBIDDEN_ALG = [
+    SignatureScheme.rsa_pss_rsae_sha256,
+    SignatureScheme.rsa_pss_rsae_sha384,
+    SignatureScheme.rsa_pss_rsae_sha512]
+
+# maximum validity period of a delegated credential
+DC_VALID_TIME = 604800
 
 
 class Keypair(object):
@@ -396,10 +409,13 @@ class HandshakeSettings(object):
         option is for when a certificate was received/decompressed by this
         peer.
 
-
     :vartype ec_point_formats: list
     :ivar ec_point_formats: Enabled point format extension for
      elliptic curves.
+
+    :vartype dc_sig_algs: list
+    :ivar dc_sig_algs: The supported signature algorithms to be
+     used with delegated credential
     """
 
     def _init_key_settings(self):
@@ -453,6 +469,10 @@ class HandshakeSettings(object):
         self.certificate_compression_send = list(ALL_COMPRESSION_ALGOS_SEND)
         self.certificate_compression_receive = \
             list(ALL_COMPRESSION_ALGOS_RECEIVE)
+
+        # TLS 1.3 RFC9345
+        self.dc_sig_algs = []
+        self.dc_valid_time = DC_VALID_TIME
 
     def __init__(self):
         """Initialise default values for settings."""
@@ -658,13 +678,21 @@ class HandshakeSettings(object):
                 not 64 <= other.record_size_limit <= 2**14 + 1:
             raise ValueError("record_size_limit cannot exceed 2**14+1 bytes")
 
-        bad_ec_ext = [ECPointFormat.toStr(rep) for rep in other.ec_point_formats if
+        bad_ec_ext = [ECPointFormat.toStr(rep) for rep in
+                      other.ec_point_formats if
                       rep not in EC_POINT_FORMATS]
         if bad_ec_ext:
             raise ValueError("Unknown EC point format provided: "
                              "{0}".format(bad_ec_ext))
         if ECPointFormat.uncompressed not in other.ec_point_formats:
             raise ValueError("Uncompressed EC point format is not provided")
+
+        if other.dc_sig_algs in DELEGETED_CREDENTIAL_FORBIDDEN_ALG:
+            raise ValueError("The usage of the algorithm is forbidden "
+                             "to use with delegated credentials")
+        if other.dc_valid_time > DC_VALID_TIME:
+            raise ValueError("Delegated credentials cannot be valid for more "
+                             "than 7 days.")
 
         HandshakeSettings._sanityCheckEMSExtension(other)
 
@@ -772,6 +800,8 @@ class HandshakeSettings(object):
         other.certificate_compression_send = self.certificate_compression_send
         other.certificate_compression_receive = \
             self.certificate_compression_receive
+        other.dc_sig_algs = self.dc_sig_algs
+        other.dc_valid_time = self.dc_valid_time
 
     @staticmethod
     def _remove_all_matches(values, needle):

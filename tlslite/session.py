@@ -74,7 +74,11 @@ class Session(object):
         from the server
 
     :vartype ec_point_format: int
-    :ivar ec_point_format: used EC point format for the ECDH key exchange;
+    :ivar ec_point_format: used EC point format for the ECDH key exchange
+
+    :vartype delegated_credential: ~tlslite.X509.DelegatedCredential
+    :ivar delegated_credential: the server's delegated credential (or None)
+        in TLS 1.3
     """
 
     def __init__(self):
@@ -98,6 +102,7 @@ class Session(object):
         self.tickets = None
         self.tls_1_0_tickets = None
         self.ec_point_format = 0
+        self.delegated_credential = None
 
     def create(self, masterSecret, sessionID, cipherSuite,
                srpUsername, clientCertChain, serverCertChain,
@@ -106,7 +111,8 @@ class Session(object):
                appProto=bytearray(0), cl_app_secret=bytearray(0),
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
                resumptionMasterSecret=bytearray(0), tickets=None,
-               tls_1_0_tickets=None, ec_point_format=None):
+               tls_1_0_tickets=None, ec_point_format=None,
+               delegated_credential=None):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -128,6 +134,7 @@ class Session(object):
         self.tickets = tickets
         self.tls_1_0_tickets = tls_1_0_tickets
         self.ec_point_format = ec_point_format
+        self.delegated_credential = delegated_credential
 
     def _clone(self):
         other = Session()
@@ -151,6 +158,7 @@ class Session(object):
         other.tickets = self.tickets
         other.tls_1_0_tickets = self.tls_1_0_tickets
         other.ec_point_format = self.ec_point_format
+        other.delegated_credential = self.delegated_credential
         return other
 
     def valid(self):
