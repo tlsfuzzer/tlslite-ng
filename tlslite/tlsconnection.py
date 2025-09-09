@@ -1610,7 +1610,8 @@ class TLSConnection(TLSRecordLayer):
                                                 None, prfName, b'client')
 
                 if signature_scheme in (SignatureScheme.ed25519,
-                        SignatureScheme.ed448):
+                        SignatureScheme.ed448, SignatureScheme.mldsa44,
+                        SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                     pad_type = None
                     hash_name = "intrinsic"
                     salt_len = None
@@ -3287,7 +3288,8 @@ class TLSConnection(TLSRecordLayer):
             public_key = client_cert_chain.getEndEntityPublicKey()
 
             if signature_scheme in (SignatureScheme.ed25519,
-                    SignatureScheme.ed448):
+                    SignatureScheme.ed448, SignatureScheme.mldsa44,
+                    SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                 hash_name = "intrinsic"
                 pad_type = None
                 salt_len = None
