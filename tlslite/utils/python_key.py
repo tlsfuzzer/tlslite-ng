@@ -4,6 +4,7 @@ from .python_rsakey import Python_RSAKey
 from .python_ecdsakey import Python_ECDSAKey
 from .python_dsakey import Python_DSAKey
 from .python_eddsakey import Python_EdDSAKey
+from .python_mldsakey import Python_MLDSAKey
 from .pem import dePem, pemSniff
 from .asn1parser import ASN1Parser
 from .cryptomath import bytesToNumber
@@ -115,6 +116,12 @@ class Python_Key(object):
             key_type = "Ed25519"
         elif list(oid.value) == [43, 101, 113]:
             key_type = "Ed448"
+        elif list(oid.value) == [96, 134, 72, 1, 101, 3, 4, 3, 17]:
+            key_type = "mldsa44"
+        elif list(oid.value) == [96, 134, 72, 1, 101, 3, 4, 3, 18]:
+            key_type = "mldsa65"
+        elif list(oid.value) == [96, 134, 72, 1, 101, 3, 4, 3, 19]:
+            key_type = "mldsa87"
         else:
             raise SyntaxError("Unrecognized AlgorithmIdentifier: {0}"
                               .format(list(oid.value)))
@@ -144,7 +151,7 @@ class Python_Key(object):
                 curve = NIST521p
             else:
                 raise SyntaxError("Unknown curve")
-        else:  # rsa-pss
+        else:  # rsa-pss or ML-DSA
             pass  # ignore parameters - don't apply restrictions
 
         if seq_len > 2:
@@ -163,6 +170,8 @@ class Python_Key(object):
                                                        curve)
         elif key_type == "dsa":
             return Python_Key._parse_dsa_private_key(private_key_parser, parameters)
+        elif key_type in ("mldsa44", "mldsa65", "mldsa87"):
+            return Python_Key._parse_mldsa_private_key(bytes)
         else:
             return Python_Key._parse_asn1_private_key(private_key_parser,
                                                       key_type)
@@ -239,6 +248,13 @@ class Python_Key(object):
         """Parse a DER encoded EdDSA key."""
         priv_key = SigningKey.from_der(data)
         return Python_EdDSAKey(priv_key.verifying_key, private_key=priv_key)
+
+    @staticmethod
+    def _parse_mldsa_private_key(data):
+        """Parse a DER encoded ML-DSA key."""
+        from dilithium_py.ml_dsa.pkcs import sk_from_der
+        ml_dsa, priv_key, _, pub_key = sk_from_der(data)
+        return Python_MLDSAKey((ml_dsa, pub_key), (ml_dsa, priv_key))
 
     @staticmethod
     def _parse_asn1_private_key(private_key_parser, key_type):

@@ -134,7 +134,7 @@ def _parseKeyHelper(key, private, public):
             if type(key) == Python_RSAKey:
                 return _createPrivateKey(key)
             assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey,
-                Python_DSAKey, Python_EdDSAKey), type(key)
+                Python_DSAKey, Python_EdDSAKey, Python_MLDSAKey), type(key)
             return key
         elif hasattr(key, "d"):
             return _createPrivateKey(key)

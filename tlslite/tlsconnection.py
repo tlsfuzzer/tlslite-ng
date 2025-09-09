@@ -3157,7 +3157,8 @@ class TLSConnection(TLSRecordLayer):
                                             signature_scheme, None, None, None,
                                             prf_name, b'server')
             if signature_scheme in (SignatureScheme.ed25519,
-                    SignatureScheme.ed448):
+                    SignatureScheme.ed448, SignatureScheme.mldsa44,
+                    SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                 hashName = "intrinsic"
                 padType = None
                 saltLen = None
@@ -5094,8 +5095,12 @@ class TLSConnection(TLSRecordLayer):
 
         sigAlgs = []
 
-        if not certType or certType == "Ed25519" or certType == "Ed448":
+        if not certType or certType in \
+                ("Ed25519", "Ed448", "mldsa44", "mldsa65", "mldsa87"):
             for sig_scheme in settings.more_sig_schemes:
+                if version < (3, 4) and sig_scheme in ("mldsa44", "mldsa65", "mldsa87"):
+                    # ML-DSA is supported only in TLS 1.3
+                    continue
                 if version < (3, 3):
                     # EdDSA is supported only in TLS 1.2 and 1.3
                     continue

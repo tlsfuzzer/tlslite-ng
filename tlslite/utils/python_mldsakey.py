@@ -21,6 +21,9 @@ class Python_MLDSAKey(MLDSAKey):
             assert self.mldsa is ML_DSA_87
             self.key_type = "mldsa87"
 
+    def __len__(self):
+        return len(self.public_key)
+
     def hasPrivateKey(self):
         return bool(self.private_key)
 
