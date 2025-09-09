@@ -1580,7 +1580,7 @@ class TLSConnection(TLSRecordLayer):
                         yield result
 
             client_certificate = self._create_cert_msg(
-                "client", clientHello,
+                "client", certificate_request,
                 settings.certificate_compression_send, clientCertChain,
                 serverHello.certificate_type, version=self.version)
 
