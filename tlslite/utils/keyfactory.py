@@ -135,8 +135,12 @@ def _parseKeyHelper(key, private, public):
         if cryptomath.m2cryptoLoaded:
             if type(key) == Python_RSAKey:
                 return _createPrivateKey(key)
-            assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey,
-                Python_DSAKey, Python_EdDSAKey), type(key)
+            if ML_DSA_AVAILABLE:
+                assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey,
+                    Python_DSAKey, Python_EdDSAKey, Python_MLDSAKey), type(key)
+            else:
+                assert type(key) in (OpenSSL_RSAKey, Python_ECDSAKey,
+                    Python_DSAKey, Python_EdDSAKey), type(key)
             return key
         elif hasattr(key, "d"):
             return _createPrivateKey(key)
