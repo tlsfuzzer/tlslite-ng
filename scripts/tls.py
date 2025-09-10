@@ -43,7 +43,7 @@ from tlslite.constants import CipherSuite, HashAlgorithm, SignatureAlgorithm, \
 from tlslite.handshakesettings import Keypair, VirtualHost
 from tlslite import __version__
 from tlslite.utils.compat import b2a_hex, a2b_hex, time_stamp, \
-        ML_KEM_AVAILABLE
+        ML_KEM_AVAILABLE, ML_DSA_AVAILABLE
 from tlslite.utils.dns_utils import is_valid_hostname
 from tlslite.utils.cryptomath import getRandomBytes
 from tlslite.constants import KeyUpdateMessageType, TLS_1_3_BRAINPOOL_SIG_SCHEMES
@@ -94,6 +94,10 @@ def printUsage(s=None):
         print("  Kyber-py    : Loaded")
     else:
         print("  Kyber-py    : Not Loaded")
+    if ML_DSA_AVAILABLE:
+        print("  Dilithium-py: Loaded")
+    else:
+        print("  Dilithium-py: Not Loaded")
 
     print("")
     print("Certificate compression algorithms:")

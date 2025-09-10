@@ -304,6 +304,8 @@ class TestTLSConnection(unittest.TestCase):
             settings = HandshakeSettings()
             settings.maxVersion = (3, 3)
             settings.keyShares = []
+            settings.more_sig_schemes = [i for i in settings.more_sig_schemes
+                                         if "mldsa" not in i]
             conn.handshakeClientCert(settings=settings,
                 serverName='aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd.' +
                            'eeeeeeeeeeffffffffffgggggggggghhhhhhhhhh.' +

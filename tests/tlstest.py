@@ -52,6 +52,8 @@ from tlslite.constants import TLS_1_3_BRAINPOOL_SIG_SCHEMES, \
     SignatureAlgorithm, SignatureScheme
 from tlslite.utils.pem import dePem
 
+from tlslite.utils.compat import ML_DSA_AVAILABLE
+
 try:
     from tack.structures.Tack import Tack
 
@@ -692,6 +694,24 @@ def clientTestCmd(argv):
 
     test_no += 1
 
+    if ML_DSA_AVAILABLE:
+        print("Test {0} - good X.509 ML-DSA-65, TLSv1.3".format(test_no))
+        synchro.recv(1)
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        connection.handshakeClientCert(settings=settings)
+        testConnClient(connection)
+        assert connection.session.cipherSuite in\
+                constants.CipherSuite.tls13Suites
+        assert isinstance(connection.session.serverCertChain, X509CertChain)
+        assert connection.session.serverCertChain.getEndEntityPublicKey().key_type \
+                == "mldsa65"
+        connection.close()
+
+        test_no += 1
+
     print("Test {0} - good RSA and ECDSA, TLSv1.3, rsa"
           .format(test_no))
     synchro.recv(1)
@@ -1090,6 +1110,25 @@ def clientTestCmd(argv):
     connection.close()
 
     test_no += 1
+
+    if ML_DSA_AVAILABLE:
+        print("Test {0} - good mutual ML-DSA-65 X.509".format(test_no))
+        with open(os.path.join(dir, "clientMldsa65Cert.pem")) as f:
+            x509MldsaCert = X509().parse(f.read())
+        x509MldsaChain = X509CertChain([x509MldsaCert])
+        with open(os.path.join(dir, "clientMldsa65Key.pem")) as f:
+            x509MldsaKey = parsePEMKey(f.read(), private=True)
+
+        synchro.recv(1)
+        connection = connect()
+        connection.handshakeClientCert(x509MldsaChain, x509MldsaKey)
+        testConnClient(connection)
+        assert isinstance(connection.session.serverCertChain, X509CertChain)
+        assert connection.session.serverCertChain.getEndEntityPublicKey().key_type\
+                == "mldsa65"
+        connection.close()
+
+        test_no += 1
 
     print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
     synchro.recv(1)
@@ -2154,6 +2193,16 @@ def serverTestCmd(argv):
     with open(os.path.join(dir, "serverEd448Key.pem")) as f:
         x509Ed448Key = parsePEMKey(f.read(), private=True,
                                    implementations=["python"])
+
+    if ML_DSA_AVAILABLE:
+        with open(os.path.join(dir, "serverMldsa65Cert.pem")) as f:
+            x509CertMldsa65 = X509().parse(f.read())
+        x509Mldsa65Chain = X509CertChain([x509CertMldsa65])
+        assert x509CertMldsa65.certAlg == "mldsa65", x509CertMldsa65.certAlg
+        with open(os.path.join(dir, "serverMldsa65Key.pem")) as f:
+            x509Mldsa65Key = parsePEMKey(f.read(), private=True,
+                                         implementations=["python"])
+
     with open(os.path.join(dir, "serverDelCredRSAPSSKey.pem")) as f:
         RSAPSSDCKey = parsePEMKey(f.read(), private=True,
                                 implementations=["python"])
@@ -2664,6 +2713,21 @@ def serverTestCmd(argv):
 
     test_no += 1
 
+    if ML_DSA_AVAILABLE:
+        print("Test {0} - good X.509 ML-DSA-65, TLSv1.3".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        settings = HandshakeSettings()
+        settings.minVersion = (3, 4)
+        settings.maxVersion = (3, 4)
+        connection.handshakeServer(certChain=x509Mldsa65Chain,
+                                   privateKey=x509Mldsa65Key, settings=settings)
+        assert connection.extendedMasterSecret
+        testConnServer(connection)
+        connection.close()
+
+        test_no += 1
+
     for prot in ["TLSv1.3", "TLSv1.2"]:
         for c_type, exp_chain in (("rsa", x509Chain),
                                   ("ecdsa", x509ecdsaChain)):
@@ -2971,6 +3035,20 @@ def serverTestCmd(argv):
     connection.close()
 
     test_no += 1
+
+    if ML_DSA_AVAILABLE:
+        print("Test {0} - good mutual ML-DSA-65 X.509".format(test_no))
+        synchro.send(b'R')
+        connection = connect()
+        connection.handshakeServer(certChain=x509Mldsa65Chain,
+                                   privateKey=x509Mldsa65Key, reqCert=True)
+        testConnServer(connection)
+        assert(isinstance(connection.session.clientCertChain, X509CertChain))
+        assert connection.session.clientCertChain.getEndEntityPublicKey().key_type\
+                == "mldsa65"
+        connection.close()
+
+        test_no += 1
 
     print("Test {0} - good X.509 DSA, SSLv3".format(test_no))
     synchro.send(b'R')

@@ -1492,7 +1492,10 @@ class TLSConnection(TLSRecordLayer):
                 signature_scheme = delegated_credential.cred.dc_cert_verify_algorithm
 
             if signature_scheme in (SignatureScheme.ed25519,
-                                    SignatureScheme.ed448):
+                                    SignatureScheme.ed448,
+                                    SignatureScheme.mldsa44,
+                                    SignatureScheme.mldsa65,
+                                    SignatureScheme.mldsa87):
                 pad_type = None
                 hash_name = "intrinsic"
                 salt_len = None
@@ -1577,7 +1580,7 @@ class TLSConnection(TLSRecordLayer):
                         yield result
 
             client_certificate = self._create_cert_msg(
-                "client", clientHello,
+                "client", certificate_request,
                 settings.certificate_compression_send, clientCertChain,
                 serverHello.certificate_type, version=self.version)
 
@@ -1607,7 +1610,8 @@ class TLSConnection(TLSRecordLayer):
                                                 None, prfName, b'client')
 
                 if signature_scheme in (SignatureScheme.ed25519,
-                        SignatureScheme.ed448):
+                        SignatureScheme.ed448, SignatureScheme.mldsa44,
+                        SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                     pad_type = None
                     hash_name = "intrinsic"
                     salt_len = None
@@ -2107,7 +2111,19 @@ class TLSConnection(TLSRecordLayer):
                         "Peer sent certificate we did not advertise support "
                         "for: {0}".format(cert_type)):
                     yield result
-
+        elif cert_type in ("mldsa44", "mldsa65", "mldsa87"):
+            if self.version < (3, 4):
+                for result in self._sendError(
+                        AlertDescription.illegal_parameter,
+                        "Peer sent certificate incompatible with negotiated "
+                        "TLS version"):
+                    yield result
+            if cert_type not in settings.more_sig_schemes:
+                for result in self._sendError(
+                        AlertDescription.handshake_failure,
+                        "Peer sent certificate we did not advertise support "
+                        "for: {0}".format(cert_type)):
+                    yield result
         else:
             # for RSA and DSA keys
             if len(publicKey) < settings.minKeySize:
@@ -3142,7 +3158,8 @@ class TLSConnection(TLSRecordLayer):
                                             signature_scheme, None, None, None,
                                             prf_name, b'server')
             if signature_scheme in (SignatureScheme.ed25519,
-                    SignatureScheme.ed448):
+                    SignatureScheme.ed448, SignatureScheme.mldsa44,
+                    SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                 hashName = "intrinsic"
                 padType = None
                 saltLen = None
@@ -3271,7 +3288,8 @@ class TLSConnection(TLSRecordLayer):
             public_key = client_cert_chain.getEndEntityPublicKey()
 
             if signature_scheme in (SignatureScheme.ed25519,
-                    SignatureScheme.ed448):
+                    SignatureScheme.ed448, SignatureScheme.mldsa44,
+                    SignatureScheme.mldsa65, SignatureScheme.mldsa87):
                 hash_name = "intrinsic"
                 pad_type = None
                 salt_len = None
@@ -5079,8 +5097,12 @@ class TLSConnection(TLSRecordLayer):
 
         sigAlgs = []
 
-        if not certType or certType == "Ed25519" or certType == "Ed448":
+        if not certType or certType in \
+                ("Ed25519", "Ed448", "mldsa44", "mldsa65", "mldsa87"):
             for sig_scheme in settings.more_sig_schemes:
+                if version < (3, 4) and sig_scheme in ("mldsa44", "mldsa65", "mldsa87"):
+                    # ML-DSA is supported only in TLS 1.3
+                    continue
                 if version < (3, 3):
                     # EdDSA is supported only in TLS 1.2 and 1.3
                     continue

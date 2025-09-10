@@ -10,7 +10,8 @@
 from .constants import CertificateType, ECPointFormat, SignatureScheme
 from .utils import cryptomath
 from .utils import cipherfactory
-from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE
+from .utils.compat import ecdsaAllCurves, int_types, ML_KEM_AVAILABLE, \
+        ML_DSA_AVAILABLE
 from .utils.compression import compression_algo_impls
 
 CIPHER_NAMES = ["chacha20-poly1305",
@@ -32,7 +33,10 @@ RSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 DSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ECDSA_SIGNATURE_HASHES = ["sha512", "sha384", "sha256", "sha224", "sha1"]
 ALL_RSA_SIGNATURE_HASHES = RSA_SIGNATURE_HASHES + ["md5"]
-SIGNATURE_SCHEMES = ["Ed25519", "Ed448",
+SIGNATURE_SCHEMES = []
+if ML_DSA_AVAILABLE:
+    SIGNATURE_SCHEMES += ["mldsa87", "mldsa65", "mldsa44"]
+SIGNATURE_SCHEMES += ["Ed25519", "Ed448",
                      "ecdsa_brainpoolP512r1tls13_sha512",
                      "ecdsa_brainpoolP384r1tls13_sha384",
                      "ecdsa_brainpoolP256r1tls13_sha256"]
