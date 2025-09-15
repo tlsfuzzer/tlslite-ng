@@ -112,7 +112,9 @@ class Session(object):
                sr_app_secret=bytearray(0), exporterMasterSecret=bytearray(0),
                resumptionMasterSecret=bytearray(0), tickets=None,
                tls_1_0_tickets=None, ec_point_format=None,
-               delegated_credential=None):
+               delegated_credential=None,
+               cl_hs_traffic_secret=bytearray(0),
+               sr_hs_traffic_secret=bytearray(0)):
         self.masterSecret = masterSecret
         self.sessionID = sessionID
         self.cipherSuite = cipherSuite
@@ -130,6 +132,8 @@ class Session(object):
         self.sr_app_secret = sr_app_secret
         self.exporterMasterSecret = exporterMasterSecret
         self.resumptionMasterSecret = resumptionMasterSecret
+        self.cl_handshake_traffic_secret = cl_hs_traffic_secret
+        self.sr_handshake_traffic_secret = sr_hs_traffic_secret
         # NOTE we need a reference copy not a copy of object here!
         self.tickets = tickets
         self.tls_1_0_tickets = tls_1_0_tickets

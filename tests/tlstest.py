@@ -2917,12 +2917,17 @@ def serverTestCmd(argv):
         testConnServer(connection)
         connection.close()
     finally:
-        try:
-            os.remove(db_name)
-        except FileNotFoundError:
-            # dbm module may create files with different names depending on
-            # platform
-            os.remove(db_name + ".dat")
+        def quiet_remove(db_name):
+            try:
+                os.remove(db_name)
+            except OSError:
+                pass
+
+        # dbm module may create files with different names depending on
+        # platform
+        candidates = [db_name, db_name + ".dat", db_name + ".db"]
+        for candidate in candidates:
+            quiet_remove(candidate)
 
     test_no += 1
 
