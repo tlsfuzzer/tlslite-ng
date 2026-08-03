@@ -9,6 +9,7 @@ and ServerHello messages.
 from __future__ import generators
 from collections import namedtuple
 from .utils.codec import Writer, Parser, DecodeError
+from .utils.compat import int_to_bytes
 from .constants import NameType, ExtensionType, CertificateStatusType, \
         SignatureAlgorithm, HashAlgorithm, SignatureScheme, \
         PskKeyExchangeMode, CertificateType, GroupName, ECPointFormat, \
@@ -2220,6 +2221,78 @@ class CompressedCertificateExtension(VarListExtension):
             CertificateCompressionAlgorithm)
 
 
+class TLSFlagsExtension(TLSExtension):
+    """
+    tls_flags extension from draft-ietf-tls-tlsflags.
+
+    Encodes payload-less extensions in a compact manner: an LSB bit-string.
+
+    :vartype flags: set of int
+    :ivar flags: a set of integers representing bit indices (0..2039)
+    """
+
+    def __init__(self):
+        """Create an instance of the tls_flags extension."""
+        super(TLSFlagsExtension, self).__init__(extType=
+                                                ExtensionType.tls_flags)
+        self.flags = set()
+
+    def __repr__(self):
+        """Return human readable representation of the extension."""
+        flags = ', '.join(str(f) for f in sorted(self.flags))
+        return "TLSFlagsExtension(flags={{{}}})".format(flags)
+
+    def create(self, flags):
+        """Set the tls_flags value in the extension."""
+        if not flags:
+            raise ValueError("tls_flags must have at least one flag set")
+        for flag in flags:
+            if not 0 <= flag <= 2039:
+                raise ValueError("tls_flags flag {} out of the 0..2039 range"
+                                 .format(flag))
+        self.flags = set(flags)
+        return self
+
+    @property
+    def extData(self):
+        """Serialise the payload of the extension."""
+        if not self.flags:
+            raise ValueError("tls_flags must have at least one flag set")
+        nbytes = max(self.flags) // 8 + 1
+        val = 0
+        for flag in self.flags:
+            val |= (1 << flag)
+        writer = Writer()
+        writer.add_var_bytes(int_to_bytes(val, nbytes, 'little'), 1)
+        return writer.bytes
+
+    def parse(self, parser):
+        """
+        Parse the extension from on the wire format.
+
+        :param Parser parser: data to be parsed
+
+        :rtype: TLSFlagsExtension
+
+        :raises DecodeError: when the payload of the extension is malformed
+        """
+        data = parser.getVarBytes(1)
+        if not data:
+            raise DecodeError("tls_flags payload cannot be empty")
+        if not any(b for b in data):
+            raise DecodeError("tls_flags must have at least one non-zero byte")
+        if not data[-1]:
+            raise DecodeError("tls_flags must not have trailing zeroes")
+        self.flags = set()
+        for i, byte in enumerate(data):
+            for bit in range(8):
+                if byte & (1 << bit):
+                    self.flags.add(i * 8 + bit)
+        if parser.getRemainingLength():
+            raise DecodeError("Extra data after extension payload")
+        return self
+
+
 TLSExtension._universalExtensions = {
     ExtensionType.server_name: SNIExtension,
     ExtensionType.status_request: StatusRequestExtension,
@@ -2243,6 +2316,7 @@ TLSExtension._universalExtensions = {
     ExtensionType.record_size_limit: RecordSizeLimitExtension,
     ExtensionType.session_ticket: SessionTicketExtension,
     ExtensionType.compress_certificate: CompressedCertificateExtension,
+    ExtensionType.tls_flags: TLSFlagsExtension,
     ExtensionType.delegated_credential: DelegatedCredentialExtension
 }
 

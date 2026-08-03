@@ -27,8 +27,9 @@ from tlslite.extensions import TLSExtension, SNIExtension, NPNExtension,\
         PreSharedKeyExtension, PskIdentity, SrvPreSharedKeyExtension, \
         PskKeyExchangeModesExtension, CookieExtension, VarBytesExtension, \
         HeartbeatExtension, IntExtension, RecordSizeLimitExtension, \
-        SessionTicketExtension, CompressedCertificateExtension
-from tlslite.utils.codec import Parser, Writer
+        SessionTicketExtension, CompressedCertificateExtension, \
+        TLSFlagsExtension
+from tlslite.utils.codec import Parser, Writer, DecodeError
 from tlslite.constants import NameType, ExtensionType, GroupName,\
         ECPointFormat, HashAlgorithm, SignatureAlgorithm, \
         CertificateStatusType, SignatureScheme, HeartbeatMode, CertificateType
@@ -2972,5 +2973,169 @@ class TestCompressedCertificateExtension(unittest.TestCase):
             "CompressedCertificateExtension(algorithms=[zlib, brotli, zstd])")
 
 
-if __name__ == '__main__':
+class TestTLSFlagsExtension(unittest.TestCase):
+    def test___init__(self):
+        ext = TLSFlagsExtension()
+
+        self.assertIsNotNone(ext)
+        self.assertEqual(ext.flags, set())
+        self.assertEqual(ext.extType, ExtensionType.tls_flags)
+
+    def test_create(self):
+        ext = TLSFlagsExtension()
+        ext = ext.create([1, 5])
+
+        self.assertIsInstance(ext, TLSFlagsExtension)
+        self.assertEqual(ext.flags, set([1, 5]))
+
+    def test_create_with_low_flag(self):
+        ext = TLSFlagsExtension().create([3])
+
+        self.assertEqual(ext.flags, set([3]))
+
+    def test_create_with_highest_bit_flag(self):
+        ext = TLSFlagsExtension().create([2039])
+
+        self.assertEqual(ext.flags, set([2039]))
+
+    def test_create_with_invalid_out_of_range_bit_flag(self):
+        with self.assertRaises(ValueError):
+            TLSFlagsExtension().create([2040])
+
+    def test_create_with_invalid_empty_flag(self):
+        with self.assertRaises(ValueError):
+            TLSFlagsExtension().create([])
+
+    def test_create_with_invalid_negative_flag(self):
+        with self.assertRaises(ValueError):
+            TLSFlagsExtension().create([-1])
+
+    def test_write_lowest_bit(self):
+        ext = TLSFlagsExtension().create([0])
+
+        # type, length, then length prefix (1) + bit 0 set
+        self.assertEqual(bytearray([
+            0, 0x3e,  # type
+            0, 2,  # ext length
+            1, 0b00000001]),  # length prefix (1) + bit 0
+            ext.write())
+
+    def test_write_highest_bit(self):
+        ext = TLSFlagsExtension().create([2039])
+
+        self.assertEqual(bytearray([
+            0, 0x3e,  # type
+            0x01, 0x00,  # ext length (256)
+            0xff,  # length prefix (255)
+        ] + [0b0] * 254 + [ # 254 zeroes
+            0b10000000]),  # highest bit of the last byte set
+            ext.write())
+
+    def test_write_multiple_low_flags(self):
+        ext = TLSFlagsExtension().create([1, 5])
+
+        self.assertEqual(bytearray([
+            0, 0x3e,  # type (62)
+            0, 2,  # ext length
+            1, 0b00100010]),  # length prefix (1) + bits 1 and 5
+            ext.write())
+
+    def test_write_multiple_flags(self):
+        ext = TLSFlagsExtension().create([3, 5, 23])
+
+        self.assertEqual(bytearray([
+            0, 0x3e,  # type
+            0, 4,  # ext length
+            3,  # length prefix (3)
+            0b00101000, 0b00000000, 0b10000000]),  # bits 3, 5 and 23
+            ext.write())
+
+    def test_write_invalid_uninitialized(self):
+        uninitialized = TLSFlagsExtension()
+        with self.assertRaises(ValueError):
+            uninitialized.write()
+
+    def test_parse_single_byte(self):
+        parser = Parser(bytearray([
+            0, 0x3e,  # type
+            0, 2,  # ext length
+            1, 0b00100010]))  # length prefix (1) + bits 1 and 5
+
+        ext = TLSExtension().parse(parser)
+
+        self.assertIsInstance(ext, TLSFlagsExtension)
+        self.assertEqual(ext.flags, set([1, 5]))
+
+    def test_parse_multi_byte(self):
+        parser = Parser(bytearray([
+            0, 0x3e,  # type
+            0, 4,  # ext length
+            3, 0b00101000, 0b00000000, 0b10000000]))  # (3) + bits 3, 5 and 23
+
+        ext = TLSExtension().parse(parser)
+
+        self.assertIsInstance(ext, TLSFlagsExtension)
+        self.assertEqual(ext.flags, set([3, 5, 23]))
+
+    def test_parse_lowest_bit(self):
+        parser = Parser(bytearray([
+            0, 0x3e,  # type
+            0, 2,  # ext length
+            1, 0b00000001]))  # length prefix (1) + bit 0
+
+        ext = TLSExtension().parse(parser)
+
+        self.assertIsInstance(ext, TLSFlagsExtension)
+        self.assertEqual(ext.flags, set([0]))
+
+    def test_parse_highest_bit(self):
+        data = [0xff] + [0] * 254 + [0b10000000]
+        parser = Parser(bytearray([0, 0x3e, 1, 0b0] + data))
+
+        ext = TLSExtension().parse(parser)
+
+        self.assertIsInstance(ext, TLSFlagsExtension)
+        self.assertEqual(ext.flags, set([2039]))
+
+    def test_parse_with_invalid_empty_payload(self):
+        parser = Parser(bytearray([0, 0x3e, 0, 1, 0b0]))
+
+        with self.assertRaises(DecodeError):
+            TLSExtension().parse(parser)
+
+    def test_parse_with_invalid_all_zero(self):
+        parser = Parser(bytearray([0, 0x3e, 0, 2, 1, 0b0]))
+
+        with self.assertRaises(DecodeError):
+            TLSExtension().parse(parser)
+
+    def test_parse_with_invalid_trailing_zero(self):
+        parser = Parser(bytearray([0, 0x3e, 0, 3, 3, 0b1, 0b1, 0b0]))
+
+        with self.assertRaises(DecodeError):
+            TLSExtension().parse(parser)
+
+    def test_parse_with_invalid_trailing_data(self):
+        parser = Parser(bytearray([0, 0x3e, 0, 3, 1, 0b1, 0xff]))
+
+        with self.assertRaises(DecodeError):
+            TLSExtension().parse(parser)
+
+    def test_round_trip(self):
+        ext = TLSFlagsExtension().create([0, 7, 8, 15, 2039])
+
+        p = Parser(ext.write())
+        ext2 = TLSExtension().parse(p)
+
+        self.assertIsInstance(ext2, TLSFlagsExtension)
+        self.assertEqual(ext2.flags, set([0, 7, 8, 15, 2039]))
+
+    def test___repr__(self):
+        ext = TLSFlagsExtension().create([5, 1])
+
+        self.assertEqual(repr(ext),
+                         "TLSFlagsExtension(flags={1, 5})")
+
+
+if __name__ == "__main__":
     unittest.main()
