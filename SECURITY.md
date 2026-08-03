@@ -17,7 +17,7 @@ information. None of the included cipher implementations are written in a way
 that even tries to hide the data dependance.
 
 In other words, pure-python (tlslite-ng internal) implementations of all
-ciphers, as well as all CBC mode ciphers working in MAC-then-encrypt mode are
+algorithms, as well as all CBC mode ciphers working in MAC-then-encrypt mode are
 **NOT** secure. Don't use them. In addition to that, use AEAD ciphersuites
 (AES-GCM) or encrypt-then-MAC mode for CBC ciphers.
 
@@ -32,9 +32,9 @@ security issues backported and new patches will trigger a new release).
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.8.0-alpha | :x:                |
-| 0.7.x   | :white_check_mark: |
-| < 0.7   | :x:                |
+| 0.9.0-b* | :x:                |
+| 0.8.x   | :white_check_mark: |
+| < 0.8   | :x:                |
 
 ## Reporting a Vulnerability
 
